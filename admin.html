@@ -742,6 +742,19 @@ function renderRecent(){
     <td><button class="btn btn-ghost btn-sm" onclick="openStudentModal('${a.student_id}','${a.activity_id}')">Ver →</button></td>
   </tr>`).join('');
 }
+function renderRecentAssigns(){
+  const tb=document.getElementById('recent-assign-tbody');
+  if(!tb) return;
+  const rows=allAssignments.slice(0,8);
+  if(!rows.length){tb.innerHTML='<tr class="loading-row"><td colspan="3">Sin asignaciones.</td></tr>';return;}
+  tb.innerHTML=rows.map(a=>`<tr>
+    <td class="td-name">${a.profiles?.full_name||'—'}</td>
+    <td style="font-size:12px">${a.activities?.title||'—'}</td>
+    <td><span class="badge ${a.completed?'badge-done':'badge-pend'}">${a.completed?'✓ Hecha':'Pendiente'}</span></td>
+  </tr>`).join('');
+}
+
+
 
 // ══ STUDENTS ══
 function renderStudentsTable(filtered){
