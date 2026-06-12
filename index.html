@@ -636,21 +636,8 @@ async function openActivity(assignmentId) {
   let content = {};
 
 try {
-  let rawContent = act.content || '{}';
-
-  if (typeof rawContent === 'string') {
-    rawContent = rawContent.trim();
-
-    if (rawContent.startsWith('"') && rawContent.endsWith('"')) {
-      rawContent = rawContent
-        .slice(1, -1)
-        .replace(/\\"/g, '"')
-        .replace(/\\\\/g, '\\');
-    }
-  }
-
-  content = JSON.parse(rawContent);
-} catch (e) {
+  content = typeof act.content === 'string' ? JSON.parse(act.content) : (act.content || {});
+} catch(e) {
   console.error('Error parsing activity content:', e);
   content = {};
 }
