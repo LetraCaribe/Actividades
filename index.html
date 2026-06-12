@@ -618,7 +618,7 @@ function renderActList(containerId, rows) {
 
 // ══ ACTIVITY PLAYER ══
 async function openActivity(assignmentId) {
-  const assignment = allAssignments.find(a => a.id === assignmentId);
+  const assignment = allAssignments.find(aconst assignment = allAssignments.find(a => String(a.id) === String(assignmentId)); => a.id === assignmentId);
   if (!assignment) return;
   const act = assignment.activities;
   if (!act) { showToast('No se puede abrir esta actividad.'); return; }
