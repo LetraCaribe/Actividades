@@ -1348,7 +1348,7 @@ async function saveImportedActivity() {
       slug, title, level,
       description: grammar || 'Completar espacios en blanco',
       type: 'fill-blank',
-      content: JSON.stringify(actContent),
+      content: actContent,
     });
     if (error) throw error;
     document.getElementById('imp-save-success').classList.add('show');
