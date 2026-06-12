@@ -634,7 +634,26 @@ async function openActivity(assignmentId) {
   document.getElementById('player-score').textContent = '0/0';
 
   let content = {};
-  try { content = JSON.parse(act.content || '{}'); } catch(e) {}
+
+try {
+  let rawContent = act.content || '{}';
+
+  if (typeof rawContent === 'string') {
+    rawContent = rawContent.trim();
+
+    if (rawContent.startsWith('"') && rawContent.endsWith('"')) {
+      rawContent = rawContent
+        .slice(1, -1)
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    }
+  }
+
+  content = JSON.parse(rawContent);
+} catch (e) {
+  console.error('Error parsing activity content:', e);
+  content = {};
+}
 
   const body = document.getElementById('player-body');
   const type = act.type || content.type || 'mc';
@@ -680,7 +699,20 @@ function renderFillBlank(content) {
 }
 
 function checkFibInput(input, si, bi) {
-  const content = JSON.parse(currentActivity.content || '{}');
+ let rawContent = currentActivity.content || '{}';
+
+if (typeof rawContent === 'string') {
+  rawContent = rawContent.trim();
+
+  if (rawContent.startsWith('"') && rawContent.endsWith('"')) {
+    rawContent = rawContent
+      .slice(1, -1)
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
+}
+
+const content = JSON.parse(rawContent);
   const sentence = content.sentences?.[si];
   const blank = sentence?.blanks?.[bi];
   if (!blank) return;
