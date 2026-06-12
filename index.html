@@ -158,6 +158,48 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .open-ta{width:100%;padding:10px 13px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--sand);font-family:var(--serif);font-size:14px;color:var(--ink);outline:none;resize:none;line-height:1.6;transition:border .15s}
 .open-ta:focus{border-color:var(--orange)}
 
+/* FILL IN BLANK 3-state */
+.fib-input{padding:5px 10px;border:2px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:14px;color:var(--ink);outline:none;min-width:110px;transition:all .2s;background:var(--white);text-align:center}
+.fib-input:focus{border-color:var(--orange);background:var(--white)}
+.fib-input.correct{border-color:var(--green)!important;background:var(--green-lt)!important;color:var(--green)!important}
+.fib-input.tilde{border-color:#DAA520!important;background:#FFF8DC!important;color:#856404!important}
+.fib-input.wrong{border-color:var(--red)!important;background:var(--red-lt)!important;color:var(--red)!important}
+.fib-feedback{font-size:11px;margin-top:2px;min-height:14px;font-weight:500;text-align:center}
+.fib-feedback.correct{color:var(--green)}.fib-feedback.tilde{color:#856404}.fib-feedback.wrong{color:var(--red)}
+
+/* DROPDOWN */
+.fib-select{padding:5px 10px;border:2px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);outline:none;cursor:pointer;min-width:110px;background:var(--white);transition:all .2s}
+.fib-select.correct{border-color:var(--green)!important;background:var(--green-lt)!important;color:var(--green)!important}
+.fib-select.wrong{border-color:var(--red)!important;background:var(--red-lt)!important;color:var(--red)!important}
+
+/* DRAG & DROP */
+.dnd-bank{display:flex;flex-wrap:wrap;gap:8px;padding:14px;background:var(--sand);border-radius:var(--r);margin-bottom:16px;min-height:50px;border:2px dashed var(--border)}
+.dnd-word{padding:6px 14px;background:var(--white);border:1.5px solid var(--border);border-radius:20px;font-size:13px;font-weight:500;cursor:grab;user-select:none;transition:all .15s;color:var(--ink)}
+.dnd-word:hover{background:var(--orange-lt);border-color:var(--orange)}
+.dnd-word.used{opacity:.35;pointer-events:none}
+.dnd-blank{display:inline-flex;align-items:center;justify-content:center;min-width:90px;height:30px;border-bottom:2px solid var(--orange);padding:0 8px;font-size:13px;font-weight:500;background:var(--orange-lt);border-radius:4px;margin:0 4px;cursor:pointer;transition:all .15s;color:var(--orange-dk)}
+.dnd-blank.filled-correct{border-color:var(--green);background:var(--green-lt);color:var(--green)}
+.dnd-blank.filled-wrong{border-color:var(--red);background:var(--red-lt);color:var(--red)}
+.dnd-blank.dragover{transform:scale(1.05);border-color:var(--orange)}
+.dnd-sentence{font-family:var(--serif);font-size:15px;line-height:2.4;margin-bottom:10px;color:var(--ink)}
+
+/* AUDIO PLAYER */
+.audio-player{background:var(--ink);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:14px}
+.audio-play-btn{width:42px;height:42px;border-radius:50%;background:var(--orange);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;transition:all .15s}
+.audio-play-btn:hover{background:var(--orange-dk);transform:scale(1.05)}
+.audio-info{flex:1;min-width:0}
+.audio-title{font-size:13px;font-weight:500;color:white;margin-bottom:4px}
+.audio-progress-wrap{width:100%;height:5px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden;cursor:pointer;margin-bottom:4px}
+.audio-bar{height:100%;background:var(--orange);border-radius:3px;transition:width .1s;width:0%}
+.audio-time{font-size:11px;color:rgba(255,255,255,.5)}
+.audio-controls{display:flex;align-items:center;gap:8px;margin-top:6px}
+.audio-ctrl-btn{background:rgba(255,255,255,.1);border:none;border-radius:var(--r);padding:4px 10px;color:rgba(255,255,255,.7);font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.audio-ctrl-btn:hover{background:rgba(255,255,255,.2);color:white}
+.audio-ctrl-btn.active{background:var(--orange);color:white}
+
+/* READING PASSAGE */
+.reading-passage{font-family:var(--serif);font-size:15px;line-height:1.9;color:var(--ink);padding:16px 20px;background:var(--sand);border-radius:var(--r);border-left:4px solid var(--orange);margin-bottom:18px}
+
 /* SUBMIT / SCORE */
 .player-footer{padding:16px 22px;border-top:1px solid var(--border);background:var(--sand);display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;bottom:0}
 .score-display{font-size:13px;color:var(--muted)}
@@ -618,7 +660,7 @@ function renderActList(containerId, rows) {
 
 // ══ ACTIVITY PLAYER ══
 async function openActivity(assignmentId) {
-  const assignment = allAssignments.find(aconst assignment = allAssignments.find(a => String(a.id) === String(assignmentId)); => a.id === assignmentId);
+  const assignment = allAssignments.find(a => String(a.id) === String(assignmentId));
   if (!assignment) return;
   const act = assignment.activities;
   if (!act) { showToast('No se puede abrir esta actividad.'); return; }
@@ -627,102 +669,165 @@ async function openActivity(assignmentId) {
   currentAssignmentId = assignmentId;
   playerAnswers = {};
   playerScore = 0;
+  audioRepeat = false;
+
+  // Stop any playing audio
+  const prevAudio = document.getElementById('activity-audio');
+  if (prevAudio) { prevAudio.pause(); prevAudio.remove(); }
 
   document.getElementById('player-nivel').textContent = act.level || 'A1';
   document.getElementById('player-title').textContent = act.title || '—';
   document.getElementById('player-sub').textContent = act.description || '';
   document.getElementById('player-score').textContent = '0/0';
 
-  let content = {};
-
-try {
-  content = typeof act.content === 'string' ? JSON.parse(act.content) : (act.content || {});
-} catch(e) {
-  console.error('Error parsing activity content:', e);
-  content = {};
-}
+  let actContent = {};
+  try { actContent = JSON.parse(act.content || '{}'); } catch(e) {}
 
   const body = document.getElementById('player-body');
-  const type = act.type || content.type || 'mc';
+  const type = act.type || actContent.type || 'mc';
 
   if (type === 'fill-blank') {
-    body.innerHTML = renderFillBlank(content);
-  } else if (type === 'mc' || type === 'reading') {
-    body.innerHTML = renderMC(content, act);
+    body.innerHTML = renderFillBlank(actContent, 'fill-blank');
+  } else if (type === 'dropdown') {
+    body.innerHTML = renderFillBlank(actContent, 'dropdown');
+  } else if (type === 'drag-drop') {
+    body.innerHTML = renderDragDrop(actContent);
+    setupDragDropEvents(actContent);
+  } else if (type === 'audio') {
+    body.innerHTML = renderAudio(actContent);
+  } else if (type === 'reading') {
+    body.innerHTML = renderReading(actContent);
+  } else if (type === 'mc') {
+    body.innerHTML = renderMC(actContent, act);
   } else {
-    body.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">Esta actividad se está preparando.<br>Vuelve pronto.</div></div>`;
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">Tipo de actividad no disponible todavía.</div></div>';
   }
 
   document.getElementById('playerOverlay').classList.add('open');
   updatePlayerScore();
 }
 
-function renderFillBlank(content) {
-  const instructions = content.instructions || 'Completa los espacios en blanco.';
-  const sentences = content.sentences || [];
-  let html = `<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px">${instructions}</div>`;
-  let qIdx = 0;
+function renderFillBlank(actContent, subtype) {
+  const instructions = actContent.instructions || 'Completa los espacios en blanco.';
+  const sentences = actContent.sentences || [];
+  const isDropdown = subtype === 'dropdown';
+
+  let html = '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px">' + instructions + '</div>';
+
+  if (!isDropdown) {
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500">'
+      + '<span style="color:var(--green)">■ Correcto</span>'
+      + '<span style="color:#DAA520">■ Falta tilde</span>'
+      + '<span style="color:var(--red)">■ Incorrecto</span>'
+      + '</div>';
+  }
+
   sentences.forEach((s, si) => {
     if (!s.hasBlank || !s.parts) {
-      html += `<p style="font-family:var(--serif);font-size:14px;line-height:1.8;color:var(--ink-soft);margin-bottom:10px">${s.text||''}</p>`;
+      html += '<p style="font-family:var(--serif);font-size:15px;line-height:1.9;color:var(--ink-soft);margin-bottom:10px">' + (s.text||'') + '</p>';
       return;
     }
-    html += `<div class="fib-row" style="margin-bottom:10px;font-family:var(--serif)">`;
+    html += '<div class="dnd-sentence">';
     s.parts.forEach((part, pi) => {
-      html += `<span>${part}</span>`;
+      html += '<span>' + part + '</span>';
       if (pi < s.blanks.length) {
-        const idx = qIdx;
-        const hint = s.blanks[pi]?.hint || '';
-        html += `<input class="fib-input" id="fib-${si}-${pi}"
-          data-si="${si}" data-bi="${pi}" data-idx="${idx}"
-          placeholder="${hint||'_____'}"
-          oninput="checkFibInput(this,${si},${pi})">`;
-        qIdx++;
+        const hint = (s.blanks[pi] && s.blanks[pi].hint) || '';
+        const opts = (s.blanks[pi] && s.blanks[pi].options) || [];
+        if (isDropdown && opts.length > 0) {
+          html += '<select class="fib-select" id="fib-' + si + '-' + pi + '"'
+            + ' data-si="' + si + '" data-bi="' + pi + '"'
+            + ' onchange="checkDropdown(this,' + si + ',' + pi + ')">'
+            + '<option value="">— elige —</option>'
+            + opts.map(function(o){ return '<option value="' + o + '">' + o + '</option>'; }).join('')
+            + '</select>';
+        } else {
+          html += '<span style="display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 4px">'
+            + '<input class="fib-input" id="fib-' + si + '-' + pi + '"'
+            + ' data-si="' + si + '" data-bi="' + pi + '"'
+            + ' placeholder="' + (hint || '___') + '"'
+            + ' oninput="checkFibInput(this,' + si + ',' + pi + ')"'
+            + ' autocomplete="off" autocorrect="off" spellcheck="false">'
+            + '<span class="fib-feedback" id="fib-fb-' + si + '-' + pi + '"></span>'
+            + '</span>';
+        }
       }
     });
-    html += `</div>`;
+    html += '</div>';
   });
   return html;
 }
 
 function checkFibInput(input, si, bi) {
- let rawContent = currentActivity.content || '{}';
-
-if (typeof rawContent === 'string') {
-  rawContent = rawContent.trim();
-
-  if (rawContent.startsWith('"') && rawContent.endsWith('"')) {
-    rawContent = rawContent
-      .slice(1, -1)
-      .replace(/\\"/g, '"')
-      .replace(/\\\\/g, '\\');
-  }
-}
-
-const content = JSON.parse(rawContent);
-  const sentence = content.sentences?.[si];
-  const blank = sentence?.blanks?.[bi];
+  const actContent = typeof currentActivity.content === 'string' ? JSON.parse(currentActivity.content) : (currentActivity.content || {});
+  const sentence = actContent.sentences && actContent.sentences[si];
+  const blank = sentence && sentence.blanks && sentence.blanks[bi];
   if (!blank) return;
   const val = input.value.trim();
-  const ans = blank.answer || '';
+  const ans = (blank.answer || '').trim();
   const key = si + '-' + bi;
-  // Normalize for comparison
-  const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-  if (norm(val) === norm(ans)) {
-    if (val === ans) {
-      input.className = 'fib-input correct';
-      playerAnswers[key] = { correct: true, tilde: false };
-    } else {
-      // Content matches but accents differ = tilde issue
-      input.className = 'fib-input tilde';
-      playerAnswers[key] = { correct: false, tilde: true };
-    }
-  } else if (val.length >= ans.length) {
-    input.className = 'fib-input wrong';
-    playerAnswers[key] = { correct: false, tilde: false };
-  } else {
+  const fb = document.getElementById('fib-fb-' + si + '-' + bi);
+
+  if (!val) {
     input.className = 'fib-input';
+    if (fb) fb.textContent = '';
     delete playerAnswers[key];
+    updatePlayerScore();
+    return;
+  }
+
+  // Normalize: remove accents for comparison
+  function norm(s) { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
+
+  const valNorm = norm(val);
+  const ansNorm = norm(ans);
+
+  if (val.toLowerCase() === ans.toLowerCase()) {
+    // Exact match including accents
+    input.className = 'fib-input correct';
+    if (fb) { fb.className = 'fib-feedback correct'; fb.textContent = '✓'; }
+    playerAnswers[key] = { correct: true, tilde: false, answer: val };
+  } else if (valNorm === ansNorm) {
+    // Match without accents = tilde issue
+    input.className = 'fib-input tilde';
+    if (fb) { fb.className = 'fib-feedback tilde'; fb.textContent = '⚠ Falta tilde: ' + ans; }
+    playerAnswers[key] = { correct: false, tilde: true, answer: val };
+  } else if (val.length >= ans.length || val.length >= 3) {
+    // Long enough to be wrong
+    input.className = 'fib-input wrong';
+    if (fb) { fb.className = 'fib-feedback wrong'; fb.textContent = '✗'; }
+    playerAnswers[key] = { correct: false, tilde: false, answer: val };
+  } else {
+    // Still typing
+    input.className = 'fib-input';
+    if (fb) { fb.className = 'fib-feedback'; fb.textContent = ''; }
+    delete playerAnswers[key];
+  }
+  updatePlayerScore();
+}
+
+function checkDropdown(select, si, bi) {
+  const actContent = typeof currentActivity.content === 'string' ? JSON.parse(currentActivity.content) : (currentActivity.content || {});
+  const sentence = actContent.sentences && actContent.sentences[si];
+  const blank = sentence && sentence.blanks && sentence.blanks[bi];
+  if (!blank) return;
+  const val = select.value;
+  const ans = (blank.answer || '').trim();
+  const key = si + '-' + bi;
+
+  if (!val) {
+    select.className = 'fib-select';
+    delete playerAnswers[key];
+    updatePlayerScore();
+    return;
+  }
+
+  if (val.toLowerCase() === ans.toLowerCase()) {
+    select.className = 'fib-select correct';
+    select.disabled = true;
+    playerAnswers[key] = { correct: true, answer: val };
+  } else {
+    select.className = 'fib-select wrong';
+    playerAnswers[key] = { correct: false, answer: val };
   }
   updatePlayerScore();
 }
@@ -742,7 +847,7 @@ function renderMC(content, act) {
         <span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;background:#FFF8E1;color:#6D4C00;margin-left:6px;flex-shrink:0">ABIERTA</span></div>
         <div style="padding-left:30px">
           <textarea class="open-ta" rows="2" id="open-${qi}"
-            oninput="playerAnswers['open-${qi}'] = this.value"
+            oninput="saveOpenAnswer(this)"
             placeholder="Escribe tu respuesta…"></textarea>
         </div>
       </div>`;
@@ -781,12 +886,34 @@ function answerMC(qi, oi, correct) {
 
 function updatePlayerScore() {
   if (!currentActivity) return;
-  let content = {};
-  try { content = JSON.parse(currentActivity.content||'{}'); } catch(e) {}
-  const questions = content.questions || content.sentences?.filter(s=>s.hasBlank) || [];
-  const total = questions.length || Object.keys(playerAnswers).length || 0;
-  const correct = Object.values(playerAnswers).filter(a => a.correct || a === true).length;
-  document.getElementById('player-score').textContent = correct + '/' + (total||'?');
+  let actContent = {};
+  try { actContent = typeof currentActivity.content === 'string' ? JSON.parse(currentActivity.content) : (currentActivity.content || {}); } catch(e) {}
+  const type = currentActivity.type || actContent.type || 'mc';
+
+  let total = 0;
+  let correct = 0;
+
+  if (type === 'fill-blank' || type === 'dropdown' || type === 'drag-drop') {
+    const sentences = actContent.sentences || [];
+    sentences.forEach((s, si) => {
+      if (!s.hasBlank || !s.blanks) return;
+      s.blanks.forEach((b, bi) => {
+        total++;
+        const a = playerAnswers[si + '-' + bi];
+        if (a && a.correct) correct++;
+      });
+    });
+  } else if (type === 'mc' || type === 'reading' || type === 'audio') {
+    const questions = actContent.questions || [];
+    questions.forEach((q, qi) => {
+      if (q.type === 'open') return;
+      total++;
+      const a = playerAnswers['mc-' + qi];
+      if (a && a.correct) correct++;
+    });
+  }
+
+  document.getElementById('player-score').textContent = correct + '/' + (total || '?');
 }
 
 async function submitActivity() {
@@ -952,6 +1079,297 @@ function showToast(msg) {
   document.getElementById('login-email').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
   document.getElementById('login-pass').addEventListener('keydown',  e => { if(e.key==='Enter') doLogin(); });
 })();
+
+// ══ DRAG & DROP ══
+function renderDragDrop(actContent) {
+  const instructions = actContent.instructions || 'Arrastra las palabras a los espacios correctos.';
+  const sentences = actContent.sentences || [];
+
+  // Collect all correct answers and shuffle for the word bank
+  const allWords = [];
+  sentences.forEach(s => {
+    if (s.hasBlank && s.blanks) {
+      s.blanks.forEach(b => { if (b.answer) allWords.push(b.answer); });
+    }
+  });
+  // Add distractors if any
+  const distractors = actContent.distractors || [];
+  const bankWords = [...allWords, ...distractors].sort(() => Math.random() - 0.5);
+
+  let html = '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px">' + instructions + '</div>';
+
+  // Word bank
+  html += '<div class="dnd-bank" id="dnd-bank">';
+  bankWords.forEach((w, i) => {
+    html += '<span class="dnd-word" id="dndw-' + i + '" draggable="true" data-word data-idx="' + i + '">' + w + '</span>';
+  });
+  html += '</div>';
+
+  // Sentences with blanks
+  sentences.forEach((s, si) => {
+    if (!s.hasBlank || !s.parts) {
+      html += '<p class="dnd-sentence" style="color:var(--ink-soft)">' + (s.text||'') + '</p>';
+      return;
+    }
+    html += '<div class="dnd-sentence">';
+    s.parts.forEach((part, pi) => {
+      html += '<span>' + part + '</span>';
+      if (pi < s.blanks.length) {
+        html += '<span class="dnd-blank" id="dnd-blank-' + si + '-' + pi + '" data-si="' + si + '" data-bi="' + pi + '">&nbsp;&nbsp;&nbsp;</span>';
+      }
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+let dndSelected = null; // { word, bankIdx }
+
+function dndDragStart(event, word, bankIdx) {
+  dndSelected = { word, bankIdx };
+  event.dataTransfer.setData('text/plain', word);
+}
+
+function dndClickWord(word, bankIdx) {
+  // Click mode for mobile
+  if (dndSelected && dndSelected.bankIdx === bankIdx) {
+    dndSelected = null;
+    document.querySelectorAll('.dnd-word').forEach(w => w.style.outline = '');
+    return;
+  }
+  dndSelected = { word, bankIdx };
+  document.querySelectorAll('.dnd-word').forEach(w => w.style.outline = '');
+  const el = document.getElementById('dndw-' + bankIdx);
+  if (el) el.style.outline = '2px solid var(--orange)';
+}
+
+function dndClickBlank(si, bi) {
+  if (!dndSelected) return;
+  dndPlaceWord(si, bi, dndSelected.word, dndSelected.bankIdx);
+  dndSelected = null;
+  document.querySelectorAll('.dnd-word').forEach(w => w.style.outline = '');
+}
+
+function dndDrop(event, si, bi) {
+  event.preventDefault();
+  const blank = document.getElementById('dnd-blank-' + si + '-' + bi);
+  if (blank) blank.classList.remove('dragover');
+  const word = event.dataTransfer.getData('text/plain');
+  const bankIdx = dndSelected ? dndSelected.bankIdx : -1;
+  dndPlaceWord(si, bi, word, bankIdx);
+  dndSelected = null;
+}
+
+function dndPlaceWord(si, bi, word, bankIdx) {
+  const actContent = typeof currentActivity.content === 'string' ? JSON.parse(currentActivity.content) : (currentActivity.content || {});
+  const sentence = actContent.sentences && actContent.sentences[si];
+  const blank = sentence && sentence.blanks && sentence.blanks[bi];
+  if (!blank) return;
+
+  const blankEl = document.getElementById('dnd-blank-' + si + '-' + bi);
+  if (!blankEl) return;
+
+  // If blank already has a word, return it to bank
+  const prevWord = blankEl.dataset.word;
+  if (prevWord) {
+    const prevIdx = blankEl.dataset.bankIdx;
+    const prevEl = document.getElementById('dndw-' + prevIdx);
+    if (prevEl) prevEl.classList.remove('used');
+  }
+
+  // Place new word
+  blankEl.textContent = word;
+  blankEl.dataset.word = word;
+  blankEl.dataset.bankIdx = bankIdx;
+
+  // Mark bank word as used
+  if (bankIdx >= 0) {
+    const bankEl = document.getElementById('dndw-' + bankIdx);
+    if (bankEl) bankEl.classList.add('used');
+  }
+
+  // Check correctness
+  const ans = (blank.answer || '').trim();
+  const key = si + '-' + bi;
+  if (word.toLowerCase() === ans.toLowerCase()) {
+    blankEl.className = 'dnd-blank filled-correct';
+    playerAnswers[key] = { correct: true, answer: word };
+  } else {
+    blankEl.className = 'dnd-blank filled-wrong';
+    playerAnswers[key] = { correct: false, answer: word };
+  }
+  updatePlayerScore();
+}
+
+// ══ AUDIO ══
+let audioEl = null;
+let audioRepeat = false;
+
+function renderAudio(actContent) {
+  const audioUrl   = actContent.audioUrl   || actContent.audio_url || '';
+  const audioTitle = actContent.audioTitle || actContent.title || 'Audio';
+  const questions  = actContent.questions  || [];
+  const instructions = actContent.instructions || 'Escucha el audio y responde las preguntas.';
+
+  let html = '<div class="audio-player" id="audio-player-wrap">'
+    + '<button class="audio-play-btn" id="audio-play-btn" onclick="toggleAudio()">▶</button>'
+    + '<div class="audio-info">'
+    + '<div class="audio-title">' + audioTitle + '</div>'
+    + '<div class="audio-progress-wrap" onclick="seekAudio(event)" id="audio-prog-wrap"><div class="audio-bar" id="audio-bar"></div></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center">'
+    + '<span class="audio-time" id="audio-time">0:00 / 0:00</span>'
+    + '<div class="audio-controls">'
+    + '<button class="audio-ctrl-btn" id="audio-repeat-btn" onclick="toggleRepeat()" title="Repetir">↺ Repetir</button>'
+    + '<button class="audio-ctrl-btn" onclick="restartAudio()" title="Reiniciar">⟵ Inicio</button>'
+    + '</div></div>'
+    + '</div>'
+    + '</div>';
+
+  // Hidden audio element
+  html += '<audio id="activity-audio" src="' + audioUrl + '" preload="auto"'
+    + ' ontimeupdate="updateAudioBar()"'
+    + ' onended="audioEnded()"'
+    + ' onloadedmetadata="audioLoaded()">'
+    + '</audio>';
+
+  html += '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;margin-top:4px">' + instructions + '</div>';
+
+  // Questions (MC)
+  html += questions.map((q, qi) => {
+    const opts = q.opts || [];
+    return '<div class="mc-block" id="mcb-' + qi + '">'
+      + '<div class="mc-q"><span class="mc-num">' + (q.num||qi+1) + '</span><span style="flex:1">' + (q.text||q.q||'') + '</span></div>'
+      + '<div class="mc-opts">'
+      + opts.map((o, oi) => '<button class="mc-opt" onclick="answerMC(' + qi + ',' + oi + ',' + (q.correct!==undefined?q.correct:(q.ans||0)) + ')">' + o + '</button>').join('')
+      + '</div>'
+      + '<div class="mc-fb" id="mcfb-' + qi + '"></div>'
+      + '</div>';
+  }).join('');
+
+  return html;
+}
+
+function toggleAudio() {
+  const audio = document.getElementById('activity-audio');
+  const btn   = document.getElementById('audio-play-btn');
+  if (!audio) return;
+  if (audio.paused) { audio.play(); if(btn) btn.textContent = '⏸'; }
+  else              { audio.pause(); if(btn) btn.textContent = '▶'; }
+}
+function restartAudio() {
+  const audio = document.getElementById('activity-audio');
+  if (!audio) return;
+  audio.currentTime = 0;
+  audio.play();
+  const btn = document.getElementById('audio-play-btn');
+  if (btn) btn.textContent = '⏸';
+}
+function toggleRepeat() {
+  audioRepeat = !audioRepeat;
+  const btn = document.getElementById('audio-repeat-btn');
+  if (btn) { btn.className = 'audio-ctrl-btn' + (audioRepeat ? ' active' : ''); btn.textContent = '↺ Repetir'; }
+}
+function audioEnded() {
+  const btn = document.getElementById('audio-play-btn');
+  if (btn) btn.textContent = '▶';
+  if (audioRepeat) { const a = document.getElementById('activity-audio'); if(a){a.currentTime=0;a.play();if(btn)btn.textContent='⏸';} }
+}
+function audioLoaded() {
+  const audio = document.getElementById('activity-audio');
+  if (!audio) return;
+  updateAudioBar();
+}
+function updateAudioBar() {
+  const audio = document.getElementById('activity-audio');
+  const bar   = document.getElementById('audio-bar');
+  const time  = document.getElementById('audio-time');
+  if (!audio || isNaN(audio.duration)) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  if (bar) bar.style.width = pct + '%';
+  if (time) {
+    const fmt = s => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
+    time.textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
+  }
+}
+function seekAudio(event) {
+  const audio = document.getElementById('activity-audio');
+  const wrap  = document.getElementById('audio-prog-wrap');
+  if (!audio || !wrap || isNaN(audio.duration)) return;
+  const rect = wrap.getBoundingClientRect();
+  const pct  = (event.clientX - rect.left) / rect.width;
+  audio.currentTime = pct * audio.duration;
+}
+
+// ══ READING COMPREHENSION ══
+function renderReading(actContent) {
+  const text         = actContent.readingText || actContent.text || '';
+  const questions    = actContent.questions   || [];
+  const instructions = actContent.instructions || 'Lee el texto y responde las preguntas.';
+
+  let html = '';
+
+  if (text) {
+    html += '<div class="reading-passage">' + text + '</div>';
+  }
+
+  html += '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px">' + instructions + '</div>';
+
+  html += questions.map((q, qi) => {
+    if (q.type === 'open') {
+      return '<div class="mc-block">'
+        + '<div class="mc-q"><span class="mc-num">' + (q.num||qi+1) + '</span>'
+        + '<span style="flex:1">' + (q.text||q.q||'') + '</span>'
+        + '<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;background:#FFF8E1;color:#6D4C00;margin-left:6px;flex-shrink:0">ABIERTA</span></div>'
+        + '<div style="padding-left:30px">'
+        + '<textarea class="open-ta" rows="2" id="open-' + qi + '"'
+        + ' oninput="saveOpenAnswer(this)"'
+        + ' placeholder="Escribe tu respuesta…"></textarea>'
+        + '</div></div>';
+    }
+    const opts = q.opts || [];
+    const correct = q.correct !== undefined ? q.correct : (q.ans || 0);
+    return '<div class="mc-block" id="mcb-' + qi + '">'
+      + '<div class="mc-q"><span class="mc-num">' + (q.num||qi+1) + '</span><span style="flex:1">' + (q.text||q.q||'') + '</span></div>'
+      + '<div class="mc-opts">'
+      + opts.map((o, oi) => '<button class="mc-opt" onclick="answerMC(' + qi + ',' + oi + ',' + correct + ')">' + o + '</button>').join('')
+      + '</div><div class="mc-fb" id="mcfb-' + qi + '"></div>'
+      + '</div>';
+  }).join('');
+
+  return html || '<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">Sin preguntas en esta actividad.</div></div>';
+}
+
+
+function setupDragDropEvents(actContent) {
+  // Set word data on bank words
+  const bank = document.getElementById('dnd-bank');
+  if (!bank) return;
+  const words = bank.querySelectorAll('.dnd-word');
+  const bankWords = Array.from(words).map(el => el.textContent.trim());
+
+  words.forEach((el, i) => {
+    const word = bankWords[i];
+    el.addEventListener('dragstart', e => { dndSelected = {word, bankIdx:i}; e.dataTransfer.setData('text/plain', word); });
+    el.addEventListener('click', () => dndClickWord(word, i));
+  });
+
+  // Set up blanks
+  document.querySelectorAll('.dnd-blank').forEach(el => {
+    const si = parseInt(el.dataset.si);
+    const bi = parseInt(el.dataset.bi);
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('dragover'); });
+    el.addEventListener('dragleave', () => el.classList.remove('dragover'));
+    el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('dragover'); const w = e.dataTransfer.getData('text/plain'); const idx = dndSelected ? dndSelected.bankIdx : -1; dndPlaceWord(si, bi, w, idx); dndSelected = null; });
+    el.addEventListener('click', () => dndClickBlank(si, bi));
+  });
+}
+
+
+function saveOpenAnswer(ta) {
+  const qi = ta.dataset.qi || ta.id.replace('open-','');
+  playerAnswers['open-' + qi] = ta.value;
+}
+
 </script>
 </body>
 </html>
