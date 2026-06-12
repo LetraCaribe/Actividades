@@ -645,7 +645,7 @@ function renderActList(containerId, rows) {
     const statusBadge = done
       ? `<span class="act-badge" style="background:#D1F0DC;color:var(--green)">✓ Hecha</span>`
       : `<span class="act-badge" style="background:var(--orange-lt);color:var(--orange)">Pendiente</span>`;
-    return `<div class="act-card ${done?'done-card':''}" onclick="${done?'void(0)':'openActivity('+JSON.stringify(a.id)+')'}">
+    return return `<div class="act-card ${done ? 'done-card' : ''}" onclick="${done ? 'void(0)' : `openActivity('${a.id}')`}">`<div class="act-card ${done?'done-card':''}" onclick="${done?'void(0)':'openActivity('+JSON.stringify(a.id)+')'}">
       <div class="act-dot" style="background:${color}"></div>
       <div class="act-info">
         <div class="act-name">${act.title||'Actividad'}</div>
