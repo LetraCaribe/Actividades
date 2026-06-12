@@ -626,13 +626,7 @@ async function loadAssignments() {
   document.getElementById('profile-done').textContent = done + ' actividades';
   document.getElementById('act-count-lbl').textContent = allAssignments.length + ' actividades';
 
-  renderActList('dashboard-acts', allAssignments);
-  renderActList('all-acts', allAssignments);
-}
-
-const ACT_COLORS = ['#E8670A','#1A7A2A','#C49A2A','#7B2D8B','#1E6B72','#C41E1E'];
-
-function renderActList(containerId, rows) {
+  function renderActList(containerId, rows) {
   const el = document.getElementById(containerId);
   if (!rows.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">Tu profesor aún no ha asignado actividades.</div></div>`;
@@ -645,29 +639,13 @@ function renderActList(containerId, rows) {
     const statusBadge = done
       ? `<span class="act-badge" style="background:#D1F0DC;color:var(--green)">✓ Hecha</span>`
       : `<span class="act-badge" style="background:var(--orange-lt);color:var(--orange)">Pendiente</span>`;
-    return `<div class="act-card ${done?'done-card':''}" onclick="${done?'void(0)':'openActivity('+a.id+')'}">
+    return `<div class="act-card ${done?'done-card':''}" data-aid="${a.id}">
       <div class="act-dot" style="background:${color}"></div>
       <div class="act-info">
         <div class="act-name">${act.title||'Actividad'}</div>
         <div class="act-meta">${act.level||'A1'} · ${act.description||''}</div>
       </div>
-      <span class="act-badge" style="background:${color}22;color:${color}">${act.level||'A1'}</span>
-      ${statusBadge}
-      ${!done?'<span class="act-arrow">›</span>':''}
-    </div>`;
-  }).join('');
-}
-
-// ══ ACTIVITY PLAYER ══
-async function openActivity(assignmentId) {
-  const assignment = allAssignments.find(a => String(a.id) === String(assignmentId));
-  if (!assignment) return;
-  const act = assignment.activities;
-  if (!act) { showToast('No se puede abrir esta actividad.'); return; }
-
-  currentActivity = act;
-  currentAssignmentId = assignmentId;
-  playerAnswers = {};
+      <span class="act-badge" style="background:${color}22;c
   playerScore = 0;
   audioRepeat = false;
 
