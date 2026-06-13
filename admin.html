@@ -972,6 +972,16 @@ async function deleteActivity(id){
     showToast('Error al eliminar: ' + (e.message || 'verifica Supabase.'));
   }
 }
+  
+function toggleActivitySelected(id){
+  if(selectedActivities.has(id)){
+    selectedActivities.delete(id);
+  } else {
+    selectedActivities.add(id);
+  }
+
+  console.log('Seleccionadas:', [...selectedActivities]);
+}
 function assignActivityQuick(id){
   document.getElementById('modal-activity').value=String(id == null ? '' : id).trim();
   openAssignModal();
