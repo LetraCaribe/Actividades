@@ -885,7 +885,6 @@ function renderResponsesTable(filtered){
   const byStudent = {};
 
   rows.forEach(r => {
-
     const name = (
       r.student_name ||
       r.student ||
@@ -908,7 +907,6 @@ function renderResponsesTable(filtered){
     if(r.is_correct === false){
       byStudent[name].incorrect++;
     }
-
   });
 
   const students = Object.values(byStudent)
@@ -918,24 +916,25 @@ function renderResponsesTable(filtered){
     students.length + ' estudiantes';
 
   if(!students.length){
-    tb.innerHTML =
-      '<tr class="loading-row"><td colspan="7">Sin estudiantes aún.</td></tr>';
+    tb.innerHTML = '<div class="loading-row">Sin estudiantes aún.</div>';
     return;
   }
-<div class="card"
-     onclick="openStudentResponses('${s.name.replace(/'/g,"\\'")}')"
-     style="cursor:pointer;padding:20px;border:1px solid var(--border);border-radius:16px">
 
-  <div style="font-size:22px;font-weight:700">
-    ${s.name}
-  </div>
+  tb.innerHTML = students.map(s => `
+    <div class="card"
+         onclick="openStudentResponses('${s.name.replace(/'/g,"\\'")}' )"
+         style="cursor:pointer;padding:20px;border:1px solid var(--border);border-radius:16px">
 
-  <div style="margin-top:6px;font-size:13px;color:var(--muted)">
-    ${s.responses} respuestas · ${s.incorrect} errores
-  </div>
+      <div style="font-size:22px;font-weight:700">
+        ${s.name}
+      </div>
 
-</div>
-function filterResponses(){
+      <div style="margin-top:6px;font-size:13px;color:var(--muted)">
+        ${s.responses} respuestas · ${s.incorrect} errores
+      </div>
+    </div>
+  `).join('');
+}
   const n = document.getElementById('f-resp-name').value.toLowerCase().trim();
   const a = document.getElementById('f-resp-act').value;
   const t = document.getElementById('f-resp-type').value;
