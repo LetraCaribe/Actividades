@@ -741,7 +741,23 @@ function renderRecent(){
     <td class="td-muted">${new Date(a.assigned_at).toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</td>
     <td><button class="btn btn-ghost btn-sm" onclick="openStudentModal('${a.student_id}','${a.activity_id}')">Ver →</button></td>
   </tr>`).join('');
+  }
+
+function openStudentModal(studentId, activityId) {
+  const assignment = allAssignments.find(a => 
+    a.student_id === studentId && String(a.activity_id) === String(activityId)
+  );
+  if (!assignment) { showToast('No se encontró la asignación.'); return; }
+  const student = allStudents.find(s => s.id === studentId);
+  const responses = allResponses.filter(r => 
+    r.student_id === studentId && r.activity_slug === assignment.activities?.slug
+  );
+  showPanel('responses');
+  document.getElementById('f-resp-name').value = student?.full_name || '';
+  filterResponses();
+  showToast('Mostrando respuestas de ' + (student?.full_name || 'estudiante'));
 }
+
 function renderRecentAssigns(){
   const tb=document.getElementById('recent-assign-tbody');
   if(!tb) return;
