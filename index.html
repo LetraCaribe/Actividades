@@ -635,27 +635,34 @@ const ACT_COLORS = ['#E8670A','#1A7A2A','#C49A2A','#7B2D8B','#1E6B72','#C41E1E']
 function renderActList(containerId, rows) {
   const el = document.getElementById(containerId);
   if (!rows.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">Tu profesor aún no ha asignado actividades.</div></div>`;
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">Tu profesor aún no ha asignado actividades.</div></div>';
     return;
   }
-  el.innerHTML = rows.map((a, i) => {
+  const ACT_COLORS_L = ['#E8670A','#1A7A2A','#C49A2A','#7B2D8B','#1E6B72','#C41E1E'];
+  el.innerHTML = '';
+  rows.forEach((a, i) => {
     const act = a.activities || {};
-    const done = a.completed;
-    const color = ACT_COLORS[i % ACT_COLORS.length];
-    const statusBadge = done
-      ? `<span class="act-badge" style="background:#D1F0DC;color:var(--green)">✓ Hecha</span>`
-      : `<span class="act-badge" style="background:var(--orange-lt);color:var(--orange)">Pendiente</span>`;
-    return `<div class="act-card ${done ? 'done-card' : ''}" onclick="${done ? 'void(0)' : `openActivity('${a.id}')`}">
-      <div class="act-dot" style="background:${color}"></div>
-      <div class="act-info">
-        <div class="act-name">${act.title||'Actividad'}</div>
-        <div class="act-meta">${act.level||'A1'} · ${act.description||''}</div>
-      </div>
-      <span class="act-badge" style="background:${color}22;color:${color}">${act.level||'A1'}</span>
-      ${statusBadge}
-      ${!done?'<span class="act-arrow">›</span>':''}
-    </div>`;
-  }).join('');
+    const done = !!a.completed;
+    const color = ACT_COLORS_L[i % ACT_COLORS_L.length];
+    const div = document.createElement('div');
+    div.className = 'act-card' + (done ? ' done-card' : '');
+    div.innerHTML =
+      '<div class="act-dot" style="background:' + color + '"></div>'
+      + '<div class="act-info">'
+      + '<div class="act-name">' + (act.title||'Actividad') + '</div>'
+      + '<div class="act-meta">' + (act.level||'A1') + ' · ' + (act.description||'') + '</div>'
+      + '</div>'
+      + '<span class="act-badge" style="background:' + color + '22;color:' + color + '">' + (act.level||'A1') + '</span>'
+      + (done
+        ? '<span class="act-badge" style="background:#D1F0DC;color:var(--green)">✓ Hecha</span>'
+        : '<span class="act-badge" style="background:var(--orange-lt);color:var(--orange)">Pendiente</span>'
+          + '<span class="act-arrow">›</span>');
+    if (!done) {
+      div.style.cursor = 'pointer';
+      div.addEventListener('click', (function(id){ return function(){ openActivity(id); }; })(a.id));
+    }
+    el.appendChild(div);
+  });
 }
 
 // ══ ACTIVITY PLAYER ══
@@ -681,7 +688,7 @@ async function openActivity(assignmentId) {
   document.getElementById('player-score').textContent = '0/0';
 
   let actContent = {};
-  try { actContent = JSON.parse(act.content || '{}'); } catch(e) {}
+  try { actContent = typeof act.content === 'string' ? JSON.parse(act.content) : (act.content || {}); } catch(e) {}
 
   const body = document.getElementById('player-body');
   const type = act.type || actContent.type || 'mc';
@@ -924,7 +931,7 @@ async function submitActivity() {
     // Build response rows
     const rows = [];
     let content = {};
-    try { content = JSON.parse(currentActivity?.content||'{}'); } catch(e) {}
+    try { content = typeof currentActivity?.content === 'string' ? JSON.parse(currentActivity.content) : (currentActivity?.content || {}); } catch(e) {}
     const questions = content.questions || [];
     questions.forEach((q, qi) => {
       let answer = '', isCorrect = null;
