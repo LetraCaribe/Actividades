@@ -369,20 +369,31 @@ tbody tr:hover td{background:#FDFAF6}
           <select class="filter-select" id="f-resp-act" onchange="filterResponses()"><option value="">Todas las actividades</option></select>
           <select class="filter-select" id="f-resp-type" onchange="filterResponses()"><option value="">Todos los tipos</option><option value="mc">OM</option><option value="open">Abierta</option></select>
         </div>
-        <div class="card">
-          <div class="card-head<div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
-  <div style="display:flex;align-items:center;gap:10px">
-    <button class="btn btn-outline btn-sm hidden" id="resp-back-btn" onclick="resetResponsesView()">
-      Volver
-    </button>
+      <div class="card">
 
-    <div class="card-title">Todas las respuestas</div>
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:10px">
+
+      <button class="btn btn-outline btn-sm hidden"
+              id="resp-back-btn"
+              onclick="resetResponsesView()">
+        Volver
+      </button>
+
+      <div class="card-title" id="resp-view-title">
+        Todas las respuestas
+      </div>
+
+    </div>
+
+    <span class="card-sub" id="resp-count">—</span>
   </div>
 
-  <span class="card-sub" id="resp-count">—</span>
-</div>er"><div class="card-title">Todas las respuestas</div><span class="card-sub" id="resp-count">—</span></div>
-          <div id="responses-tbody" style="display:flex;flex-direction:column;gap:12px;padding:18px">
-  <div class="loading-row">Cargando…</div>
+  <div id="responses-tbody"
+       style="display:flex;flex-direction:column;gap:12px;padding:18px">
+    <div class="loading-row">Cargando…</div>
+  </div>
+
 </div>
         </div>
       </div>
