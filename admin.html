@@ -405,6 +405,11 @@ tbody tr:hover td{background:#FDFAF6}
           <!-- RIGHT: Activity list -->
           <div>
             <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px" id="act-list-label">Todas las actividades</div>
+            <div style="margin-bottom:10px">
+  <button type="button" class="btn btn-danger btn-sm hidden" id="bulk-delete-btn" onclick="bulkDeleteActivities()">
+    Eliminar seleccionadas
+  </button>
+</div>
             <div class="act-grid" id="activities-grid">
               <div class="empty"><div class="empty-icon">📚</div><div class="empty-text">Cargando…</div></div>
             </div>
@@ -993,7 +998,13 @@ function toggleActivitySelected(id){
       btn.classList.add('btn-outline');
     }
   });
+  const bulkBtn = document.getElementById('bulk-delete-btn');
 
+if(selectedActivities.size > 0){
+  bulkBtn.classList.remove('hidden');
+} else {
+  bulkBtn.classList.add('hidden');
+}
   console.log('Seleccionadas:', [...selectedActivities]);
 }
  function assignActivityQuick(id){
