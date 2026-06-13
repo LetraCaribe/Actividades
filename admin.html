@@ -986,6 +986,7 @@ document.addEventListener('click', function(e){
   const action = btn.getAttribute('data-act-action');
   if(action === 'delete') deleteActivity(id);
   if(action === 'assign') assignActivityQuick(id);
+  if(action === 'select') toggleActivitySelected(id);
 });
 
 // ══ ACTIVITY CREATOR ══
