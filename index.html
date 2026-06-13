@@ -846,6 +846,26 @@ function renderMC(content, act) {
     html += `<div class="player-text">${readingText}</div>`;
   }
   const questions = content.questions || [];
+  const sentences = content.sentences || [];
+sentences.forEach((s, si) => {
+  if (!s.hasBlank || !s.blanks) return;
+  s.blanks.forEach((b, bi) => {
+    const input = document.getElementById('fib-' + si + '-' + bi);
+    const val = input ? input.value.trim() : '';
+    const ans = (b.answer || '').trim();
+    const norm = str => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+    rows.push({
+      student_id: currentUser.id,
+      student_name: currentProfile?.full_name || currentUser.email,
+      activity_slug: currentActivity.slug,
+      question_num: (si * 100) + bi + 1,
+      question_text: b.hint || 'Espacio ' + (bi+1),
+      question_type: 'mc',
+      answer: val,
+      is_correct: val.toLowerCase() === ans.toLowerCase() || norm(val) === norm(ans)
+    });
+  });
+});
   html += questions.map((q, qi) => {
     const num = q.num || qi+1;
     if (q.type === 'open') {
