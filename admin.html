@@ -371,10 +371,9 @@ tbody tr:hover td{background:#FDFAF6}
         </div>
         <div class="card">
           <div class="card-header"><div class="card-title">Todas las respuestas</div><span class="card-sub" id="resp-count">—</span></div>
-          <div class="tbl-wrap"><table>
-            <thead><tr><th>Estudiante</th><th>Actividad</th><th>P.</th><th>Tipo</th><th>Respuesta</th><th>Resultado</th><th>Fecha</th></tr></thead>
-            <tbody id="responses-tbody"><tr class="loading-row"><td colspan="7">Cargando…</td></tr></tbody>
-          </table></div>
+          <div id="responses-tbody" style="display:flex;flex-direction:column;gap:12px;padding:18px">
+  <div class="loading-row">Cargando…</div>
+</div>
         </div>
       </div>
 
