@@ -742,6 +742,13 @@ function renderRecent(){
     <td><button class="btn btn-ghost btn-sm" onclick="openStudentModal('${a.student_id}','${a.activity_id}')">Ver →</button></td>
   </tr>`).join('');
 }
+  function openStudentModal(studentId, activityId) {
+  const student = allStudents.find(s => s.id === studentId);
+  showPanel('responses');
+  document.getElementById('f-resp-name').value = student?.full_name || '';
+  filterResponses();
+  showToast('Mostrando respuestas de ' + (student?.full_name || 'estudiante'));
+}
 function renderRecentAssigns(){
   const tb=document.getElementById('recent-assign-tbody');
   if(!tb) return;
