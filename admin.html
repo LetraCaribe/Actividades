@@ -1520,6 +1520,7 @@ function actCardHtml(a, i) {
     <div class="act-item-type">${a.description||a.type||'—'}</div>
     <div class="act-item-actions">
       <button type="button" class="btn btn-outline btn-sm" data-act-action="assign" data-activity-id="${String(a.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">+ Asignar</button>
+      <button type="button" class="btn btn-outline btn-sm" data-act-action="select" data-activity-id="${String(a.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">Seleccionar</button>
       <button type="button" class="btn btn-danger btn-sm" data-act-action="delete" data-activity-id="${String(a.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">🗑</button>
     </div>
   </div>`;
