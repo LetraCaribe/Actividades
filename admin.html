@@ -922,19 +922,19 @@ function renderResponsesTable(filtered){
       '<tr class="loading-row"><td colspan="7">Sin estudiantes aún.</td></tr>';
     return;
   }
+<div class="card"
+     onclick="openStudentResponses('${s.name.replace(/'/g,"\\'")}')"
+     style="cursor:pointer;padding:20px;border:1px solid var(--border);border-radius:16px">
 
-  tb.innerHTML = students.map(s => `
-    <tr style="cursor:pointer">
-      <td colspan="7" style="padding:22px 28px;font-size:22px;font-weight:700">
-        ${s.name}
+  <div style="font-size:22px;font-weight:700">
+    ${s.name}
+  </div>
 
-        <div style="font-size:12px;font-weight:400;color:var(--muted);margin-top:4px">
-          ${s.responses} respuestas · ${s.incorrect} errores
-        </div>
-      </td>
-    </tr>
-  `).join('');
-}
+  <div style="margin-top:6px;font-size:13px;color:var(--muted)">
+    ${s.responses} respuestas · ${s.incorrect} errores
+  </div>
+
+</div>
 function filterResponses(){
   const n = document.getElementById('f-resp-name').value.toLowerCase().trim();
   const a = document.getElementById('f-resp-act').value;
