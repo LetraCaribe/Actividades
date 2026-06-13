@@ -996,9 +996,7 @@ function toggleActivitySelected(id){
 
   console.log('Seleccionadas:', [...selectedActivities]);
 }
-  console.log('Seleccionadas:', [...selectedActivities]);
-}
-function assignActivityQuick(id){
+ function assignActivityQuick(id){
   document.getElementById('modal-activity').value=String(id == null ? '' : id).trim();
   openAssignModal();
 }
