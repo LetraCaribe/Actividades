@@ -984,6 +984,7 @@ function toggleActivitySelected(id){
   } else {
     selectedActivities.add(id);
   }
+  
 
   document.querySelectorAll('[data-act-action="select"]').forEach(btn => {
     const btnId = btn.getAttribute('data-activity-id');
@@ -1006,6 +1007,39 @@ if(selectedActivities.size > 0){
   bulkBtn.classList.add('hidden');
 }
   console.log('Seleccionadas:', [...selectedActivities]);
+}
+  async function bulkDeleteActivities(){
+
+  if(selectedActivities.size === 0){
+    showToast('No hay actividades seleccionadas');
+    return;
+  }
+
+  if(!confirm(`¿Eliminar ${selectedActivities.size} actividades?`)) return;
+
+  try{
+
+    const ids = [...selectedActivities];
+
+    const { error } = await db
+      .from('activities')
+      .delete()
+      .in('id', ids);
+
+    if(error) throw error;
+
+    selectedActivities.clear();
+
+    document.getElementById('bulk-delete-btn').classList.add('hidden');
+
+    showToast('Actividades eliminadas');
+
+    await loadAll();
+
+  } catch(e){
+    console.error(e);
+    showToast('Error eliminando actividades');
+  }
 }
  function assignActivityQuick(id){
   document.getElementById('modal-activity').value=String(id == null ? '' : id).trim();
