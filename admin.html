@@ -880,16 +880,62 @@ function closeAssignModal(e){if(e.target===document.getElementById('assignOverla
 
 // ══ RESPONSES ══
 function renderResponsesTable(filtered){
-  const rows=filtered||allResponses;
-  document.getElementById('resp-count').textContent=rows.length+' respuestas';
-  const tb=document.getElementById('responses-tbody');
-  if(!rows.length){tb.innerHTML='<tr class="loading-row"><td colspan="7">Sin respuestas aún.</td></tr>';return;}
-  tb.innerHTML=rows.slice(0,100).map(r=>{
-    const cb=r.is_correct===true?'<span class="badge badge-done">✓</span>':r.is_correct===false?'<span class="badge" style="background:var(--red-lt);color:var(--red)">✗</span>':'<span class="badge" style="background:var(--sand-dark);color:var(--muted)">?</span>';
-    const ans=(r.answer||'').length>90?r.answer.slice(0,90)+'…':(r.answer||'—');
-    const dt=new Date(r.submitted_at).toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
-    return `<tr><td class="td-name">${r.student_name||'—'}</td><td style="font-size:12px">${r.activity_slug||'—'}</td><td style="text-align:center;font-weight:700">${r.question_num||'—'}</td><td><span class="badge ${r.question_type==='mc'?'badge-a1':'badge-b1'}">${r.question_type==='mc'?'OM':'Abierta'}</span></td><td style="max-width:240px;font-size:12px;color:var(--ink-soft)">${ans}</td><td>${cb}</td><td class="td-muted">${dt}</td></tr>`;
-  }).join('');
+  const rows = filtered || allResponses;
+  const tb = document.getElementById('responses-tbody');
+
+  const byStudent = {};
+
+  rows.forEach(r => {
+
+    const name = (
+      r.student_name ||
+      r.student ||
+      r.name ||
+      r.students?.name ||
+      r.students?.full_name ||
+      'Sin nombre'
+    ).trim();
+
+    if(!byStudent[name]){
+      byStudent[name] = {
+        name,
+        responses: 0,
+        incorrect: 0
+      };
+    }
+
+    byStudent[name].responses++;
+
+    if(r.is_correct === false){
+      byStudent[name].incorrect++;
+    }
+
+  });
+
+  const students = Object.values(byStudent)
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  document.getElementById('resp-count').textContent =
+    students.length + ' estudiantes';
+
+  if(!students.length){
+    tb.innerHTML =
+      '<tr class="loading-row"><td colspan="7">Sin estudiantes aún.</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = students.map(s => `
+    <tr style="cursor:pointer">
+      <td colspan="7" style="padding:22px 28px;font-size:22px;font-weight:700">
+        ${s.name}
+
+        <div style="font-size:12px;font-weight:400;color:var(--muted);margin-top:4px">
+          ${s.responses} respuestas · ${s.incorrect} errores
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
 }function filterResponses(){
   const n = document.getElementById('f-resp-name').value.toLowerCase().trim();
   const a = document.getElementById('f-resp-act').value;
