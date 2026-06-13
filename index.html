@@ -846,6 +846,30 @@ function renderMC(content, act) {
     html += `<div class="player-text">${readingText}</div>`;
   }
   const questions = content.questions || [];
+    // Also collect fill-blank answers
+    if (!questions.length && content.sentences) {
+      content.sentences.forEach((s, si) => {
+        if (!s.hasBlank || !s.blanks) return;
+        s.blanks.forEach((b, bi) => {
+          const input = document.getElementById('fib-' + si + '-' + bi);
+          const val = input ? input.value.trim() : (playerAnswers[si+'-'+bi]?.answer || '');
+          const ans = b.answer || '';
+          const norm = str => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+          const correct = val.toLowerCase() === ans.toLowerCase();
+          const tilde = !correct && norm(val) === norm(ans);
+          rows.push({
+            student_id: currentUser.id,
+            student_name: currentProfile?.full_name || currentUser.email,
+            activity_slug: currentActivity.slug,
+            question_num: (si * 100) + bi + 1,
+            question_text: b.hint || ('Espacio ' + (bi+1)),
+            question_type: 'mc',
+            answer: val,
+            is_correct: correct || tilde
+          });
+        });
+      });
+    }
   html += questions.map((q, qi) => {
     const num = q.num || qi+1;
     if (q.type === 'open') {
