@@ -3428,7 +3428,6 @@ function asgnReset() {
 }
 
 // Initialize assign panel when shown
-// Initialize assign when panel opens
 document.addEventListener('click', function(e) {
   const btn = e.target.closest('[onclick]');
   if (btn && btn.getAttribute('onclick')?.includes("'assign'")) {
