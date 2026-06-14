@@ -1016,8 +1016,10 @@ function renderResponsesTable(filtered){
 function openStudentResponses(studentName){
   const box = document.getElementById('responses-tbody');
 
-  const rows = allResponses.filter(r => responseStudentName(r) === studentName);
-  const byActivity = {};
+const rows = allResponses.filter(r =>
+  responseStudentName(r) === studentName &&
+  !r.reviewed
+);  const byActivity = {};
 
   rows.forEach(r => {
     const key = responseActivityKey(r);
