@@ -1005,6 +1005,7 @@ async function submitActivity() {
     // Build response rows
     const rows = [];
     let content = {};
+    const type = currentActivity?.type || content.type || 'fill-blank';
     try { content = typeof currentActivity?.content === 'string' ? JSON.parse(currentActivity.content) : (currentActivity?.content || {}); } catch(e) {}
     const questions = content.questions || [];
     questions.forEach((q, qi) => {
