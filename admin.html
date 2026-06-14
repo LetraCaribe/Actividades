@@ -737,7 +737,29 @@ async function loadAll(){
       db.from('assignments').select('*,profiles(full_name,level),activities(title,slug,level)').order('assigned_at',{ascending:false}),
       db.from('responses').select('*').order('submitted_at',{ascending:false})
     ]);
-    allStudents=s||[];allActivities=ac||[];allAssignments=as||[];allResponses=r||[];
+    allStudents=s||[];aallStudents = s || [];
+allActivities = ac || [];
+allAssignments = as || [];
+
+allResponses = (r || []).map(resp => {
+  const act = allActivities.find(a =>
+    String(a.slug) === String(resp.activity_slug) ||
+    String(a.id) === String(resp.activity_id)
+  );
+
+  const assignment = allAssignments.find(a =>
+    String(a.student_id) === String(resp.student_id) &&
+    (
+      String(a.activity_id) === String(act?.id) ||
+      String(a.activities?.slug) === String(resp.activity_slug)
+    )
+  );
+
+  return {
+    ...resp,
+    reviewed: assignment?.reviewed === true
+  };
+});llActivities=ac||[];allAssignments=as||[];allResponses=r||[];
     renderStats();renderRecent();renderStudentsTable();renderRecentAssigns();
     renderResponsesTable();renderGrading();renderActivitiesGrid();populateSelects();
     loadLibrary();
