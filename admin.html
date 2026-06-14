@@ -1288,13 +1288,14 @@ async function markActivityReviewed(studentNameEncoded, activityKeyEncoded){
       if(error) throw error;
     }
 
-    const { error: respError } = await db
-      .from('responses')
-      .update({ reviewed: true })
-      .eq('student_id', studentId)
-      .eq('activity_slug', activityKey);
+   const responseIds = rows.map(r => r.id).filter(Boolean);
 
-    if(respError) throw respError;
+const { error: respError } = await db
+  .from('responses')
+  .update({ reviewed: true })
+  .in('id', responseIds);
+
+if(respError) throw respError;
 
     rows.forEach(r => {
       r.reviewed = true;
