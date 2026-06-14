@@ -945,7 +945,8 @@ function escapeHtml(value){
 }
 
 function renderResponsesTable(filtered){
-  const rows = filtered || allResponses;
+const rows = (filtered || allResponses)
+  .filter(r => !r.reviewed);
   const box = document.getElementById('responses-tbody');
 
   const byStudent = {};
