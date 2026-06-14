@@ -160,6 +160,33 @@ tbody tr:hover td{background:#FDFAF6}
 
 .already-warn{background:#FFF8E1;border:1.5px solid #F0D060;border-radius:var(--r);padding:9px 12px;font-size:13px;color:#7A5A00;display:none;margin-bottom:10px}
 .act-search-item{padding:9px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid #F5F0E8;display:flex;align-items:center;gap:10px;transition:background .12s}
+
+/* ASSIGN STEPS */
+.assign-step{display:flex;align-items:center;gap:8px;flex:1}
+.assign-step-num{width:28px;height:28px;border-radius:50%;background:var(--border);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.assign-step-lbl{font-size:12px;font-weight:500;color:var(--muted);transition:color .2s}
+.assign-step.active .assign-step-num{background:var(--orange);color:white}
+.assign-step.active .assign-step-lbl{color:var(--ink)}
+.assign-step.done .assign-step-num{background:var(--green);color:white}
+.assign-step.done .assign-step-lbl{color:var(--green)}
+.assign-step-line{height:2px;flex:1;background:var(--border);margin:0 4px;max-width:60px}
+
+/* ASSIGN MODE BUTTONS */
+.asgn-mode-btn{flex:1;padding:14px 10px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--white);cursor:pointer;text-align:center;transition:all .15s;font-family:var(--sans)}
+.asgn-mode-btn:hover{border-color:var(--orange);background:var(--orange-lt)}
+.asgn-mode-btn.active{border-color:var(--orange);background:var(--orange-lt)}
+
+/* ASSIGN ACTIVITY CARDS */
+.asgn-act-card{padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;background:var(--white)}
+.asgn-act-card:hover{border-color:var(--orange);background:var(--orange-lt)}
+.asgn-act-card.selected{border-color:var(--orange);background:var(--orange-lt)}
+.asgn-level-btn{padding:8px 18px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--white);cursor:pointer;font-size:13px;font-weight:600;font-family:var(--sans);transition:all .15s;text-align:center}
+.asgn-level-btn:hover{border-color:var(--orange);background:var(--orange-lt)}
+.asgn-level-btn.selected{border-color:var(--orange);background:var(--orange);color:white}
+.asgn-student-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;transition:background .12s}
+.asgn-student-row:hover{background:var(--sand)}
+.asgn-student-result{padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;transition:background .12s}
+.asgn-student-result:hover{background:var(--sand)}
 .act-search-item:last-child{border-bottom:none}
 .act-search-item:hover{background:var(--sand)}
 .act-search-level{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:var(--coral-lt);color:var(--coral-dk);flex-shrink:0}
@@ -336,35 +363,146 @@ tbody tr:hover td{background:#FDFAF6}
 
       <!-- ASSIGN -->
       <div class="panel" id="panel-assign">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:820px">
-          <div class="card" style="margin-bottom:0">
-            <div class="card-header"><div class="card-title">Asignar nueva tarea</div></div>
-            <div style="padding:18px">
-              <div class="form-group"><label>Estudiante</label><select class="form-select" id="assign-student" onchange="checkAlready()"><option value="">Selecciona…</option></select></div>
-              <div class="form-group">
-                <label>Actividad</label>
-                <input class="form-input" id="assign-act-search" placeholder="🔍 Buscar actividad…" oninput="filterPanelActs(this.value)" autocomplete="off">
-                <input type="hidden" id="assign-activity">
-                <div id="assign-act-selected" style="display:none;margin-top:6px;padding:8px 12px;background:var(--coral-lt);border-radius:var(--r);font-size:13px;color:var(--coral-dk);display:flex;align-items:center;justify-content:space-between">
-                  <span id="assign-act-name">—</span>
-                  <button onclick="clearPanelActSelection()" style="background:none;border:none;cursor:pointer;color:var(--coral);font-size:16px;padding:0 4px">×</button>
-                </div>
-                <div id="assign-act-results" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);margin-top:4px;display:none;background:white"></div>
-              </div>
-              <div class="already-warn" id="already-warn-panel">⚠️ <span id="already-warn-text-panel"></span></div>
-              <div class="form-group"><label>Nota (opcional)</label><textarea class="form-textarea" id="assign-note" rows="2" placeholder="Instrucciones adicionales…"></textarea></div>
-              <button class="btn btn-coral" style="width:100%" onclick="doAssignPanel()">Asignar →</button>
-            </div>
+  <div style="max-width:860px">
+
+    <!-- STEP INDICATOR -->
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:24px">
+      <div class="assign-step active" id="astep-1">
+        <span class="assign-step-num">1</span>
+        <span class="assign-step-lbl">Seleccionar actividad</span>
+      </div>
+      <div class="assign-step-line"></div>
+      <div class="assign-step" id="astep-2">
+        <span class="assign-step-num">2</span>
+        <span class="assign-step-lbl">Seleccionar destinatarios</span>
+      </div>
+      <div class="assign-step-line"></div>
+      <div class="assign-step" id="astep-3">
+        <span class="assign-step-num">3</span>
+        <span class="assign-step-lbl">Confirmar</span>
+      </div>
+    </div>
+
+    <!-- STEP 1: SELECT ACTIVITY -->
+    <div id="assign-s1">
+      <div class="card">
+        <div class="card-header"><div class="card-title">¿Qué actividad vas a asignar?</div></div>
+        <div style="padding:16px">
+
+          <!-- Search + filters -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <input class="form-input" id="asgn-search" placeholder="🔍 Buscar por nombre o tema…" oninput="asgnFilter()" style="flex:1;min-width:180px">
+            <select class="form-select" id="asgn-lvl-filter" onchange="asgnFilter()" style="width:80px">
+              <option value="">Nivel</option>
+              <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option>
+            </select>
+            <select class="form-select" id="asgn-type-filter" onchange="asgnFilter()" style="width:130px">
+              <option value="">Tipo</option>
+              <option value="fill-blank">Completar</option>
+              <option value="reading">Lectura</option>
+              <option value="audio">Audio</option>
+              <option value="match">Emparejar</option>
+              <option value="drag-drop">Drag & Drop</option>
+              <option value="mc">Opción múltiple</option>
+            </select>
           </div>
-          <div class="card" style="margin-bottom:0">
-            <div class="card-header"><div class="card-title">Asignaciones recientes</div></div>
-            <div class="tbl-wrap"><table>
-              <thead><tr><th>Estudiante</th><th>Actividad</th><th>Estado</th></tr></thead>
-              <tbody id="recent-assign-tbody"><tr class="loading-row"><td colspan="3">—</td></tr></tbody>
-            </table></div>
+
+          <!-- Activity results -->
+          <div id="asgn-act-results" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+
+          <!-- Selected activity -->
+          <div id="asgn-act-selected" style="display:none;margin-top:12px;padding:12px 14px;background:var(--orange-lt);border:1.5px solid var(--orange);border-radius:var(--r);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--orange-dk)" id="asgn-act-name">—</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px" id="asgn-act-meta">—</div>
+            </div>
+            <button onclick="asgnClearAct()" style="background:none;border:none;cursor:pointer;color:var(--orange);font-size:18px;padding:0 4px">×</button>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;margin-top:14px">
+            <button class="btn btn-coral" onclick="asgnGoStep(2)" id="asgn-s1-next" disabled>Siguiente →</button>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- STEP 2: SELECT RECIPIENTS -->
+    <div id="assign-s2" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">¿A quién asignas esta actividad?</div>
+          <div class="card-sub" id="asgn-s2-subtitle">—</div>
+        </div>
+        <div style="padding:16px">
+
+          <!-- Mode selector -->
+          <div style="display:flex;gap:10px;margin-bottom:18px">
+            <button class="asgn-mode-btn active" id="asgnmode-level" onclick="asgnSetMode('level',this)">
+              <div style="font-size:20px;margin-bottom:4px">👥</div>
+              <div style="font-size:12px;font-weight:600">Todo un nivel</div>
+            </button>
+            <button class="asgn-mode-btn" id="asgnmode-search" onclick="asgnSetMode('search',this)">
+              <div style="font-size:20px;margin-bottom:4px">🔍</div>
+              <div style="font-size:12px;font-weight:600">Buscar estudiante</div>
+            </button>
+            <button class="asgn-mode-btn" id="asgnmode-manual" onclick="asgnSetMode('manual',this)">
+              <div style="font-size:20px;margin-bottom:4px">📋</div>
+              <div style="font-size:12px;font-weight:600">Selección manual</div>
+            </button>
+          </div>
+
+          <!-- LEVEL MODE -->
+          <div id="asgn-mode-level">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Selecciona el nivel — se asignará a todos los estudiantes de ese nivel.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap" id="asgn-level-btns"></div>
+          </div>
+
+          <!-- SEARCH MODE -->
+          <div id="asgn-mode-search" style="display:none">
+            <input class="form-input" id="asgn-student-search" placeholder="Escribe el nombre del estudiante…" oninput="asgnSearchStudent(this.value)">
+            <div id="asgn-student-results" style="margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);display:none;background:white"></div>
+          </div>
+
+          <!-- MANUAL MODE -->
+          <div id="asgn-mode-manual" style="display:none">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Marca los estudiantes que recibirán esta actividad.</div>
+            <div id="asgn-student-checkboxes" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+          </div>
+
+          <!-- Selected recipients summary -->
+          <div id="asgn-recipients-selected" style="display:none;margin-top:14px;padding:10px 14px;background:var(--green-lt);border:1px solid var(--green);border-radius:var(--r);font-size:13px;color:var(--green)"></div>
+
+          <div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px">
+            <button class="btn btn-outline" onclick="asgnGoStep(1)">← Volver</button>
+            <button class="btn btn-coral" onclick="asgnGoStep(3)" id="asgn-s2-next" disabled>Siguiente →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: CONFIRM -->
+    <div id="assign-s3" style="display:none">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Confirmar asignación</div></div>
+        <div style="padding:20px">
+          <div id="asgn-confirm-summary" style="background:var(--sand);border-radius:var(--r);padding:16px;margin-bottom:16px;font-size:14px;line-height:1.7"></div>
+          <div class="form-group"><label class="form-label">Nota para los estudiantes (opcional)</label>
+            <textarea class="form-textarea" id="asgn-note" rows="2" placeholder="Ej: Para el jueves. Recuerda revisar el vocabulario del capítulo 3."></textarea>
+          </div>
+          <div class="form-group"><label class="form-label">Fecha límite (opcional)</label>
+            <input type="date" class="form-input" id="asgn-due" style="max-width:200px">
+          </div>
+          <div style="display:flex;gap:8px;justify-content:space-between;margin-top:8px">
+            <button class="btn btn-outline" onclick="asgnGoStep(2)">← Volver</button>
+            <button class="btn btn-coral" onclick="asgnConfirm()" id="asgn-confirm-btn">✓ Asignar ahora</button>
+          </div>
+          <div id="asgn-success" style="display:none;background:var(--green-lt);border:1px solid var(--green);border-radius:var(--r);padding:12px 14px;font-size:13px;color:var(--green);margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
       <!-- RESPONSES -->
       <div class="panel" id="panel-responses">
@@ -3052,7 +3190,253 @@ function toggleJsonAudioField(type) {
   if (wrap) wrap.style.display = type === 'audio' ? 'block' : 'none';
 }
 
+
+// ══ ASSIGN SYSTEM ══
+let asgnSelectedAct = null;   // { id, title, level, type }
+let asgnMode = 'level';        // level | search | manual
+let asgnSelectedStudents = []; // array of { id, name }
+let asgnSelectedLevel = null;
+
+function asgnGoStep(step) {
+  // Validate before moving forward
+  if (step === 2 && !asgnSelectedAct) { showToast('Selecciona una actividad primero.'); return; }
+  if (step === 3 && !asgnSelectedStudents.length) { showToast('Selecciona al menos un destinatario.'); return; }
+
+  [1,2,3].forEach(s => {
+    document.getElementById('assign-s' + s).style.display = s === step ? 'block' : 'none';
+    const stepEl = document.getElementById('astep-' + s);
+    stepEl.classList.remove('active','done');
+    if (s === step) stepEl.classList.add('active');
+    else if (s < step) stepEl.classList.add('done');
+  });
+
+  if (step === 2) {
+    document.getElementById('asgn-s2-subtitle').textContent = '"' + asgnSelectedAct.title + '"';
+    asgnBuildLevelBtns();
+    asgnBuildManualList();
+  }
+  if (step === 3) {
+    asgnBuildConfirmSummary();
+  }
+}
+
+// STEP 1 — Activity search and filter
+function asgnFilter() {
+  const q     = (document.getElementById('asgn-search').value || '').toLowerCase();
+  const lvl   = document.getElementById('asgn-lvl-filter').value;
+  const type  = document.getElementById('asgn-type-filter').value;
+  const container = document.getElementById('asgn-act-results');
+
+  let results = allActivities.filter(a => {
+    const matchQ   = !q || (a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q);
+    const matchLvl = !lvl || a.level === lvl;
+    const matchType= !type || a.type === type;
+    return matchQ && matchLvl && matchType;
+  });
+
+  if (!results.length) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;font-size:13px;color:var(--muted)">Sin resultados. Intenta con otra búsqueda.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  results.slice(0,30).forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'asgn-act-card' + (asgnSelectedAct?.id === a.id ? ' selected' : '');
+    div.innerHTML =
+      '<span class="act-search-level">' + (a.level||'?') + '</span>'
+      + '<div style="flex:1"><div style="font-size:13px;font-weight:600">' + (a.title||'—') + '</div>'
+      + '<div style="font-size:11px;color:var(--muted)">' + (a.type||'') + (a.description ? ' · ' + a.description : '') + '</div></div>'
+      + (asgnSelectedAct?.id === a.id ? '<span style="color:var(--orange);font-size:18px">✓</span>' : '');
+    div.addEventListener('click', () => asgnSelectAct(a));
+    container.appendChild(div);
+  });
+}
+
+function asgnSelectAct(act) {
+  asgnSelectedAct = act;
+  // Update UI
+  document.getElementById('asgn-act-name').textContent = act.title;
+  document.getElementById('asgn-act-meta').textContent = (act.level||'') + ' · ' + (act.type||'') + (act.description ? ' · ' + act.description : '');
+  document.getElementById('asgn-act-selected').style.display = 'flex';
+  document.getElementById('asgn-s1-next').disabled = false;
+  asgnFilter(); // refresh to show checkmark
+}
+
+function asgnClearAct() {
+  asgnSelectedAct = null;
+  document.getElementById('asgn-act-selected').style.display = 'none';
+  document.getElementById('asgn-s1-next').disabled = true;
+  asgnFilter();
+}
+
+// STEP 2 — Recipients
+function asgnSetMode(mode, btn) {
+  asgnMode = mode;
+  asgnSelectedStudents = [];
+  asgnSelectedLevel = null;
+  document.getElementById('asgn-recipients-selected').style.display = 'none';
+  document.getElementById('asgn-s2-next').disabled = true;
+
+  document.querySelectorAll('.asgn-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['level','search','manual'].forEach(m => {
+    const el = document.getElementById('asgn-mode-' + m);
+    if (el) el.style.display = m === mode ? 'block' : 'none';
+  });
+
+  if (mode === 'search') {
+    document.getElementById('asgn-student-search').value = '';
+    document.getElementById('asgn-student-results').style.display = 'none';
+  }
+}
+
+function asgnBuildLevelBtns() {
+  const container = document.getElementById('asgn-level-btns');
+  const levels = ['A1','A2','B1','B2','C1'];
+  container.innerHTML = '';
+  levels.forEach(lvl => {
+    const count = allStudents.filter(s => s.level === lvl).length;
+    if (!count) return;
+    const btn = document.createElement('button');
+    btn.className = 'asgn-level-btn' + (asgnSelectedLevel === lvl ? ' selected' : '');
+    btn.innerHTML = '<div style="font-size:16px;font-weight:700">' + lvl + '</div><div style="font-size:11px;color:var(--muted);margin-top:3px">' + count + ' estudiante' + (count!==1?'s':'') + '</div>';
+    btn.addEventListener('click', () => asgnSelectLevel(lvl));
+    container.appendChild(btn);
+  });
+}
+
+function asgnSelectLevel(lvl) {
+  asgnSelectedLevel = lvl;
+  asgnSelectedStudents = allStudents.filter(s => s.level === lvl).map(s => ({ id: s.id, name: s.full_name }));
+  asgnBuildLevelBtns();
+  asgnShowRecipientsSummary();
+}
+
+function asgnSearchStudent(val) {
+  const q = val.trim().toLowerCase();
+  const results = document.getElementById('asgn-student-results');
+  if (!q) { results.style.display='none'; return; }
+  const matches = allStudents.filter(s => (s.full_name||'').toLowerCase().includes(q)).slice(0,10);
+  if (!matches.length) { results.innerHTML='<div style="padding:10px;font-size:13px;color:var(--muted)">Sin resultados</div>'; results.style.display='block'; return; }
+  results.innerHTML = '';
+  matches.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'asgn-student-result';
+    div.innerHTML = '<strong>' + s.full_name + '</strong> <span style="color:var(--muted);font-size:11px">· ' + (s.level||'?') + '</span>';
+    div.addEventListener('click', () => {
+      if (!asgnSelectedStudents.find(x => x.id === s.id)) {
+        asgnSelectedStudents.push({ id: s.id, name: s.full_name });
+      }
+      document.getElementById('asgn-student-search').value = '';
+      results.style.display = 'none';
+      asgnShowRecipientsSummary();
+    });
+    results.appendChild(div);
+  });
+  results.style.display = 'block';
+}
+
+function asgnBuildManualList() {
+  const container = document.getElementById('asgn-student-checkboxes');
+  container.innerHTML = '';
+  allStudents.forEach(s => {
+    const row = document.createElement('label');
+    row.className = 'asgn-student-row';
+    const checked = asgnSelectedStudents.find(x => x.id === s.id) ? 'checked' : '';
+    row.innerHTML = '<input type="checkbox" ' + checked + ' style="width:16px;height:16px;cursor:pointer">'
+      + '<span style="font-size:13px">' + s.full_name + '</span>'
+      + '<span style="font-size:11px;color:var(--muted);margin-left:auto">' + (s.level||'?') + '</span>';
+    row.querySelector('input').addEventListener('change', e => {
+      if (e.target.checked) {
+        if (!asgnSelectedStudents.find(x => x.id === s.id)) asgnSelectedStudents.push({ id: s.id, name: s.full_name });
+      } else {
+        asgnSelectedStudents = asgnSelectedStudents.filter(x => x.id !== s.id);
+      }
+      asgnShowRecipientsSummary();
+    });
+    container.appendChild(row);
+  });
+}
+
+function asgnShowRecipientsSummary() {
+  const el = document.getElementById('asgn-recipients-selected');
+  const n = asgnSelectedStudents.length;
+  if (!n) { el.style.display='none'; document.getElementById('asgn-s2-next').disabled=true; return; }
+  el.style.display = 'block';
+  el.textContent = '✓ ' + n + ' estudiante' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'') + ': ' + asgnSelectedStudents.map(s=>s.name).join(', ');
+  document.getElementById('asgn-s2-next').disabled = false;
+}
+
+// STEP 3 — Confirm
+function asgnBuildConfirmSummary() {
+  const el = document.getElementById('asgn-confirm-summary');
+  const n = asgnSelectedStudents.length;
+  el.innerHTML =
+    '<div style="margin-bottom:8px">📚 <strong>Actividad:</strong> ' + asgnSelectedAct.title + ' <span style="color:var(--muted);font-size:12px">(' + asgnSelectedAct.level + ' · ' + asgnSelectedAct.type + ')</span></div>'
+    + '<div>👥 <strong>Destinatarios:</strong> ' + n + ' estudiante' + (n!==1?'s':'') + '<br>'
+    + '<span style="font-size:12px;color:var(--muted)">' + asgnSelectedStudents.map(s=>s.name).join(', ') + '</span></div>';
+}
+
+async function asgnConfirm() {
+  const btn = document.getElementById('asgn-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Asignando…';
+  const note = document.getElementById('asgn-note').value.trim();
+  const due  = document.getElementById('asgn-due').value;
+
+  try {
+    const rows = asgnSelectedStudents.map(s => ({
+      student_id:  s.id,
+      activity_id: asgnSelectedAct.id,
+      teacher_note: note || null,
+      due_date: due || null
+    }));
+    const { error } = await db.from('assignments').insert(rows);
+    if (error) throw error;
+
+    const succ = document.getElementById('asgn-success');
+    succ.style.display = 'block';
+    succ.textContent = '✓ Actividad asignada a ' + rows.length + ' estudiante' + (rows.length!==1?'s':'') + ' correctamente.';
+    showToast('✓ ' + rows.length + ' asignaciones creadas');
+    await loadAll();
+
+    // Reset after 3 seconds
+    setTimeout(() => {
+      asgnReset();
+    }, 3000);
+  } catch(e) {
+    console.error(e);
+    showToast('Error al asignar: ' + (e.message||e));
+    btn.disabled = false; btn.textContent = '✓ Asignar ahora';
+  }
+}
+
+function asgnReset() {
+  asgnSelectedAct = null;
+  asgnSelectedStudents = [];
+  asgnSelectedLevel = null;
+  asgnMode = 'level';
+  document.getElementById('asgn-note').value = '';
+  document.getElementById('asgn-due').value = '';
+  document.getElementById('asgn-success').style.display = 'none';
+  document.getElementById('asgn-confirm-btn').disabled = false;
+  document.getElementById('asgn-confirm-btn').textContent = '✓ Asignar ahora';
+  document.getElementById('asgn-act-selected').style.display = 'none';
+  document.getElementById('asgn-s1-next').disabled = true;
+  asgnGoStep(1);
+  asgnFilter();
+}
+
+// Initialize assign panel when shown
+const _origShowPanel = showPanel;
+function showPanel(name) {
+  _origShowPanel(name);
+  if (name === 'assign') {
+    asgnFilter();
+  }
+}
+
 </script>
-<div style="position:fixed;bottom:8px;right:12px;font-size:10px;color:rgba(0,0,0,.25);z-index:9999;pointer-events:none">v2.4</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:10px;color:rgba(0,0,0,.25);z-index:9999;pointer-events:none">v2.5</div>
 </body>
 </html>
