@@ -3428,13 +3428,13 @@ function asgnReset() {
 }
 
 // Initialize assign panel when shown
-const _origShowPanel = showPanel;
-function showPanel(name) {
-  _origShowPanel(name);
-  if (name === 'assign') {
-    asgnFilter();
+// Initialize assign when panel opens
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[onclick]');
+  if (btn && btn.getAttribute('onclick')?.includes("'assign'")) {
+    setTimeout(asgnFilter, 50);
   }
-}
+});
 
 </script>
 <div style="position:fixed;bottom:8px;right:12px;font-size:10px;color:rgba(0,0,0,.25);z-index:9999;pointer-events:none">v2.5</div>
