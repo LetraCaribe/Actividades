@@ -914,7 +914,25 @@ function responseActivityKey(r){
 }
 
 function responseActivityTitle(r){
-  return r.activity_title || r.activity_name || (r.activities && (r.activities.title || r.activities.name)) || r.activity_slug || r.activity_id || 'Actividad';
+  const key = responseActivityKey(r);
+
+  const activity = allActivities.find(a =>
+    String(a.id) === String(key) ||
+    String(a.slug) === String(key) ||
+    String(a.activity_slug) === String(key)
+  );
+
+  return (
+    r.activity_title ||
+    r.activity_name ||
+    activity?.title ||
+    activity?.name ||
+    r.activities?.title ||
+    r.activities?.name ||
+    r.activity_slug ||
+    r.activity_id ||
+    'Actividad'
+  );
 }
 
 function escapeHtml(value){
