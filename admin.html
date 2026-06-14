@@ -1252,23 +1252,21 @@ async function markActivityReviewed(studentNameEncoded, activityKeyEncoded){
       responseActivityKey(r) === activityKey
     );
 
-    const assignmentIds = [
-      ...new Set(
-        rows
-          .map(r => r.assignment_id)
-          .filter(Boolean)
-      )
-    ];
+    const first = rows[0];
 
-    if(!assignmentIds.length){
-      showToast('No se encontraron assignments');
+    if(!first){
+      showToast('No se encontraron respuestas');
       return;
     }
+
+    const studentId = first.student_id;
+    const activitySlug = first.activity_slug || activityKey;
 
     const { error } = await db
       .from('assignments')
       .update({ reviewed: true })
-      .in('id', assignmentIds);
+      .eq('student_id', studentId)
+      .eq('activity_slug', activitySlug);
 
     if(error) throw error;
 
@@ -1284,7 +1282,7 @@ async function markActivityReviewed(studentNameEncoded, activityKeyEncoded){
     console.error(e);
     showToast('Error marcando revisión');
   }
-}  
+}
 function toggleActivitySelected(id){
   if(selectedActivities.has(id)){
     selectedActivities.delete(id);
