@@ -1279,17 +1279,45 @@ async function markActivityReviewed(studentNameEncoded, activityKeyEncoded){
       return;
     }
 
-   const studentId = first.student_id;
+    const studentId = first.student_id;
 
-const activity = allActivities.find(a =>
-  String(a.slug) === String(activityKey) ||
-  String(a.activity_slug) === String(activityKey) ||
-  String(a.id) === String(activityKey)
-);
+    const activity = allActivities.find(a =>
+      String(a.slug) === String(activityKey) ||
+      String(a.activity_slug) === String(activityKey) ||
+      String(a.id) === String(activityKey)
+    );
 
-if(!activity){
-  showToast('No se encontró la actividad');
-  return;
+    if(activity){
+
+      const { error } = await db
+        .from('assignments')
+        .update({ reviewed: true })
+        .eq('student_id', studentId)
+        .eq('activity_id', activity.id);
+
+      if(error) throw error;
+    }
+
+    const { error: respError } = await db
+      .from('responses')
+      .update({ reviewed: true })
+      .eq('student_id', studentId)
+      .eq('activity_slug', activityKey);
+
+    if(respError) throw respError;
+
+    rows.forEach(r => {
+      r.reviewed = true;
+    });
+
+    showToast('Actividad revisada');
+
+    openStudentResponses(studentName);
+
+  } catch(e){
+    console.error(e);
+    showToast('Error marcando revisión');
+  }
 }
 
 const { error } = await db
@@ -1297,7 +1325,11 @@ const { error } = await db
   .update({ reviewed: true })
   .eq('student_id', studentId)
   .eq('activity_id', activity.id);
-
+await db
+  .from('responses')
+  .update({ reviewed: true })
+  .eq('student_id', studentId)
+  .eq('activity_slug', activityKey);
     if(error) throw error;
 
     rows.forEach(r => {
