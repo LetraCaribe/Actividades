@@ -1240,7 +1240,51 @@ async function deleteActivity(id){
     showToast('Error al eliminar: ' + (e.message || 'verifica Supabase.'));
   }
 }
-  
+async function markActivityReviewed(studentNameEncoded, activityKeyEncoded){
+
+  const studentName = decodeURIComponent(studentNameEncoded);
+  const activityKey = decodeURIComponent(activityKeyEncoded);
+
+  try{
+
+    const rows = allResponses.filter(r =>
+      responseStudentName(r) === studentName &&
+      responseActivityKey(r) === activityKey
+    );
+
+    const assignmentIds = [
+      ...new Set(
+        rows
+          .map(r => r.assignment_id)
+          .filter(Boolean)
+      )
+    ];
+
+    if(!assignmentIds.length){
+      showToast('No se encontraron assignments');
+      return;
+    }
+
+    const { error } = await db
+      .from('assignments')
+      .update({ reviewed: true })
+      .in('id', assignmentIds);
+
+    if(error) throw error;
+
+    rows.forEach(r => {
+      r.reviewed = true;
+    });
+
+    showToast('Actividad revisada');
+
+    openStudentResponses(studentName);
+
+  } catch(e){
+    console.error(e);
+    showToast('Error marcando revisión');
+  }
+}  
 function toggleActivitySelected(id){
   if(selectedActivities.has(id)){
     selectedActivities.delete(id);
