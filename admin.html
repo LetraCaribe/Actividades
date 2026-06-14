@@ -1259,14 +1259,24 @@ async function markActivityReviewed(studentNameEncoded, activityKeyEncoded){
       return;
     }
 
-    const studentId = first.student_id;
-    const activitySlug = first.activity_slug || activityKey;
+   const studentId = first.student_id;
 
-    const { error } = await db
-      .from('assignments')
-      .update({ reviewed: true })
-      .eq('student_id', studentId)
-      .eq('activity_slug', activitySlug);
+const activity = allActivities.find(a =>
+  String(a.slug) === String(activityKey) ||
+  String(a.activity_slug) === String(activityKey) ||
+  String(a.id) === String(activityKey)
+);
+
+if(!activity){
+  showToast('No se encontró la actividad');
+  return;
+}
+
+const { error } = await db
+  .from('assignments')
+  .update({ reviewed: true })
+  .eq('student_id', studentId)
+  .eq('activity_id', activity.id);
 
     if(error) throw error;
 
