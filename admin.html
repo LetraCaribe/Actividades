@@ -3111,7 +3111,29 @@ setTimeout(() => {
 }
 
 let jsonParsedCache = null;
-
+function syncPreviewToJson() {
+  try {
+    const raw = document.getElementById('json-content').value.trim();
+    const normalized = raw.replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-');
+    const parsed = JSON.parse(normalized);
+    document.querySelectorAll('#json-preview-area input[type="text"]').forEach(input => {
+      const si = input.dataset.si;
+      const bi = input.dataset.bi;
+      if (si !== undefined && bi !== undefined) {
+        if (parsed.sentences && parsed.sentences[si] && parsed.sentences[si].blanks && parsed.sentences[si].blanks[bi]) {
+          parsed.sentences[si].blanks[bi].answer = input.value;
+        }
+      }
+    });
+    document.querySelectorAll('#json-preview-area textarea').forEach(ta => {
+      const qi = ta.dataset.qi;
+      if (qi !== undefined && parsed.questions && parsed.questions[qi]) {
+        parsed.questions[qi].text = ta.value;
+      }
+    });
+    document.getElementById('json-content').value = JSON.stringify(parsed, null, 2);
+  } catch(e) {}
+}
 function jsonEditAnswer(si, bi, val) {
   // Update the parsed JSON textarea with edited answer
   const raw = document.getElementById('json-content').value.trim();
