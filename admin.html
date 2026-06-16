@@ -728,7 +728,7 @@ tbody tr:hover td{background:#FDFAF6}
               <!-- PREVIEW / EDIT -->
               <div class="card" style="margin-bottom:0">
                 <div class="card-header"><div class="card-title">Vista previa de respuestas</div><div class="card-sub">Verifica y edita antes de guardar</div></div>
-                <div style="padding:16px;overflow-y:auto;height:calc(100vh - 200px)" id="json-preview-area">
+                <div style="padding:16px" id="json-preview-area">
                   <div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Pega el JSON y haz clic en "Vista previa"</div></div>
                 </div>
               </div>
@@ -3006,12 +3006,12 @@ function jsonPreview() {
     if (!sentences.length) { html += '<div style="color:var(--muted);font-size:13px">Sin oraciones encontradas.</div>'; }
     sentences.forEach((s, si) => {
       if (!s.hasBlank || !s.blanks) {
-        html += '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:6px" contenteditable="true" onblur="jsonUpdatePart(' + si + ',null,this.textContent)">' + (s.text||'') + '</p>';
+        html += '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:6px">' + (s.text||'') + '</p>';
         return;
       }
       html += '<div style="font-family:var(--serif);font-size:14px;line-height:2.4;margin-bottom:10px;padding:10px;background:var(--sand);border-radius:var(--r)">';
       s.parts.forEach((part, pi) => {
-        html += '<span contenteditable="true" onblur="jsonUpdatePart(' + si + ',' + pi + ',this.textContent)" style="cursor:text">' + part + '</span>';
+        html += '<span>' + part + '</span>';
         if (pi < (s.blanks||[]).length) {
           const b = s.blanks[pi];
           html += '<input type="text" value="' + (b.answer||'') + '"'
@@ -3026,11 +3026,11 @@ function jsonPreview() {
   // Reading preview
   else if (parsed.type === 'reading') {
     if (parsed.readingText || parsed.text) {
-      html += '<div style="font-size:13px;color:var(--ink);padding:10px;background:var(--sand);border-radius:var(--r);margin-bottom:10px;max-height:150px;overflow-y:auto" contenteditable="true" onblur="jsonUpdateReadingText(this.textContent)">' + (parsed.readingText||parsed.text||'') + '</div>';
+      html += '<div style="font-size:13px;color:var(--ink);padding:10px;background:var(--sand);border-radius:var(--r);margin-bottom:10px;max-height:150px;overflow-y:auto">' + (parsed.readingText||parsed.text||'') + '</div>';
     }
     (parsed.questions||[]).forEach((q, qi) => {
       html += '<div style="margin-bottom:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px">'
-        + '<div style="font-weight:600;margin-bottom:4px;cursor:text" contenteditable="true" onblur="jsonUpdateQuestion(' + qi + ',this.textContent)">' + (qi+1) + '. ' + (q.text||q.q||'') + '</div>'
+        + '<div style="font-weight:600;margin-bottom:4px">' + (qi+1) + '. ' + (q.text||q.q||'') + '</div>'
         + (q.opts||[]).map((o,oi) => '<div style="font-size:12px;color:' + (oi===q.correct?'var(--green)':'var(--muted)') + '">' + (oi===q.correct?'✓ ':'  ') + o + '</div>').join('')
         + '</div>';
     });
@@ -3051,7 +3051,7 @@ function jsonPreview() {
   else if (parsed.type === 'mc') {
     (parsed.questions||[]).forEach((q, qi) => {
       html += '<div style="margin-bottom:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px">'
-        + '<div style="font-weight:600;margin-bottom:4px;cursor:text" contenteditable="true" onblur="jsonUpdateQuestion(' + qi + ',this.textContent)">' + (qi+1) + '. ' + (q.text||q.q||'') + '</div>'
+        + '<div style="font-weight:600;margin-bottom:4px">' + (qi+1) + '. ' + (q.text||q.q||'') + '</div>'
         + (q.opts||[]).map((o,oi) => '<div style="font-size:12px;color:' + (oi===q.correct?'var(--green)':'var(--muted)') + '">' + (oi===q.correct?'✓ ':'  ') + o + '</div>').join('')
         + '</div>';
     });
@@ -3093,7 +3093,6 @@ function jsonPreview() {
   }
 
   html += '<div style="margin-top:12px;padding:8px 10px;background:var(--green-lt);border-radius:var(--r);font-size:12px;color:var(--green)">✓ JSON válido — ' + (parsed.type||'?') + '</div>';
-  html += '<button onclick="abrirModalEstudiante()" style="width:100%;margin-top:12px;padding:10px;background:#1E6B72;color:white;border:none;border-radius:var(--r);cursor:pointer;font-weight:600;font-size:13px">Ver como estudiante</button>';
   preview.innerHTML = html;
 
   // Store parsed for save
@@ -3112,113 +3111,6 @@ function jsonEditAnswer(si, bi, val) {
       document.getElementById('json-content').value = JSON.stringify(parsed, null, 2);
     }
   } catch(e) {}
-}
-
-function jsonUpdatePart(si, pi, newText) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed.sentences && parsed.sentences[si]) {
-      if (pi === null) {
-        parsed.sentences[si].text = newText;
-      } else if (parsed.sentences[si].parts) {
-        parsed.sentences[si].parts[pi] = newText;
-      }
-      document.getElementById('json-content').value = JSON.stringify(parsed, null, 2);
-    }
-  } catch(e) {}
-}
-
-function jsonUpdateReadingText(newText) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed.readingText !== undefined) {
-      parsed.readingText = newText;
-    } else {
-      parsed.text = newText;
-    }
-    document.getElementById('json-content').value = JSON.stringify(parsed, null, 2);
-  } catch(e) {}
-}
-
-function jsonUpdateQuestion(qi, newText) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed.questions && parsed.questions[qi]) {
-      const q = parsed.questions[qi];
-      if (newText.includes('. ')) {
-        newText = newText.split('. ').slice(1).join('. ');
-      }
-      q.text = newText;
-      q.q = newText;
-      document.getElementById('json-content').value = JSON.stringify(parsed, null, 2);
-    }
-  } catch(e) {}
-}
-
-function abrirModalEstudiante() {
-  const raw = document.getElementById('json-content').value.trim();
-  if (!raw) return;
-  
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch(e) {
-    alert('JSON inválido');
-    return;
-  }
-  
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
-  
-  let contenido = '<div style="background:white;border-radius:12px;max-width:700px;width:100%;max-height:85vh;overflow-y:auto;padding:30px;position:relative"><button onclick="this.closest(\'div\').parentElement.remove()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">×</button>';
-  
-  if (parsed.type === 'fill-blank' || parsed.type === 'drag-drop') {
-    contenido += '<h2 style="margin:0 0 20px 0">Actividad de Completar</h2>';
-    (parsed.sentences||[]).forEach(s => {
-      if (!s.hasBlank || !s.blanks) {
-        contenido += '<p style="font-size:14px;line-height:1.6;margin-bottom:12px">' + (s.text||'') + '</p>';
-        return;
-      }
-      contenido += '<div style="font-family:var(--serif);font-size:15px;line-height:2;margin-bottom:14px;padding:12px;background:#f9f9f9;border-radius:6px">';
-      s.parts.forEach((part, pi) => {
-        contenido += '<span>' + part + '</span>';
-        if (pi < (s.blanks||[]).length) {
-          contenido += '<span style="display:inline-block;width:100px;height:28px;border-bottom:2px solid #333;margin:0 6px;vertical-align:text-bottom"></span>';
-        }
-      });
-      contenido += '</div>';
-    });
-  } else if (parsed.type === 'reading') {
-    contenido += '<h2 style="margin:0 0 20px 0">Actividad de Lectura</h2>';
-    if (parsed.readingText || parsed.text) {
-      contenido += '<div style="font-size:14px;line-height:1.7;margin-bottom:24px;padding:16px;background:#f9f9f9;border-radius:6px;max-height:200px;overflow-y:auto">' + (parsed.readingText||parsed.text||'') + '</div>';
-    }
-    (parsed.questions||[]).forEach((q, qi) => {
-      contenido += '<div style="margin-bottom:16px"><p style="font-weight:600;margin:0 0 10px 0">' + (qi+1) + '. ' + (q.text||q.q||'') + '</p>';
-      (q.opts||[]).forEach((o,oi) => {
-        contenido += '<div style="margin:6px 0"><input type="radio" name="q' + qi + '" style="margin-right:8px"> ' + o + '</div>';
-      });
-      contenido += '</div>';
-    });
-  } else if (parsed.type === 'mc') {
-    contenido += '<h2 style="margin:0 0 20px 0">Preguntas Múltiple Opción</h2>';
-    (parsed.questions||[]).forEach((q, qi) => {
-      contenido += '<div style="margin-bottom:16px"><p style="font-weight:600;margin:0 0 10px 0">' + (qi+1) + '. ' + (q.text||q.q||'') + '</p>';
-      (q.opts||[]).forEach((o,oi) => {
-        contenido += '<div style="margin:6px 0"><input type="radio" name="q' + qi + '" style="margin-right:8px"> ' + o + '</div>';
-      });
-      contenido += '</div>';
-    });
-  } else {
-    contenido += '<p style="color:#999">Tipo de actividad no soportado en vista estudiante</p>';
-  }
-  
-  contenido += '</div>';
-  modal.innerHTML = contenido;
-  document.body.appendChild(modal);
 }
 
 async function jsonSave() {
