@@ -1862,22 +1862,28 @@ function renderAudioPlayer(actContent) {
         + '</div>';
     }
   } else if (audioUrl) {
-    html += '<div class="audio-player" id="audio-player-wrap">'
-      + '<button class="audio-play-btn" id="audio-play-btn" onclick="toggleAudio()">▶</button>'
-      + '<div class="audio-info">'
-      + '<div class="audio-title">' + audioTitle + '</div>'
-      + '<div class="audio-progress-wrap" onclick="seekAudio(event)" id="audio-prog-wrap"><div class="audio-bar" id="audio-bar"></div></div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center">'
-      + '<span class="audio-time" id="audio-time">0:00 / 0:00</span>'
-      + '<div class="audio-controls">'
-      + '<button class="audio-ctrl-btn" id="audio-repeat-btn" onclick="toggleRepeat()">↺ Repetir</button>'
-      + '<button class="audio-ctrl-btn" onclick="restartAudio()">⟵ Inicio</button>'
-      + '</div></div></div></div>'
-      + '<audio id="activity-audio" src="' + audioUrl + '" preload="auto"'
-      + ' ontimeupdate="updateAudioBar()" onended="audioEnded()" onloadedmetadata="audioLoaded()"></audio>';
-  } else {
-    html += '<div style="background:var(--sand);border-radius:var(--r);padding:16px;text-align:center;font-size:13px;color:var(--muted)">Sin audio configurado.</div>';
+    if (audioUrl.includes('drive.google.com')) {
+      html += '<iframe src="' + audioUrl + '" width="100%" height="80" frameborder="0" allow="autoplay" style="border-radius:var(--r);margin-bottom:12px"></iframe>';
+    } else {
+      html += '<div class="audio-player" id="audio-player-wrap">'
+        + '<button class="audio-play-btn" id="audio-play-btn" onclick="toggleAudio()">▶</button>'
+        + '<div class="audio-info">'
+        + '<div class="audio-title">' + audioTitle + '</div>'
+        + '<div class="audio-progress-wrap" onclick="seekAudio(event)" id="audio-prog-wrap"><div class="audio-bar" id="audio-bar"></div></div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center">'
+        + '<span class="audio-time" id="audio-time">0:00 / 0:00</span>'
+        + '<div class="audio-controls">'
+        + '<button class="audio-ctrl-btn" id="audio-repeat-btn" onclick="toggleRepeat()">↺ Repetir</button>'
+        + '<button class="audio-ctrl-btn" onclick="restartAudio()">⟵ Inicio</button>'
+        + '</div></div></div></div>'
+        + '<audio id="activity-audio" src="' + audioUrl + '" preload="auto"'
+        + ' ontimeupdate="updateAudioBar()" onended="audioEnded()" onloadedmetadata="audioLoaded()"></audio>';
+    }
   }
+  return html;
+}
+
+function renderAudioQuestions(actContent) {
   return html;
 }
 
