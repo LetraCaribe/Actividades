@@ -415,13 +415,10 @@ tbody tr:hover td{background:#FDFAF6}
           <!-- Activity results -->
           <div id="asgn-act-results" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
 
-          <!-- Selected activity -->
-          <div id="asgn-act-selected" style="display:none;margin-top:12px;padding:12px 14px;background:var(--orange-lt);border:1.5px solid var(--orange);border-radius:var(--r);display:flex;align-items:center;justify-content:space-between">
-            <div>
-              <div style="font-size:13px;font-weight:600;color:var(--orange-dk)" id="asgn-act-name">—</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px" id="asgn-act-meta">—</div>
-            </div>
-            <button onclick="asgnClearAct()" style="background:none;border:none;cursor:pointer;color:var(--orange);font-size:18px;padding:0 4px">×</button>
+          <!-- Selected activities chips -->
+          <div id="asgn-act-selected" style="display:none;margin-top:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Seleccionadas (<span id="asgn-sel-act-count">0</span>)</div>
+            <div id="asgn-act-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
           </div>
 
           <div style="display:flex;justify-content:flex-end;margin-top:14px">
@@ -435,47 +432,33 @@ tbody tr:hover td{background:#FDFAF6}
     <div id="assign-s2" style="display:none">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">¿A quién asignas esta actividad?</div>
+          <div class="card-title">¿A quién asignas?</div>
           <div class="card-sub" id="asgn-s2-subtitle">—</div>
         </div>
         <div style="padding:16px">
 
-          <!-- Mode selector -->
-          <div style="display:flex;gap:10px;margin-bottom:18px">
-            <button class="asgn-mode-btn active" id="asgnmode-level" onclick="asgnSetMode('level',this)">
-              <div style="font-size:20px;margin-bottom:4px">👥</div>
-              <div style="font-size:12px;font-weight:600">Todo un nivel</div>
-            </button>
-            <button class="asgn-mode-btn" id="asgnmode-search" onclick="asgnSetMode('search',this)">
-              <div style="font-size:20px;margin-bottom:4px">🔍</div>
-              <div style="font-size:12px;font-weight:600">Buscar estudiante</div>
-            </button>
-            <button class="asgn-mode-btn" id="asgnmode-manual" onclick="asgnSetMode('manual',this)">
-              <div style="font-size:20px;margin-bottom:4px">📋</div>
-              <div style="font-size:12px;font-weight:600">Selección manual</div>
-            </button>
+          <!-- Filters row -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <input class="form-input" id="asgn-s2-search" placeholder="🔍 Buscar estudiante…" oninput="asgnBuildStudentList()" style="flex:1;min-width:160px">
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-sm" id="asgn-lvl-all" onclick="asgnLvlFilter('',this)" style="font-weight:600;background:var(--coral);color:white">Todos</button>
+              <button class="btn btn-sm" id="asgn-lvl-A1" onclick="asgnLvlFilter('A1',this)">A1</button>
+              <button class="btn btn-sm" id="asgn-lvl-A2" onclick="asgnLvlFilter('A2',this)">A2</button>
+              <button class="btn btn-sm" id="asgn-lvl-B1" onclick="asgnLvlFilter('B1',this)">B1</button>
+              <button class="btn btn-sm" id="asgn-lvl-B2" onclick="asgnLvlFilter('B2',this)">B2</button>
+              <button class="btn btn-sm" id="asgn-lvl-C1" onclick="asgnLvlFilter('C1',this)">C1</button>
+            </div>
           </div>
 
-          <!-- LEVEL MODE -->
-          <div id="asgn-mode-level">
-            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Selecciona el nivel — se asignará a todos los estudiantes de ese nivel.</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap" id="asgn-level-btns"></div>
-          </div>
+          <!-- Select all header -->
+          <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);user-select:none">
+            <input type="checkbox" id="asgn-select-all" onchange="asgnToggleAll(this.checked)" style="width:15px;height:15px;cursor:pointer">
+            Seleccionar todos
+            <span id="asgn-sel-students-count" style="margin-left:auto;color:var(--coral)"></span>
+          </label>
 
-          <!-- SEARCH MODE -->
-          <div id="asgn-mode-search" style="display:none">
-            <input class="form-input" id="asgn-student-search" placeholder="Escribe el nombre del estudiante…" oninput="asgnSearchStudent(this.value)">
-            <div id="asgn-student-results" style="margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);display:none;background:white"></div>
-          </div>
-
-          <!-- MANUAL MODE -->
-          <div id="asgn-mode-manual" style="display:none">
-            <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Marca los estudiantes que recibirán esta actividad.</div>
-            <div id="asgn-student-checkboxes" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
-          </div>
-
-          <!-- Selected recipients summary -->
-          <div id="asgn-recipients-selected" style="display:none;margin-top:14px;padding:10px 14px;background:var(--green-lt);border:1px solid var(--green);border-radius:var(--r);font-size:13px;color:var(--green)"></div>
+          <!-- Student list with status -->
+          <div id="asgn-student-unified" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column"></div>
 
           <div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px">
             <button class="btn btn-outline" onclick="asgnGoStep(1)">← Volver</button>
@@ -700,6 +683,14 @@ tbody tr:hover td{background:#FDFAF6}
             <button class="hub-tab" id="hubtab-match" onclick="hubSwitch('match',this)">🔗 Emparejar</button>
             <button class="hub-tab" id="hubtab-audio" onclick="hubSwitch('audio',this)">🎵 Audio</button>
             <button class="hub-tab" id="hubtab-dragdrop" onclick="hubSwitch('dragdrop',this)">🔀 Drag & Drop</button>
+          </div>
+
+          <!-- SHARED GRAMMAR CATEGORY SELECTOR -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 14px;background:var(--sand);border-radius:var(--r)">
+            <span style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">Categoría gramatical:</span>
+            <select class="form-select" id="hub-grammar-cat" style="flex:1;max-width:280px">
+              <option value="">— Sin categoría —</option>
+            </select>
           </div>
 
           <!-- JSON IMPORTER -->
@@ -1148,7 +1139,7 @@ tbody tr:hover td{background:#FDFAF6}
 <div class="overlay hidden" id="grammarDeleteModal" onclick="closeModalO(event,'grammarDeleteModal')">
   <div class="modal" style="max-width:460px">
     <div class="modal-head">
-      <div><div class="modal-title">Eliminar categoría</div><div class="modal-sub" id="gramDelName" style="color:var(--danger)"></div></div>
+      <div><div class="modal-title">Eliminar categoría</div><div class="modal-sub" id="gramDelName" style="color:var(--red)"></div></div>
       <button class="modal-close" onclick="closeModal('grammarDeleteModal')">✕</button>
     </div>
     <div style="padding:20px">
@@ -1161,7 +1152,7 @@ tbody tr:hover td{background:#FDFAF6}
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('grammarDeleteModal')">Cancelar</button>
-      <button class="btn" style="background:var(--danger);color:white" onclick="confirmDeleteGrammarCategory()">Eliminar</button>
+      <button class="btn" style="background:var(--red);color:white" onclick="confirmDeleteGrammarCategory()">Eliminar</button>
     </div>
   </div>
 </div>
@@ -2401,11 +2392,15 @@ async function saveImportedActivity() {
   };
 
   try {
+    const _wdGram = document.getElementById('hub-grammar-cat')?.value || null;
+    const _wdGramObj = _wdGram ? allGrammarCats.find(c=>c.id===_wdGram) : null;
     const { error } = await db.from('activities').insert({
       slug, title, level,
       description: grammar || 'Completar espacios en blanco',
       type: 'fill-blank',
       content: JSON.stringify(actContent),
+      grammar_category_id: _wdGram,
+      grammar_category_name: _wdGramObj?.name||null,
     });
     if (error) throw error;
     document.getElementById('imp-save-success').classList.add('show');
@@ -2637,6 +2632,8 @@ async function deleteLibItem(id) {
   } catch(e) { showToast('Error al eliminar.'); }
 }
 
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function closeModalO(e, id) { if(e.target===document.getElementById(id)) closeModal(id); }
 
 
@@ -2788,7 +2785,9 @@ async function rdSave() {
   }
   const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
   try {
-    const { error } = await db.from('activities').insert({ slug, title, level, description: topic || 'Comprensión lectora', type: 'reading', content: { type:'reading', instructions, readingText:text, questions } });
+    const _rdGram = document.getElementById('hub-grammar-cat')?.value || null;
+    const _rdGramObj = _rdGram ? allGrammarCats.find(c=>c.id===_rdGram) : null;
+    const { error } = await db.from('activities').insert({ slug, title, level, description: topic || 'Comprensión lectora', type: 'reading', content: { type:'reading', instructions, readingText:text, questions }, grammar_category_id: _rdGram, grammar_category_name: _rdGramObj?.name||null });
     if (error) throw error;
     document.getElementById('rd-success').style.display = 'block';
     showToast('✓ Actividad de lectura guardada');
@@ -2836,7 +2835,9 @@ async function mtSave() {
   if (!pairs.length) { showToast('Agrega al menos un par.'); return; }
   const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
   try {
-    const { error } = await db.from('activities').insert({ slug, title, level, description: 'Emparejamiento de columnas', type: 'match', content: { type:'match', instructions, pairs } });
+    const _mtGram = document.getElementById('hub-grammar-cat')?.value || null;
+    const _mtGramObj = _mtGram ? allGrammarCats.find(c=>c.id===_mtGram) : null;
+    const { error } = await db.from('activities').insert({ slug, title, level, description: 'Emparejamiento de columnas', type: 'match', content: { type:'match', instructions, pairs }, grammar_category_id: _mtGram, grammar_category_name: _mtGramObj?.name||null });
     if (error) throw error;
     document.getElementById('mt-success').style.display = 'block';
     showToast('✓ ' + pairs.length + ' pares guardados');
@@ -2995,7 +2996,9 @@ async function auSave() {
 
   const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
   try {
-    const { error } = await db.from('activities').insert({ slug, title, level, description: topic || 'Actividad de audio', type: 'audio', content: actContent });
+    const _auGram = document.getElementById('hub-grammar-cat')?.value || null;
+    const _auGramObj = _auGram ? allGrammarCats.find(c=>c.id===_auGram) : null;
+    const { error } = await db.from('activities').insert({ slug, title, level, description: topic || 'Actividad de audio', type: 'audio', content: actContent, grammar_category_id: _auGram, grammar_category_name: _auGramObj?.name||null });
     if (error) throw error;
     document.getElementById('au-success').style.display = 'block';
     showToast('✓ Actividad de audio guardada');
@@ -3469,7 +3472,9 @@ async function ddSave() {
       slug, title, level,
       description: topic || 'Drag & Drop',
       type: 'drag-drop',
-      content: { type:'drag-drop', instructions, sentences, distractors }
+      content: { type:'drag-drop', instructions, sentences, distractors },
+      grammar_category_id: document.getElementById('hub-grammar-cat')?.value || null,
+      grammar_category_name: (()=>{ const id=document.getElementById('hub-grammar-cat')?.value; return id ? allGrammarCats.find(c=>c.id===id)?.name||null : null; })()
     });
     if (error) throw error;
     const succ = document.getElementById('dd-success');
@@ -3521,191 +3526,212 @@ function toggleJsonAudioField(type) {
 
 
 // ══ ASSIGN SYSTEM ══
-let asgnSelectedAct = null;   // { id, title, level, type }
-let asgnMode = 'level';        // level | search | manual
+let asgnSelectedActs = [];     // array of activity objects
 let asgnSelectedStudents = []; // array of { id, name }
-let asgnSelectedLevel = null;
+let asgnLvlActive = '';        // current level filter in step 2
 
 function asgnGoStep(step) {
-  // Validate before moving forward
-  if (step === 2 && !asgnSelectedAct) { showToast('Selecciona una actividad primero.'); return; }
+  if (step === 2 && !asgnSelectedActs.length) { showToast('Selecciona al menos una actividad.'); return; }
   if (step === 3 && !asgnSelectedStudents.length) { showToast('Selecciona al menos un destinatario.'); return; }
 
-  [1,2,3].forEach(s => {
-    document.getElementById('assign-s' + s).style.display = s === step ? 'block' : 'none';
-    const stepEl = document.getElementById('astep-' + s);
-    stepEl.classList.remove('active','done');
-    if (s === step) stepEl.classList.add('active');
-    else if (s < step) stepEl.classList.add('done');
+  [1,2,3].forEach(n => {
+    document.getElementById('assign-s' + n).style.display = n === step ? 'block' : 'none';
+    const stepEl = document.getElementById('astep-' + n);
+    stepEl.classList.toggle('active', n === step);
+    stepEl.classList.toggle('done', n < step);
   });
 
   if (step === 2) {
-    document.getElementById('asgn-s2-subtitle').textContent = '"' + asgnSelectedAct.title + '"';
-    asgnBuildLevelBtns();
-    asgnBuildManualList();
+    const n = asgnSelectedActs.length;
+    document.getElementById('asgn-s2-subtitle').textContent =
+      n === 1 ? '"' + asgnSelectedActs[0].title + '"' : n + ' actividades seleccionadas';
+    asgnLvlActive = '';
+    asgnBuildStudentList();
   }
   if (step === 3) {
     asgnBuildConfirmSummary();
   }
 }
 
-// STEP 1 — Activity search and filter
+// STEP 1 — Activity search / multi-select
 function asgnFilter() {
-  const q     = (document.getElementById('asgn-search').value || '').toLowerCase();
-  const lvl   = document.getElementById('asgn-lvl-filter').value;
-  const type  = document.getElementById('asgn-type-filter').value;
-  const gram  = document.getElementById('asgn-gram-filter').value;
+  const q    = (document.getElementById('asgn-search').value || '').toLowerCase();
+  const lvl  = document.getElementById('asgn-lvl-filter').value;
+  const type = document.getElementById('asgn-type-filter').value;
+  const gram = document.getElementById('asgn-gram-filter').value;
   const container = document.getElementById('asgn-act-results');
 
   let results = allActivities.filter(a => {
-    const matchQ   = !q || (a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q);
-    const matchLvl = !lvl || a.level === lvl;
-    const matchType= !type || a.type === type;
-    const matchGram= !gram || a.grammar_category_id === gram;
+    const matchQ    = !q || (a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q);
+    const matchLvl  = !lvl  || a.level === lvl;
+    const matchType = !type || a.type  === type;
+    const matchGram = !gram || a.grammar_category_id === gram;
     return matchQ && matchLvl && matchType && matchGram;
   });
 
+  container.innerHTML = '';
   if (!results.length) {
-    container.innerHTML = '<div style="text-align:center;padding:20px;font-size:13px;color:var(--muted)">Sin resultados. Intenta con otra búsqueda.</div>';
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">No hay actividades que coincidan.</div>';
     return;
   }
 
-  container.innerHTML = '';
-  results.slice(0,30).forEach(a => {
+  results.slice(0, 40).forEach(a => {
+    const isSelected = asgnSelectedActs.some(x => x.id === a.id);
     const div = document.createElement('div');
-    div.className = 'asgn-act-card' + (asgnSelectedAct?.id === a.id ? ' selected' : '');
+    div.className = 'asgn-act-card' + (isSelected ? ' selected' : '');
     div.innerHTML =
-      '<span class="act-search-level">' + (a.level||'?') + '</span>'
+      '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' style="width:15px;height:15px;flex-shrink:0;cursor:pointer;accent-color:var(--coral)">'
+      + '<span class="act-search-level">' + (a.level||'?') + '</span>'
       + '<div style="flex:1"><div style="font-size:13px;font-weight:600">' + (a.title||'—') + '</div>'
-      + '<div style="font-size:11px;color:var(--muted)">' + (a.type||'') + (a.description ? ' · ' + a.description : '') + '</div></div>'
-      + (asgnSelectedAct?.id === a.id ? '<span style="color:var(--orange);font-size:18px">✓</span>' : '');
-    div.addEventListener('click', () => asgnSelectAct(a));
+      + '<div style="font-size:11px;color:var(--muted)">' + (a.type||'') + (a.description ? ' · ' + a.description : '') + (a.grammar_category_name ? ' · ' + a.grammar_category_name : '') + '</div></div>';
+    div.addEventListener('click', () => asgnToggleAct(a));
     container.appendChild(div);
   });
 }
 
-function asgnSelectAct(act) {
-  asgnSelectedAct = act;
-  // Update UI
-  document.getElementById('asgn-act-name').textContent = act.title;
-  document.getElementById('asgn-act-meta').textContent = (act.level||'') + ' · ' + (act.type||'') + (act.description ? ' · ' + act.description : '');
-  document.getElementById('asgn-act-selected').style.display = 'flex';
-  document.getElementById('asgn-s1-next').disabled = false;
-  asgnFilter(); // refresh to show checkmark
-}
-
-function asgnClearAct() {
-  asgnSelectedAct = null;
-  document.getElementById('asgn-act-selected').style.display = 'none';
-  document.getElementById('asgn-s1-next').disabled = true;
-  asgnFilter();
-}
-
-// STEP 2 — Recipients
-function asgnSetMode(mode, btn) {
-  asgnMode = mode;
-  asgnSelectedStudents = [];
-  asgnSelectedLevel = null;
-  document.getElementById('asgn-recipients-selected').style.display = 'none';
-  document.getElementById('asgn-s2-next').disabled = true;
-
-  document.querySelectorAll('.asgn-mode-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  ['level','search','manual'].forEach(m => {
-    const el = document.getElementById('asgn-mode-' + m);
-    if (el) el.style.display = m === mode ? 'block' : 'none';
-  });
-
-  if (mode === 'search') {
-    document.getElementById('asgn-student-search').value = '';
-    document.getElementById('asgn-student-results').style.display = 'none';
+function asgnToggleAct(act) {
+  const idx = asgnSelectedActs.findIndex(x => x.id === act.id);
+  if (idx >= 0) {
+    asgnSelectedActs.splice(idx, 1);
+  } else {
+    asgnSelectedActs.push(act);
   }
+  asgnUpdateActChips();
+  asgnFilter(); // re-render to update checkboxes
 }
 
-function asgnBuildLevelBtns() {
-  const container = document.getElementById('asgn-level-btns');
-  const levels = ['A1','A2','B1','B2','C1'];
-  container.innerHTML = '';
-  levels.forEach(lvl => {
-    const count = allStudents.filter(s => s.level === lvl).length;
-    if (!count) return;
-    const btn = document.createElement('button');
-    btn.className = 'asgn-level-btn' + (asgnSelectedLevel === lvl ? ' selected' : '');
-    btn.innerHTML = '<div style="font-size:16px;font-weight:700">' + lvl + '</div><div style="font-size:11px;color:var(--muted);margin-top:3px">' + count + ' estudiante' + (count!==1?'s':'') + '</div>';
-    btn.addEventListener('click', () => asgnSelectLevel(lvl));
-    container.appendChild(btn);
+function asgnUpdateActChips() {
+  const wrap  = document.getElementById('asgn-act-selected');
+  const chips = document.getElementById('asgn-act-chips');
+  const count = document.getElementById('asgn-sel-act-count');
+  const nextBtn = document.getElementById('asgn-s1-next');
+
+  if (!asgnSelectedActs.length) {
+    wrap.style.display = 'none';
+    nextBtn.disabled = true;
+    return;
+  }
+  wrap.style.display = 'block';
+  nextBtn.disabled = false;
+  count.textContent = asgnSelectedActs.length;
+  chips.innerHTML = asgnSelectedActs.map(a =>
+    '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--orange-lt);border:1px solid var(--orange);color:var(--orange-dk);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600">'
+    + a.title
+    + '<button onclick="asgnToggleAct({id:\'' + a.id + '\',title:\'' + a.title.replace(/'/g,"\\'") + '\'})" style="background:none;border:none;cursor:pointer;color:var(--orange);font-size:14px;padding:0;line-height:1">×</button>'
+    + '</span>'
+  ).join('');
+}
+
+// STEP 2 — Unified student selector
+function asgnLvlFilter(lvl, btn) {
+  asgnLvlActive = lvl;
+  document.querySelectorAll('[id^="asgn-lvl-"]').forEach(b => {
+    b.style.background = '';
+    b.style.color = '';
+    b.style.fontWeight = '';
   });
+  btn.style.background = 'var(--coral)';
+  btn.style.color = 'white';
+  btn.style.fontWeight = '600';
+  asgnBuildStudentList();
 }
 
-function asgnSelectLevel(lvl) {
-  asgnSelectedLevel = lvl;
-  asgnSelectedStudents = allStudents.filter(s => s.level === lvl).map(s => ({ id: s.id, name: s.full_name }));
-  asgnBuildLevelBtns();
-  asgnShowRecipientsSummary();
-}
+function asgnBuildStudentList() {
+  const q   = (document.getElementById('asgn-s2-search')?.value || '').toLowerCase();
+  const container = document.getElementById('asgn-student-unified');
+  container.innerHTML = '';
 
-function asgnSearchStudent(val) {
-  const q = val.trim().toLowerCase();
-  const results = document.getElementById('asgn-student-results');
-  if (!q) { results.style.display='none'; return; }
-  const matches = allStudents.filter(s => (s.full_name||'').toLowerCase().includes(q)).slice(0,10);
-  if (!matches.length) { results.innerHTML='<div style="padding:10px;font-size:13px;color:var(--muted)">Sin resultados</div>'; results.style.display='block'; return; }
-  results.innerHTML = '';
-  matches.forEach(s => {
-    const div = document.createElement('div');
-    div.className = 'asgn-student-result';
-    div.innerHTML = '<strong>' + s.full_name + '</strong> <span style="color:var(--muted);font-size:11px">· ' + (s.level||'?') + '</span>';
-    div.addEventListener('click', () => {
-      if (!asgnSelectedStudents.find(x => x.id === s.id)) {
-        asgnSelectedStudents.push({ id: s.id, name: s.full_name });
+  const visible = allStudents.filter(s => {
+    const matchQ   = !q || (s.full_name||'').toLowerCase().includes(q);
+    const matchLvl = !asgnLvlActive || s.level === asgnLvlActive;
+    return matchQ && matchLvl;
+  });
+
+  if (!visible.length) {
+    container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">No hay estudiantes que coincidan.</div>';
+    return;
+  }
+
+  visible.forEach(s => {
+    const isChecked = asgnSelectedStudents.some(x => x.id === s.id);
+
+    // Build status badges for each selected activity
+    const badges = asgnSelectedActs.map(act => {
+      const asgn = allAssignments.find(a => a.student_id === s.id && String(a.activity_id) === String(act.id));
+      let badge, title;
+      if (!asgn) {
+        badge = '<span style="font-size:10px;background:#F0F0F0;color:#999;padding:1px 6px;border-radius:99px">— sin asignar</span>';
+      } else if (asgn.completed) {
+        badge = '<span style="font-size:10px;background:var(--green-lt);color:var(--green);padding:1px 6px;border-radius:99px">✓ completada</span>';
+      } else {
+        badge = '<span style="font-size:10px;background:var(--orange-lt);color:var(--orange-dk);padding:1px 6px;border-radius:99px">📋 pendiente</span>';
       }
-      document.getElementById('asgn-student-search').value = '';
-      results.style.display = 'none';
-      asgnShowRecipientsSummary();
-    });
-    results.appendChild(div);
-  });
-  results.style.display = 'block';
-}
+      return badge;
+    }).join(' ');
 
-function asgnBuildManualList() {
-  const container = document.getElementById('asgn-student-checkboxes');
-  container.innerHTML = '';
-  allStudents.forEach(s => {
     const row = document.createElement('label');
-    row.className = 'asgn-student-row';
-    const checked = asgnSelectedStudents.find(x => x.id === s.id) ? 'checked' : '';
-    row.innerHTML = '<input type="checkbox" ' + checked + ' style="width:16px;height:16px;cursor:pointer">'
-      + '<span style="font-size:13px">' + s.full_name + '</span>'
-      + '<span style="font-size:11px;color:var(--muted);margin-left:auto">' + (s.level||'?') + '</span>';
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .1s';
+    row.onmouseenter = () => row.style.background = 'var(--sand)';
+    row.onmouseleave = () => row.style.background = '';
+    row.innerHTML =
+      '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:var(--coral)">'
+      + '<span style="font-size:13px;font-weight:500;flex:1">' + (s.full_name||'—') + '</span>'
+      + '<span style="font-size:11px;color:var(--muted);margin-right:6px">' + (s.level||'?') + '</span>'
+      + '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</div>';
+
     row.querySelector('input').addEventListener('change', e => {
       if (e.target.checked) {
-        if (!asgnSelectedStudents.find(x => x.id === s.id)) asgnSelectedStudents.push({ id: s.id, name: s.full_name });
+        if (!asgnSelectedStudents.find(x => x.id === s.id))
+          asgnSelectedStudents.push({ id: s.id, name: s.full_name });
       } else {
         asgnSelectedStudents = asgnSelectedStudents.filter(x => x.id !== s.id);
       }
-      asgnShowRecipientsSummary();
+      asgnUpdateStudentCount();
     });
     container.appendChild(row);
   });
+
+  asgnUpdateStudentCount();
 }
 
-function asgnShowRecipientsSummary() {
-  const el = document.getElementById('asgn-recipients-selected');
+function asgnToggleAll(checked) {
+  const q   = (document.getElementById('asgn-s2-search')?.value || '').toLowerCase();
+  const visible = allStudents.filter(s => {
+    const matchQ   = !q || (s.full_name||'').toLowerCase().includes(q);
+    const matchLvl = !asgnLvlActive || s.level === asgnLvlActive;
+    return matchQ && matchLvl;
+  });
+  if (checked) {
+    visible.forEach(s => {
+      if (!asgnSelectedStudents.find(x => x.id === s.id))
+        asgnSelectedStudents.push({ id: s.id, name: s.full_name });
+    });
+  } else {
+    const visIds = new Set(visible.map(s => s.id));
+    asgnSelectedStudents = asgnSelectedStudents.filter(x => !visIds.has(x.id));
+  }
+  asgnBuildStudentList();
+}
+
+function asgnUpdateStudentCount() {
   const n = asgnSelectedStudents.length;
-  if (!n) { el.style.display='none'; document.getElementById('asgn-s2-next').disabled=true; return; }
-  el.style.display = 'block';
-  el.textContent = '✓ ' + n + ' estudiante' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'') + ': ' + asgnSelectedStudents.map(s=>s.name).join(', ');
-  document.getElementById('asgn-s2-next').disabled = false;
+  const el = document.getElementById('asgn-sel-students-count');
+  if (el) el.textContent = n ? n + ' seleccionado' + (n !== 1 ? 's' : '') : '';
+  document.getElementById('asgn-s2-next').disabled = n === 0;
 }
 
 // STEP 3 — Confirm
 function asgnBuildConfirmSummary() {
   const el = document.getElementById('asgn-confirm-summary');
-  const n = asgnSelectedStudents.length;
+  const ns = asgnSelectedStudents.length;
+  const na = asgnSelectedActs.length;
+  const actList = asgnSelectedActs.map(a =>
+    '<div style="margin:3px 0;padding-left:12px;font-size:13px">· ' + a.title + ' <span style="color:var(--muted);font-size:11px">(' + (a.level||'?') + ' · ' + (a.type||'') + ')</span></div>'
+  ).join('');
   el.innerHTML =
-    '<div style="margin-bottom:8px">📚 <strong>Actividad:</strong> ' + asgnSelectedAct.title + ' <span style="color:var(--muted);font-size:12px">(' + asgnSelectedAct.level + ' · ' + asgnSelectedAct.type + ')</span></div>'
-    + '<div>👥 <strong>Destinatarios:</strong> ' + n + ' estudiante' + (n!==1?'s':'') + '<br>'
+    '<div style="margin-bottom:10px">📚 <strong>' + na + ' actividad' + (na!==1?'es':'') + ':</strong></div>'
+    + actList
+    + '<div style="margin-top:12px">👥 <strong>Destinatarios:</strong> ' + ns + ' estudiante' + (ns!==1?'s':'') + '<br>'
     + '<span style="font-size:12px;color:var(--muted)">' + asgnSelectedStudents.map(s=>s.name).join(', ') + '</span></div>';
 }
 
@@ -3716,25 +3742,38 @@ async function asgnConfirm() {
   const due  = document.getElementById('asgn-due').value;
 
   try {
-    const rows = asgnSelectedStudents.map(s => ({
-      student_id:  s.id,
-      activity_id: asgnSelectedAct.id,
-      teacher_note: note || null,
-      due_date: due || null
-    }));
+    // Build all rows: activity × student, skip already assigned
+    const rows = [];
+    asgnSelectedActs.forEach(act => {
+      asgnSelectedStudents.forEach(s => {
+        const exists = allAssignments.find(a =>
+          a.student_id === s.id && String(a.activity_id) === String(act.id)
+        );
+        if (!exists) rows.push({
+          student_id:   s.id,
+          activity_id:  act.id,
+          teacher_note: note || null,
+          due_date:     due || null
+        });
+      });
+    });
+
+    if (!rows.length) {
+      showToast('Todas estas actividades ya estaban asignadas a esos estudiantes.');
+      btn.disabled = false; btn.textContent = '✓ Asignar ahora';
+      return;
+    }
+
     const { error } = await db.from('assignments').insert(rows);
     if (error) throw error;
 
     const succ = document.getElementById('asgn-success');
     succ.style.display = 'block';
-    succ.textContent = '✓ Actividad asignada a ' + rows.length + ' estudiante' + (rows.length!==1?'s':'') + ' correctamente.';
+    succ.textContent = '✓ ' + rows.length + ' asignación' + (rows.length!==1?'es':'') + ' creada' + (rows.length!==1?'s':'') + ' correctamente.';
     showToast('✓ ' + rows.length + ' asignaciones creadas');
     await loadAll();
 
-    // Reset after 3 seconds
-    setTimeout(() => {
-      asgnReset();
-    }, 3000);
+    setTimeout(() => asgnReset(), 3000);
   } catch(e) {
     console.error(e);
     showToast('Error al asignar: ' + (e.message||e));
@@ -3743,17 +3782,14 @@ async function asgnConfirm() {
 }
 
 function asgnReset() {
-  asgnSelectedAct = null;
+  asgnSelectedActs = [];
   asgnSelectedStudents = [];
-  asgnSelectedLevel = null;
-  asgnMode = 'level';
+  asgnLvlActive = '';
   document.getElementById('asgn-note').value = '';
   document.getElementById('asgn-due').value = '';
   document.getElementById('asgn-success').style.display = 'none';
   document.getElementById('asgn-confirm-btn').disabled = false;
   document.getElementById('asgn-confirm-btn').textContent = '✓ Asignar ahora';
-  document.getElementById('asgn-act-selected').style.display = 'none';
-  document.getElementById('asgn-s1-next').disabled = true;
   asgnGoStep(1);
   asgnFilter();
 }
@@ -3804,13 +3840,27 @@ function renderGrammarCategories() {
 }
 
 function populateGrammarSelects() {
-  // Assign filter dropdown
+  const opts = allGrammarCats.filter(c=>c.active).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+
   const asgnSel = document.getElementById('asgn-gram-filter');
   if (asgnSel) {
     const cur = asgnSel.value;
-    asgnSel.innerHTML = '<option value="">Categoría gram.</option>' +
-      allGrammarCats.filter(c=>c.active).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    asgnSel.innerHTML = '<option value="">Categoría gram.</option>' + opts;
     asgnSel.value = cur;
+  }
+
+  const jsonSel = document.getElementById('json-grammar-cat');
+  if (jsonSel) {
+    const cur = jsonSel.value;
+    jsonSel.innerHTML = '<option value="">— Sin categoría —</option>' + opts;
+    jsonSel.value = cur;
+  }
+
+  const hubSel = document.getElementById('hub-grammar-cat');
+  if (hubSel) {
+    const cur = hubSel.value;
+    hubSel.innerHTML = '<option value="">— Sin categoría —</option>' + opts;
+    hubSel.value = cur;
   }
 }
 
@@ -3864,7 +3914,7 @@ function openDeleteGrammarModal(id, name, actCount) {
     replaceRow.style.display = '';
     replaceNote.textContent = actCount + ' actividad' + (actCount!==1?'es':'') + ' usan esta Categoría. Puedes reasignarlas antes de eliminar.';
     const sel = document.getElementById('gramDelReplaceSel');
-    sel.innerHTML = '<option value="">â€” Sin Categoría â€”</option>' +
+    sel.innerHTML = '<option value=””>— Sin categoría —</option>' +
       allGrammarCats.filter(c=>c.id!==id&&c.active).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   } else {
     replaceRow.style.display = 'none';
