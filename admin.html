@@ -242,7 +242,7 @@ tbody tr:hover td{background:#FDFAF6}
 .save-success.show{display:flex;gap:8px;align-items:center}
 
 /* ── ACTIVITY LIST (admin) ── */
-.act-grid{display:flex;flex-direction:column;gap:7px}
+.act-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
 .tree-level{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden}
 .tree-level-header{padding:9px 13px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;transition:background .15s;user-select:none}
 .tree-level-header:hover{background:var(--sand)}
@@ -548,11 +548,11 @@ tbody tr:hover td{background:#FDFAF6}
         <div id="grading-area"><div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Cargando…</div></div></div>
       </div>
 
-      <!-- ACTIVITIES LIST - TREE NAV -->
+      <!-- ACTIVITIES LIST -->
       <div class="panel" id="panel-activities">
-        <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center">
-          <input class="filter-input" id="f-act-search" placeholder="🔍 Buscar actividad…" oninput="filterActivitiesPanel()" style="flex:1;min-width:180px;max-width:280px">
-          <select class="form-select" id="f-act-level" onchange="filterActivitiesPanel()" style="width:72px">
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+          <input class="filter-input" id="f-act-search" placeholder="🔍 Buscar actividad…" oninput="filterActivitiesPanel()" style="flex:1;min-width:180px">
+          <select class="form-select" id="f-act-level" onchange="filterActivitiesPanel()" style="width:80px">
             <option value="">Nivel</option>
             <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option>
           </select>
@@ -571,33 +571,14 @@ tbody tr:hover td{background:#FDFAF6}
           </select>
           <button class="btn btn-coral btn-sm" onclick="showPanel('creator-hub')">+ Nueva actividad</button>
         </div>
-
-        <!-- TREE NAVIGATION -->
-        <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:start" id="act-tree-layout">
-          <!-- LEFT: Level + Topic tree -->
-          <div>
-            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Navegar por nivel</div>
-            <div id="act-tree"></div>
-          </div>
-          <!-- RIGHT: Activity list -->
-          <div>
-            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px" id="act-list-label">Todas las actividades</div>
-            <div style="margin-bottom:10px">
-  <button type="button" class="btn btn-danger btn-sm hidden" id="bulk-delete-btn" onclick="bulkDeleteActivities()">
-    Eliminar seleccionadas
-  </button>
-</div>
-            <div class="act-grid" id="activities-grid">
-              <div class="empty"><div class="empty-icon">📚</div><div class="empty-text">Cargando…</div></div>
-            </div>
-          </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px" id="act-list-label">Todas las actividades</div>
+        <div class="act-grid" id="activities-grid">
+          <div class="empty"><div class="empty-icon">📚</div><div class="empty-text">Cargando…</div></div>
         </div>
-
-        <!-- SEARCH RESULTS (hidden by default) -->
-        <div id="act-search-results" style="display:none">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px" id="search-label">Resultados</div>
-          <div class="act-grid" id="search-grid"></div>
-        </div>
+        <!-- hidden tree anchors kept for JS compatibility -->
+        <div id="act-tree" style="display:none"></div>
+        <div id="act-tree-layout" style="display:none"></div>
+        <div id="act-search-results" style="display:none"><div class="act-grid" id="search-grid"></div></div>
       </div>
 
       <!-- LIBRARY -->
@@ -1798,6 +1779,11 @@ function filterActivitiesPanel(){
     (!typ || a.type === typ) &&
     (!gram|| String(a.grammar_category_id) === gram)
   );
+  const lbl = document.getElementById('act-list-label');
+  const isFiltered = q || lvl || typ || gram;
+  if (lbl) lbl.textContent = isFiltered
+    ? `${results.length} resultado${results.length !== 1 ? 's' : ''}`
+    : `${allActivities.length} actividad${allActivities.length !== 1 ? 'es' : ''}`;
   renderActivitiesGrid(results);
 }
 function normalizeActivityId_(id){
