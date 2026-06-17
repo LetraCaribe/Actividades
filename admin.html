@@ -153,7 +153,7 @@ tbody tr:hover td{background:#FDFAF6}
 .modal-close{font-size:22px;background:none;border:none;cursor:pointer;color:var(--muted);line-height:1}
 .modal-body{padding:18px 22px 22px}
 .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:white;position:sticky;bottom:0}
-.form-select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:white;outline:none;cursor:pointer}
+.form-select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:white;outline:none;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .form-textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:white;outline:none;resize:none;line-height:1.5}
 .hub-tab{padding:8px 16px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--white);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);color:var(--muted);transition:all .15s}
 .hub-tab:hover{border-color:var(--orange);color:var(--orange-dk)}
@@ -3916,12 +3916,14 @@ function renderGrammarCategories() {
 }
 
 function populateGrammarSelects() {
+  const truncate = (s, n) => s.length > n ? s.substring(0, n-1) + '…' : s;
+  const optsShort = allGrammarCats.filter(c=>c.active).map(c=>`<option value="${c.id}">${truncate(c.name,16)}</option>`).join('');
   const opts = allGrammarCats.filter(c=>c.active).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 
   const asgnSel = document.getElementById('asgn-gram-filter');
   if (asgnSel) {
     const cur = asgnSel.value;
-    asgnSel.innerHTML = '<option value="">Categoría gram.</option>' + opts;
+    asgnSel.innerHTML = '<option value="">Categoría gram.</option>' + optsShort;
     asgnSel.value = cur;
   }
 
@@ -3942,7 +3944,7 @@ function populateGrammarSelects() {
   const actGramSel = document.getElementById('f-act-gram');
   if (actGramSel) {
     const cur = actGramSel.value;
-    actGramSel.innerHTML = '<option value="">Categoría</option>' + opts;
+    actGramSel.innerHTML = '<option value="">Categoría</option>' + optsShort;
     actGramSel.value = cur;
   }
 }
@@ -3970,7 +3972,9 @@ async function saveGrammarCategory() {
   try {
     if (id) {
       await db.from('grammar_categories').update({ name }).eq('id', id);
-      await db.from('activities').update({ grammar_category_name: name }).eq('grammar_category_id', id);
+      await db.from('activities').update({ grammar_category_name: name }).eq('grammar_category_id', Number(id));
+      allActivities.forEach(a => { if (String(a.grammar_category_id) === String(id)) a.grammar_category_name = name; });
+      renderActivitiesGrid();
       showToast('Categoría actualizada');
     } else {
       await db.from('grammar_categories').insert({ name, active: true });
