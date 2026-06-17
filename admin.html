@@ -179,9 +179,10 @@ tbody tr:hover td{background:#FDFAF6}
 .asgn-mode-btn.active{border-color:var(--orange);background:var(--orange-lt)}
 
 /* ASSIGN ACTIVITY CARDS */
-.asgn-act-card{padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;background:var(--white)}
-.asgn-act-card:hover{border-color:var(--orange);background:var(--orange-lt)}
-.asgn-act-card.selected{border-color:var(--orange);background:var(--orange-lt)}
+.asgn-act-card{padding:11px 14px;border:1px solid var(--border);border-radius:var(--r-lg);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px;background:var(--white)}
+.asgn-act-card:hover{border-color:var(--coral);box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.asgn-act-card.selected{border-color:var(--coral);background:var(--coral-lt)}
+.asgn-act-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:7px;align-content:start}
 .asgn-level-btn{padding:8px 18px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--white);cursor:pointer;font-size:13px;font-weight:600;font-family:var(--sans);transition:all .15s;text-align:center}
 .asgn-level-btn:hover{border-color:var(--orange);background:var(--orange-lt)}
 .asgn-level-btn.selected{border-color:var(--orange);background:var(--orange);color:white}
@@ -242,7 +243,7 @@ tbody tr:hover td{background:#FDFAF6}
 .save-success.show{display:flex;gap:8px;align-items:center}
 
 /* ── ACTIVITY LIST (admin) ── */
-.act-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.act-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;align-content:start}
 .tree-level{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden}
 .tree-level-header{padding:9px 13px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;transition:background .15s;user-select:none}
 .tree-level-header:hover{background:var(--sand)}
@@ -421,7 +422,7 @@ tbody tr:hover td{background:#FDFAF6}
           </div>
 
           <!-- Activity results -->
-          <div id="asgn-act-results" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+          <div id="asgn-act-results" style="max-height:360px;overflow-y:auto" class="asgn-act-grid"></div>
 
           <!-- Selected activities chips -->
           <div id="asgn-act-selected" style="display:none;margin-top:12px">
@@ -3616,13 +3617,22 @@ function asgnFilter() {
 
   results.slice(0, 40).forEach(a => {
     const isSelected = asgnSelectedActs.some(x => x.id === a.id);
+    const ic = (typeof ACTIVITY_ICONS !== 'undefined' && ACTIVITY_ICONS[a.type]) || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
+    const catCode = a.grammar_category_code || (a.grammar_category_name ? a.grammar_category_name.substring(0,4).toUpperCase() : '');
     const div = document.createElement('div');
     div.className = 'asgn-act-card' + (isSelected ? ' selected' : '');
     div.innerHTML =
-      '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' style="width:15px;height:15px;flex-shrink:0;cursor:pointer;accent-color:var(--coral)">'
-      + '<span class="act-search-level">' + (a.level||'?') + '</span>'
-      + '<div style="flex:1"><div style="font-size:13px;font-weight:600">' + (a.title||'—') + '</div>'
-      + '<div style="font-size:11px;color:var(--muted)">' + (a.type||'') + (a.description ? ' · ' + a.description : '') + (a.grammar_category_name ? ' · ' + a.grammar_category_name : '') + '</div></div>';
+      '<div style="width:36px;height:36px;border-radius:9px;background:' + ic.bg + ';display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      + '<i class="ti ' + ic.icon + '" style="font-size:17px;color:' + ic.color + '"></i></div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (a.title||'—') + '</div>'
+      + '<div style="display:flex;gap:5px;margin-top:4px;align-items:center">'
+      + '<span style="font-size:11px;background:#E6F1FB;color:#185FA5;padding:1px 6px;border-radius:20px;font-weight:500">' + (a.level||'A1') + '</span>'
+      + (catCode ? '<span style="font-size:11px;background:#EEEDFE;color:#534AB7;padding:1px 6px;border-radius:20px;font-weight:500">' + catCode + '</span>' : '')
+      + '</div></div>'
+      + '<div style="width:18px;height:18px;border-radius:50%;border:2px solid ' + (isSelected ? 'var(--coral)' : 'var(--border)') + ';background:' + (isSelected ? 'var(--coral)' : 'transparent') + ';flex-shrink:0;display:flex;align-items:center;justify-content:center">'
+      + (isSelected ? '<i class="ti ti-check" style="font-size:10px;color:white"></i>' : '')
+      + '</div>';
     div.addEventListener('click', () => asgnToggleAct(a));
     container.appendChild(div);
   });
@@ -3960,6 +3970,7 @@ async function saveGrammarCategory() {
   try {
     if (id) {
       await db.from('grammar_categories').update({ name }).eq('id', id);
+      await db.from('activities').update({ grammar_category_name: name }).eq('grammar_category_id', id);
       showToast('Categoría actualizada');
     } else {
       await db.from('grammar_categories').insert({ name, active: true });
