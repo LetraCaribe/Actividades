@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Letra Caribe — Portal de Estudiantes v2.0</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -107,12 +108,36 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .act-card:hover{border-color:var(--orange);box-shadow:var(--shadow);transform:translateY(-1px)}
 .act-card.done-card{border-color:#B7DFC4;background:#F6FBF8;cursor:default}
 .act-card.done-card:hover{transform:none;box-shadow:none}
-.act-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.act-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:19px}
 .act-info{flex:1;min-width:0}
 .act-name{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:3px}
-.act-meta{font-size:12px;color:var(--muted)}
+.act-meta{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.act-due{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:3px;margin-top:3px}
 .act-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
 .act-arrow{font-size:18px;color:var(--border)}
+/* PROGRESS BAR */
+.player-progress{padding:0 22px 12px;background:var(--white)}
+.progress-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:var(--orange);border-radius:3px;transition:width .3s}
+.progress-label{font-size:11px;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between}
+
+/* RESULTS SCREEN */
+.results-screen{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:32px 24px;text-align:center;position:relative;overflow:hidden}
+.results-screen.show{display:flex}
+.results-emoji{font-size:52px;margin-bottom:12px;animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
+.results-title{font-family:var(--serif);font-size:22px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.results-sub{font-size:14px;color:var(--muted);margin-bottom:20px}
+.results-score{font-size:38px;font-weight:700;color:var(--orange);font-family:var(--serif);margin-bottom:4px}
+.results-score-lbl{font-size:12px;color:var(--muted);margin-bottom:24px}
+.results-note-wrap{width:100%;max-width:400px;margin-bottom:20px;text-align:left}
+.results-note-lbl{font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+.results-note{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:var(--bg);resize:none;outline:none;transition:border .15s}
+.results-note:focus{border-color:var(--orange)}
+.results-note-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.results-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.confetti-canvas{position:absolute;inset:0;pointer-events:none;z-index:0}
+.results-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%}
+@keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
 
 /* ACTIVITY PLAYER */
 .player-overlay{display:none;position:fixed;inset:0;background:rgba(28,26,23,.6);z-index:200;align-items:center;justify-content:center;padding:16px}
@@ -470,6 +495,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
       </div>
       <button class="player-close" onclick="closePlayer()">×</button>
     </div>
+    <div class="player-progress" id="player-progress" style="display:none">
+      <div class="progress-label">
+        <span id="progress-text">Pregunta 1 de 1</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
     <div class="player-body" id="player-body">
       <div class="player-split">
         <div class="player-left" id="player-left" style="display:none"></div>
@@ -479,6 +511,26 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
     <div class="player-footer">
       <div class="score-display">Respuestas: <strong id="player-score">0/0</strong></div>
       <button class="btn-submit" id="btn-submit" onclick="submitActivity()">Enviar respuestas ✓</button>
+    </div>
+    <!-- RESULTS SCREEN -->
+    <div class="results-screen" id="results-screen">
+      <canvas class="confetti-canvas" id="confetti-canvas"></canvas>
+      <div class="results-content">
+        <div class="results-emoji" id="results-emoji">🎉</div>
+        <div class="results-title" id="results-title">¡Actividad completada!</div>
+        <div class="results-sub" id="results-sub">¡Buen trabajo! Sigue así.</div>
+        <div class="results-score" id="results-score">—</div>
+        <div class="results-score-lbl" id="results-score-lbl"></div>
+        <div class="results-note-wrap">
+          <div class="results-note-lbl">¿Algún comentario para tu profesor? <span style="font-weight:400;color:var(--muted)">(opcional)</span></div>
+          <textarea class="results-note" id="results-note" rows="3" placeholder="Escribe aquí si tuviste alguna duda, algo difícil, o lo que quieras compartir…"></textarea>
+          <div class="results-note-hint">Tu profesor podrá ver este mensaje junto con tu entrega.</div>
+        </div>
+        <div class="results-actions">
+          <button class="btn-primary btn" onclick="saveNoteAndClose()">Guardar y cerrar</button>
+          <button class="btn-outline btn" onclick="closePlayer()">Cerrar sin comentario</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -595,6 +647,165 @@ let currentActivity = null;
 let currentAssignmentId = null;
 let playerAnswers = {};
 let playerScore = 0;
+let playerTotalQ = 0;
+let playerAnsweredQ = 0;
+let confettiAnimFrame = null;
+
+// ── CONFETI TEMAS ──
+// Para añadir un tema nuevo: copia un objeto y añádelo al array CONFETTI_THEMES
+// Campos: id, label, particles(canvas, count) → array de objetos con propiedades de dibujo
+const CONFETTI_THEMES = [
+  {
+    id: 'confetti',
+    label: 'Confeti',
+    // devuelve array de partículas iniciales
+    make: (w, h, n) => Array.from({length: n}, () => ({
+      x: Math.random() * w, y: Math.random() * h - h,
+      r: 4 + Math.random() * 6, d: Math.random() * n,
+      color: ['#E8670A','#534AB7','#1A7A2A','#C41E1E','#7AB010','#185FA5','#FFD700'][Math.floor(Math.random()*7)],
+      tilt: Math.random()*10-10, tiltAngle:0, tiltSpeed: 0.1+Math.random()*0.1,
+      shape: Math.random() > 0.5 ? 'rect' : 'circle'
+    })),
+    draw: (ctx, p) => {
+      ctx.beginPath(); ctx.fillStyle = p.color;
+      if (p.shape === 'circle') { ctx.arc(p.x, p.y, p.r, 0, 2*Math.PI); }
+      else { ctx.rect(p.x, p.y - p.r, p.r*2, p.r*0.6); }
+      ctx.fill();
+    },
+    update: (p, w, h) => {
+      p.tiltAngle += p.tiltSpeed; p.tilt = Math.sin(p.tiltAngle) * 12;
+      p.y += (Math.cos(p.d) + 2 + p.r/8); p.x += Math.sin(p.d) * 1.5;
+      if (p.y > h) { p.y = -10; p.x = Math.random() * w; }
+    }
+  },
+  {
+    id: 'snow',
+    label: 'Nieve ❄️',
+    make: (w, h, n) => Array.from({length: n}, () => ({
+      x: Math.random()*w, y: Math.random()*h - h,
+      r: 2+Math.random()*5, d: Math.random()*n, speed: 0.5+Math.random()*1.5
+    })),
+    draw: (ctx, p) => {
+      ctx.beginPath(); ctx.fillStyle = 'rgba(200,230,255,0.9)';
+      ctx.arc(p.x, p.y, p.r, 0, 2*Math.PI); ctx.fill();
+    },
+    update: (p, w, h) => {
+      p.y += p.speed; p.x += Math.sin(p.d) * 0.5; p.d += 0.01;
+      if (p.y > h) { p.y = -10; p.x = Math.random()*w; }
+    }
+  },
+  {
+    id: 'flowers',
+    label: 'Flores 🌸',
+    make: (w, h, n) => Array.from({length: n}, () => ({
+      x: Math.random()*w, y: Math.random()*h - h,
+      r: 5+Math.random()*7, d: Math.random()*n, rot: Math.random()*Math.PI*2,
+      color: ['#FFB7C5','#FF69B4','#FFD700','#FFA07A','#DDA0DD'][Math.floor(Math.random()*5)]
+    })),
+    draw: (ctx, p) => {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.font = `${p.r*2}px serif`; ctx.fillText('🌸', -p.r, p.r); ctx.restore();
+    },
+    update: (p, w, h) => {
+      p.y += 1+Math.random(); p.x += Math.sin(p.d)*0.8; p.rot += 0.02; p.d += 0.01;
+      if (p.y > h) { p.y = -10; p.x = Math.random()*w; }
+    }
+  },
+  {
+    id: 'balloons',
+    label: 'Globos 🎈',
+    make: (w, h, n) => Array.from({length: Math.floor(n/3)}, () => ({
+      x: Math.random()*w, y: h + Math.random()*100,
+      r: 14+Math.random()*10, d: Math.random()*6.28,
+      color: ['#E8670A','#534AB7','#C41E1E','#1A7A2A','#FFD700'][Math.floor(Math.random()*5)]
+    })),
+    draw: (ctx, p) => {
+      ctx.beginPath(); ctx.fillStyle = p.color+'cc';
+      ctx.arc(p.x, p.y, p.r, 0, 2*Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.strokeStyle = p.color; ctx.lineWidth=1;
+      ctx.moveTo(p.x, p.y+p.r); ctx.lineTo(p.x+Math.sin(p.d)*10, p.y+p.r+20); ctx.stroke();
+    },
+    update: (p, w, h) => {
+      p.y -= 1+Math.random()*0.5; p.x += Math.sin(p.d)*0.5; p.d += 0.02;
+      if (p.y < -p.r*2) { p.y = h+p.r; p.x = Math.random()*w; }
+    }
+  }
+];
+
+function getSeasonThemeId() {
+  const m = new Date().getMonth(); // 0=ene
+  if (m === 11 || m === 0) return 'snow';       // dic-ene
+  if (m >= 2 && m <= 4) return 'flowers';       // mar-may
+  return 'confetti';
+}
+
+function launchConfetti(themeId) {
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  const w = canvas.width, h = canvas.height;
+  const theme = CONFETTI_THEMES.find(t => t.id === themeId) || CONFETTI_THEMES[0];
+  const particles = theme.make(w, h, 120);
+  let frames = 0;
+  if (confettiAnimFrame) cancelAnimationFrame(confettiAnimFrame);
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    particles.forEach(p => { theme.draw(ctx, p); theme.update(p, w, h); });
+    frames++;
+    if (frames < 360) confettiAnimFrame = requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, w, h);
+  }
+  draw();
+}
+
+function showResultsScreen(correct, total) {
+  const themeId = getSeasonThemeId();
+  const pct = total > 0 ? Math.round((correct/total)*100) : null;
+  const screen = document.getElementById('results-screen');
+  const playerBody = document.getElementById('player-body');
+  const playerFooter = document.querySelector('.player-footer');
+  const progEl = document.getElementById('player-progress');
+
+  // Ocultar player, mostrar resultados
+  if (playerBody) playerBody.style.display = 'none';
+  if (playerFooter) playerFooter.style.display = 'none';
+  if (progEl) progEl.style.display = 'none';
+  screen.classList.add('show');
+
+  // Mensaje según puntuación
+  let emoji = '🎉', title = '¡Actividad completada!', sub = '¡Buen trabajo! Sigue así.';
+  if (pct !== null) {
+    if (pct === 100) { emoji = '🏆'; title = '¡Perfecto!'; sub = '¡Todas las respuestas correctas!'; }
+    else if (pct >= 80) { emoji = '⭐'; title = '¡Excelente!'; sub = 'Casi perfecto, ¡muy bien!'; }
+    else if (pct >= 60) { emoji = '👍'; title = '¡Buen trabajo!'; sub = 'Sigue practicando para mejorar.'; }
+    else { emoji = '💪'; title = '¡Sigue intentando!'; sub = 'Cada práctica te hace mejor.'; }
+  }
+  document.getElementById('results-emoji').textContent = emoji;
+  document.getElementById('results-title').textContent = title;
+  document.getElementById('results-sub').textContent = sub;
+  document.getElementById('results-score').textContent = pct !== null ? pct + '%' : '✓';
+  document.getElementById('results-score-lbl').textContent = pct !== null ? `${correct} de ${total} correctas` : 'Actividad enviada';
+  document.getElementById('results-note').value = '';
+
+  // Tamaño canvas y confeti
+  setTimeout(() => {
+    const canvas = document.getElementById('confetti-canvas');
+    if (canvas) { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+    launchConfetti(themeId);
+  }, 50);
+}
+
+async function saveNoteAndClose() {
+  const note = (document.getElementById('results-note')?.value || '').trim();
+  if (note && currentAssignmentId) {
+    try {
+      await db.from('assignments').update({ student_note: note }).eq('id', currentAssignmentId);
+    } catch(e) { console.warn('No se pudo guardar la nota:', e); }
+  }
+  closePlayer();
+}
 
 // ══ GREETINGS ══
 const GREETINGS = [
@@ -761,7 +972,15 @@ async function loadAssignments() {
   renderActList('all-acts', allAssignments);
 }
 
-const ACT_COLORS = ['#E8670A','#1A7A2A','#C49A2A','#7B2D8B','#1E6B72','#C41E1E'];
+const ACT_ICONS_S = {
+  'fill-blank': { icon: 'ti-pencil',        bg: '#E6F1FB', color: '#185FA5' },
+  'mc':         { icon: 'ti-list-check',     bg: '#EEEDFE', color: '#534AB7' },
+  'audio':      { icon: 'ti-headphones',     bg: '#E1F5EE', color: '#0F6E56' },
+  'reading':    { icon: 'ti-book-2',         bg: '#FAECE7', color: '#993C1D' },
+  'match':      { icon: 'ti-arrows-shuffle', bg: '#FBEAF0', color: '#993556' },
+  'drag-drop':  { icon: 'ti-hand-move',      bg: '#FAEEDA', color: '#854F0B' },
+  'mixed':      { icon: 'ti-layout-grid',    bg: '#EAF3DE', color: '#3B6D11' },
+};
 
 function renderActList(containerId, rows) {
   const el = document.getElementById(containerId);
@@ -769,21 +988,24 @@ function renderActList(containerId, rows) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">Tu profesor aún no ha asignado actividades.</div></div>';
     return;
   }
-  const ACT_COLORS_L = ['#E8670A','#1A7A2A','#C49A2A','#7B2D8B','#1E6B72','#C41E1E'];
   el.innerHTML = '';
-  rows.forEach((a, i) => {
+  rows.forEach((a) => {
     const act = a.activities || {};
     const done = !!a.completed;
-    const color = ACT_COLORS_L[i % ACT_COLORS_L.length];
+    const ic = ACT_ICONS_S[act.type] || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
+    const dueHtml = a.due_date
+      ? '<div class="act-due"><i class="ti ti-calendar-due" style="font-size:11px"></i>' + new Date(a.due_date).toLocaleDateString('es-CO',{day:'numeric',month:'short'}) + '</div>'
+      : '';
     const div = document.createElement('div');
     div.className = 'act-card' + (done ? ' done-card' : '');
     div.innerHTML =
-      '<div class="act-dot" style="background:' + color + '"></div>'
+      '<div class="act-icon" style="background:' + ic.bg + '"><i class="ti ' + ic.icon + '" style="color:' + ic.color + ';font-size:19px"></i></div>'
       + '<div class="act-info">'
       + '<div class="act-name">' + (act.title||'Actividad') + '</div>'
-      + '<div class="act-meta">' + (act.level||'A1') + ' · ' + (act.description||'') + '</div>'
+      + '<div class="act-meta"><span style="background:#E6F1FB;color:#185FA5;font-size:10px;font-weight:600;padding:1px 6px;border-radius:20px">' + (act.level||'A1') + '</span>'
+      + (act.description ? '<span>' + act.description + '</span>' : '') + '</div>'
+      + dueHtml
       + '</div>'
-      + '<span class="act-badge" style="background:' + color + '22;color:' + color + '">' + (act.level||'A1') + '</span>'
       + (done
         ? '<span class="act-badge" style="background:#D1F0DC;color:var(--green)">✓ Hecha</span>'
         : '<span class="act-badge" style="background:var(--orange-lt);color:var(--orange)">Pendiente</span>'
@@ -807,6 +1029,8 @@ async function openActivity(assignmentId) {
   currentAssignmentId = assignmentId;
   playerAnswers = {};
   playerScore = 0;
+  playerTotalQ = 0;
+  playerAnsweredQ = 0;
   audioRepeat = false;
   // Always reset submit button when opening
   const submitBtn = document.getElementById('btn-submit');
@@ -864,6 +1088,32 @@ async function openActivity(assignmentId) {
   } else {
     rightHtml.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">Tipo no disponible.</div></div>';
   }
+  // Count total answerable questions for progress bar
+  let _total = 0;
+  if (type === 'fill-blank' || type === 'dropdown') {
+    _total = (actContent.sentences||[]).filter(s=>s.hasBlank||s.blanks?.length).reduce((n,s)=>(s.blanks||[{answer:s.answer}]).length+n,0) || (actContent.sentences||[]).length;
+  } else if (type === 'mc') {
+    _total = (actContent.questions||[]).length;
+  } else if (type === 'reading') {
+    _total = (actContent.questions||[]).length;
+  } else if (type === 'audio') {
+    const sub = actContent.audioType || actContent.subtype || '';
+    _total = sub==='truefalse' ? (actContent.statements||[]).length : sub==='order' ? (actContent.events||[]).length : (actContent.questions||[]).length || 1;
+  } else if (type === 'match') {
+    _total = (actContent.pairs||[]).length;
+  } else if (type === 'drag-drop') {
+    _total = (actContent.sentences||[]).filter(s=>s.hasBlank).length;
+  } else if (type === 'mixed') {
+    (actContent.sections||[]).forEach(sec => {
+      if (sec.type==='mc'||sec.type==='truefalse') _total += (sec.questions||[]).length;
+      else if (sec.type==='fill-blank') _total += (sec.sentences||[]).filter(s=>s.hasBlank||s.blanks?.length).length;
+    });
+  }
+  playerTotalQ = _total || 0;
+  playerAnsweredQ = 0;
+  const progEl = document.getElementById('player-progress');
+  if (progEl) progEl.style.display = playerTotalQ > 0 ? 'block' : 'none';
+  updateProgressBar();
   document.getElementById('playerOverlay').classList.add('open');
   updatePlayerScore();
 }
@@ -1181,6 +1431,18 @@ function answerMCMixed(pfx, qi, oi, correct) {
   updatePlayerScore();
 }
 
+function updateProgressBar() {
+  if (!playerTotalQ) return;
+  playerAnsweredQ = Object.keys(playerAnswers).length;
+  const pct = Math.round((playerAnsweredQ / playerTotalQ) * 100);
+  const fill = document.getElementById('progress-fill');
+  const text = document.getElementById('progress-text');
+  const pctEl = document.getElementById('progress-pct');
+  if (fill) fill.style.width = pct + '%';
+  if (text) text.textContent = 'Pregunta ' + Math.min(playerAnsweredQ + 1, playerTotalQ) + ' de ' + playerTotalQ;
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+
 function updatePlayerScore() {
   if (!currentActivity) return;
   let actContent = {};
@@ -1254,6 +1516,7 @@ function updatePlayerScore() {
   }
 
   document.getElementById('player-score').textContent = correct + '/' + (total || '?');
+  updateProgressBar();
 }
 
 async function submitActivity() {
@@ -1385,8 +1648,8 @@ async function submitActivity() {
     const newScore = (currentProfile?.score || 0) + (mcCorrect * 10);
     await db.from('profiles').update({ score: newScore }).eq('id', currentUser.id);
     currentProfile.score = newScore;
-    showToast('✓ Actividad enviada. ¡Buen trabajo!');
-    closePlayer();
+    const correct = Object.values(playerAnswers).filter(a => a?.correct).length;
+    showResultsScreen(correct, playerTotalQ);
     await loadAssignments();
     await loadLeaderboard();
   } catch(e) {
@@ -1400,6 +1663,17 @@ function closePlayer() {
   document.getElementById('playerOverlay').classList.remove('open');
   currentActivity = null; currentAssignmentId = null;
   playerAnswers = {}; playerScore = 0;
+  playerTotalQ = 0; playerAnsweredQ = 0;
+  if (confettiAnimFrame) { cancelAnimationFrame(confettiAnimFrame); confettiAnimFrame = null; }
+  const progEl = document.getElementById('player-progress');
+  if (progEl) progEl.style.display = 'none';
+  // Restaurar player body y footer, ocultar resultados
+  const screen = document.getElementById('results-screen');
+  const playerBody = document.getElementById('player-body');
+  const playerFooter = document.querySelector('.player-footer');
+  if (screen) screen.classList.remove('show');
+  if (playerBody) playerBody.style.display = '';
+  if (playerFooter) playerFooter.style.display = '';
 }
 function closePlayerOutside(e) { if (e.target === document.getElementById('playerOverlay')) closePlayer(); }
 
