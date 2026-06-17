@@ -122,21 +122,24 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .progress-label{font-size:11px;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between}
 
 /* RESULTS SCREEN */
-.results-screen{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:32px 24px;text-align:center;position:relative;overflow:hidden}
-.results-screen.show{display:flex}
-.results-emoji{font-size:52px;margin-bottom:12px;animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
-.results-title{font-family:var(--serif);font-size:22px;font-weight:700;color:var(--ink);margin-bottom:6px}
-.results-sub{font-size:14px;color:var(--muted);margin-bottom:20px}
-.results-score{font-size:38px;font-weight:700;color:var(--orange);font-family:var(--serif);margin-bottom:4px}
-.results-score-lbl{font-size:12px;color:var(--muted);margin-bottom:24px}
-.results-note-wrap{width:100%;max-width:400px;margin-bottom:20px;text-align:left}
+.results-overlay{display:none;position:fixed;inset:0;z-index:300;align-items:center;justify-content:center;padding:16px;background:rgba(28,26,23,.55)}
+.results-overlay.show{display:flex}
+.confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:299}
+.results-card{background:var(--white);border-radius:var(--r-lg);max-width:480px;width:100%;padding:36px 32px;box-shadow:0 8px 40px rgba(28,26,23,.18);display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;z-index:301}
+.results-emoji{font-size:54px;margin-bottom:14px;animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
+.results-score-ring{width:96px;height:96px;border-radius:50%;background:var(--orange-lt);border:3px solid var(--orange);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:16px}
+.results-score{font-size:28px;font-weight:700;color:var(--orange);font-family:var(--serif);line-height:1}
+.results-score-lbl{font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.results-title{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:5px}
+.results-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+.results-divider{width:100%;height:1px;background:var(--border);margin-bottom:20px}
+.results-note-wrap{width:100%;margin-bottom:20px;text-align:left}
 .results-note-lbl{font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
 .results-note{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:var(--bg);resize:none;outline:none;transition:border .15s}
 .results-note:focus{border-color:var(--orange)}
 .results-note-hint{font-size:11px;color:var(--muted);margin-top:4px}
-.results-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-.confetti-canvas{position:absolute;inset:0;pointer-events:none;z-index:0}
-.results-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%}
+.results-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%}
+.results-actions .btn-primary{flex:1}
 @keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
 
 /* ACTIVITY PLAYER */
@@ -512,25 +515,31 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
       <div class="score-display">Respuestas: <strong id="player-score">0/0</strong></div>
       <button class="btn-submit" id="btn-submit" onclick="submitActivity()">Enviar respuestas ✓</button>
     </div>
-    <!-- RESULTS SCREEN -->
-    <div class="results-screen" id="results-screen">
-      <canvas class="confetti-canvas" id="confetti-canvas"></canvas>
-      <div class="results-content">
-        <div class="results-emoji" id="results-emoji">🎉</div>
-        <div class="results-title" id="results-title">¡Actividad completada!</div>
-        <div class="results-sub" id="results-sub">¡Buen trabajo! Sigue así.</div>
-        <div class="results-score" id="results-score">—</div>
-        <div class="results-score-lbl" id="results-score-lbl"></div>
-        <div class="results-note-wrap">
-          <div class="results-note-lbl">¿Algún comentario para tu profesor? <span style="font-weight:400;color:var(--muted)">(opcional)</span></div>
-          <textarea class="results-note" id="results-note" rows="3" placeholder="Escribe aquí si tuviste alguna duda, algo difícil, o lo que quieras compartir…"></textarea>
-          <div class="results-note-hint">Tu profesor podrá ver este mensaje junto con tu entrega.</div>
-        </div>
-        <div class="results-actions">
-          <button class="btn-primary btn" onclick="saveNoteAndClose()">Guardar y cerrar</button>
-          <button class="btn-outline btn" onclick="closePlayer()">Cerrar sin comentario</button>
-        </div>
-      </div>
+  </div>
+</div>
+
+<!-- CONFETI (pantalla completa) -->
+<canvas class="confetti-canvas" id="confetti-canvas"></canvas>
+
+<!-- PANTALLA DE RESULTADOS -->
+<div class="results-overlay" id="results-overlay">
+  <div class="results-card">
+    <div class="results-emoji" id="results-emoji">🎉</div>
+    <div class="results-score-ring">
+      <div class="results-score" id="results-score">—</div>
+      <div class="results-score-lbl" id="results-score-lbl">score</div>
+    </div>
+    <div class="results-title" id="results-title">¡Actividad completada!</div>
+    <div class="results-sub" id="results-sub">¡Buen trabajo! Sigue así.</div>
+    <div class="results-divider"></div>
+    <div class="results-note-wrap">
+      <div class="results-note-lbl">¿Algún comentario para tu profesor? <span style="font-weight:400;color:var(--muted)">(opcional)</span></div>
+      <textarea class="results-note" id="results-note" rows="3" placeholder="Escribe aquí si tuviste alguna duda, algo que te pareció difícil, o lo que quieras compartir…"></textarea>
+      <div class="results-note-hint">Tu profesor verá este mensaje junto con tu entrega.</div>
+    </div>
+    <div class="results-actions">
+      <button class="btn-primary btn" onclick="saveNoteAndClose()">Guardar y cerrar</button>
+      <button class="btn-outline btn" onclick="closePlayer()">Cerrar</button>
     </div>
   </div>
 </div>
@@ -763,16 +772,11 @@ function launchConfetti(themeId) {
 function showResultsScreen(correct, total) {
   const themeId = getSeasonThemeId();
   const pct = total > 0 ? Math.round((correct/total)*100) : null;
-  const screen = document.getElementById('results-screen');
-  const playerBody = document.getElementById('player-body');
-  const playerFooter = document.querySelector('.player-footer');
-  const progEl = document.getElementById('player-progress');
+  const overlay = document.getElementById('results-overlay');
 
-  // Ocultar player, mostrar resultados
-  if (playerBody) playerBody.style.display = 'none';
-  if (playerFooter) playerFooter.style.display = 'none';
-  if (progEl) progEl.style.display = 'none';
-  screen.classList.add('show');
+  // Cerrar player, mostrar pantalla de resultados encima
+  document.getElementById('playerOverlay').classList.remove('open');
+  overlay.classList.add('show');
 
   // Mensaje según puntuación
   let emoji = '🎉', title = '¡Actividad completada!', sub = '¡Buen trabajo! Sigue así.';
@@ -1667,13 +1671,10 @@ function closePlayer() {
   if (confettiAnimFrame) { cancelAnimationFrame(confettiAnimFrame); confettiAnimFrame = null; }
   const progEl = document.getElementById('player-progress');
   if (progEl) progEl.style.display = 'none';
-  // Restaurar player body y footer, ocultar resultados
-  const screen = document.getElementById('results-screen');
-  const playerBody = document.getElementById('player-body');
-  const playerFooter = document.querySelector('.player-footer');
-  if (screen) screen.classList.remove('show');
-  if (playerBody) playerBody.style.display = '';
-  if (playerFooter) playerFooter.style.display = '';
+  const overlay = document.getElementById('results-overlay');
+  if (overlay) overlay.classList.remove('show');
+  const canvas = document.getElementById('confetti-canvas');
+  if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
 }
 function closePlayerOutside(e) { if (e.target === document.getElementById('playerOverlay')) closePlayer(); }
 
