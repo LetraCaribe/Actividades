@@ -297,6 +297,7 @@ tbody tr:hover td{background:#FDFAF6}
     <button class="sb-item" id="sb-activities" onclick="showPanel('activities')"><span class="si">📚</span> Actividades</button>
     <button class="sb-item" id="sb-creator-hub" onclick="showPanel('creator-hub')"><span class="si">➕</span> Crear actividad</button>
     <button class="sb-item" id="sb-library" onclick="showPanel('library')"><span class="si">🗂️</span> Biblioteca</button>
+    <button class="sb-item" id="sb-grammar" onclick="showPanel('grammar')"><span class="si">🏷️</span> Categorías</button>
     <div class="sb-section">Exportar</div>
     <button class="sb-item" onclick="exportExcel()"><span class="si">📥</span> Descargar Excel</button>
     <div class="sb-bottom">
@@ -405,6 +406,9 @@ tbody tr:hover td{background:#FDFAF6}
               <option value="match">Emparejar</option>
               <option value="drag-drop">Drag & Drop</option>
               <option value="mc">Opción múltiple</option>
+            </select>
+            <select class="form-select" id="asgn-gram-filter" onchange="asgnFilter()" style="width:150px">
+              <option value="">Categoría gram.</option>
             </select>
           </div>
 
@@ -605,6 +609,24 @@ tbody tr:hover td{background:#FDFAF6}
         </div>
       </div>
 
+      <!-- GRAMMAR CATEGORIES -->
+      <div class="panel" id="panel-grammar">
+        <div style="display:flex;gap:10px;margin-bottom:18px;align-items:center">
+          <div style="font-size:14px;font-weight:600;flex:1">Categorías gramaticales</div>
+          <button class="btn btn-coral btn-sm" onclick="openAddGrammarModal()">+ Nueva categoría</button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Categorías</div>
+            <span class="card-sub" id="grammar-count">—</span>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Nombre</th><th>Estado</th><th>Actividades</th><th></th></tr></thead>
+            <tbody id="grammar-tbody"><tr class="loading-row"><td colspan="4">Cargando…</td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
       <!-- ACTIVITY CREATOR -->
       <div class="panel" id="panel-creator">
         <div class="creator-wrap">
@@ -704,6 +726,13 @@ tbody tr:hover td{background:#FDFAF6}
                         <option value="mc">Opción múltiple</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Categoría gramatical <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
+                    <select class="form-select" id="json-grammar-cat">
+                      <option value="">— Sin categoría —</option>
+                    </select>
                   </div>
 
                   <!-- Audio URL - only shown when type is audio -->
@@ -1096,6 +1125,47 @@ tbody tr:hover td{background:#FDFAF6}
   </div>
 </div>
 
+<!-- GRAMMAR MODAL -->
+<div class="overlay hidden" id="grammarModal" onclick="closeModalO(event,'grammarModal')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <div><div class="modal-title" id="grammarModalTitle">Nueva categoría</div><div class="modal-sub">Se usará para organizar actividades</div></div>
+      <button class="modal-close" onclick="closeModal('grammarModal')">✕</button>
+    </div>
+    <div style="padding:20px">
+      <input type="hidden" id="grammarModalId">
+      <label class="form-label">Nombre de la categoría</label>
+      <input class="form-input" id="grammarModalName" placeholder="Ej: Presente simple, Condicionales…" onkeydown="if(event.key==='Enter')saveGrammarCategory()">
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('grammarModal')">Cancelar</button>
+      <button class="btn btn-coral" onclick="saveGrammarCategory()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- GRAMMAR DELETE MODAL -->
+<div class="overlay hidden" id="grammarDeleteModal" onclick="closeModalO(event,'grammarDeleteModal')">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">
+      <div><div class="modal-title">Eliminar categoría</div><div class="modal-sub" id="gramDelName" style="color:var(--danger)"></div></div>
+      <button class="modal-close" onclick="closeModal('grammarDeleteModal')">✕</button>
+    </div>
+    <div style="padding:20px">
+      <input type="hidden" id="gramDelId">
+      <div id="gramDelReplaceRow">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px" id="gramDelReplaceNote"></div>
+        <label class="form-label">Reasignar actividades a:</label>
+        <select class="form-select" id="gramDelReplaceSel" style="width:100%"></select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('grammarDeleteModal')">Cancelar</button>
+      <button class="btn" style="background:var(--danger);color:white" onclick="confirmDeleteGrammarCategory()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
 <!-- LIBRARY MODAL -->
 <div class="overlay hidden" id="libModal" onclick="closeModalO(event,'libModal')">
   <div class="modal">
@@ -1230,7 +1300,7 @@ allResponses = (r || []).map(resp => {
     renderStats();renderRecent();renderStudentsTable();renderRecentAssigns();
   buildActivityTree();
     renderResponsesTable();renderGrading();renderActivitiesGrid();populateSelects();
-    loadLibrary();
+    loadLibrary();loadGrammarCategories();
     document.getElementById('badge-students').textContent=allStudents.length;
     const pg=allResponses.filter(r=>r.question_type==='open'&&r.is_correct===null).length;
     const gb=document.getElementById('badge-grading');
@@ -2049,6 +2119,7 @@ const PANEL_META={
   activities:{title:'Actividades',sub:'Navega por nivel y tema'},
   'creator-hub':{title:'Crear actividad',sub:'Elige el tipo de actividad o importa desde Word o JSON'},
   library:{title:'Biblioteca',sub:'Material de estudio para estudiantes'},
+  grammar:{title:'Categorías gramaticales',sub:'Organiza actividades por tema gramatical'},
   'reading-creator':{title:'Crear comprensión lectora',sub:'Texto + preguntas de selección múltiple y abiertas'},
   'match-creator':{title:'Crear emparejamiento',sub:'Dos columnas para conectar — adjetivos, antónimos, ejemplos'},
   'audio-creator':{title:'Crear actividad de audio',sub:'Sube un audio o pega un link de YouTube y elige el tipo de ejercicio'},
@@ -2068,6 +2139,7 @@ function showPanel(name){
   if (name === 'assign') { setTimeout(asgnFilter, 50); }
   if (name === 'activities') { buildActivityTree(); }
   if (name === 'overview') { renderStats(); renderRecent(); renderRecentAssigns(); }
+  if (name === 'grammar') { loadGrammarCategories(); }
 }
 
 // ══ TOAST ══
@@ -3181,6 +3253,33 @@ function abrirVistaEstudiante() {
         + '</div>';
     });
   }
+  else if (type === 'mixed') {
+    (parsed.sections || []).forEach((sec, si) => {
+      let secHtml = '<div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1.5px solid #E0DAD2">';
+      if (sec.title) secHtml += '<div style="font-size:12px;font-weight:700;color:#1C1A17;margin-bottom:10px">' + (si+1) + '. ' + sec.title + '</div>';
+      if (sec.type === 'fill-blank' || sec.type === 'drag-drop') {
+        (sec.sentences||[]).forEach((s,ri) => {
+          if (!s.hasBlank || !s.parts) {
+            secHtml += '<div style="font-family:var(--serif);font-size:14px;color:#4A4540;padding:8px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;margin-bottom:8px" contenteditable="true" onblur="veEditMixed(' + si + ',\'sentences.' + ri + '.text\',this.textContent)">' + (s.text||'') + '</div>';
+            return;
+          }
+          secHtml += '<div style="background:white;border:1.5px solid #E0DAD2;border-radius:8px;padding:10px;margin-bottom:8px;font-family:var(--serif);font-size:14px;line-height:2.4">';
+          s.parts.forEach((part,pi) => {
+            secHtml += '<span style="background:#F5F0E8;border-radius:4px;padding:2px 5px;margin:1px" contenteditable="true" onblur="veEditMixed(' + si + ',\'sentences.' + ri + '.parts.' + pi + '\',this.textContent)">' + part + '</span>';
+            if (pi < (s.blanks||[]).length) {
+              const b = s.blanks[pi];
+              secHtml += ' <span style="font-size:11px;background:#FDF0E4;color:#E8670A;border-radius:4px;padding:2px 7px;font-weight:600" contenteditable="true" onblur="veEditMixed(' + si + ',\'blanks.' + ri + '.' + pi + '.answer\',this.textContent)">' + (b.answer||'…') + '</span> ';
+            }
+          });
+          secHtml += '</div>';
+        });
+      } else if (sec.type === 'mc' || sec.type === 'truefalse') {
+        (sec.questions||[]).forEach((q,qi) => { secHtml += veQuestionHtml(q,qi); });
+      }
+      secHtml += '</div>';
+      html += secHtml;
+    });
+  }
   else {
     html += '<p style="color:var(--muted)">Tipo no soportado: ' + type + '</p>';
   }
@@ -3216,6 +3315,16 @@ function veQuestionHtml(q, qi) {
 }
 
 let estudianteParsed = null;
+
+function veEditMixed(si, path, value) {
+  if (!estudianteParsed || !estudianteParsed.sections) return;
+  const sec = estudianteParsed.sections[si];
+  if (!sec) return;
+  const keys = path.split('.');
+  let obj = sec;
+  for (let i = 0; i < keys.length - 1; i++) { obj = obj[keys[i]]; if (!obj) return; }
+  obj[keys[keys.length-1]] = value;
+}
 
 function veEdit(path, value) {
   if (!estudianteParsed) return;
@@ -3303,12 +3412,17 @@ async function jsonSave() {
   const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
   const actType = parsed.type || type;
 
+  const gramCatId   = document.getElementById('json-grammar-cat').value || null;
+  const gramCatObj  = gramCatId ? allGrammarCats.find(c=>c.id===gramCatId) : null;
+
   try {
     const { error } = await db.from('activities').insert({
       slug, title, level,
       description: parsed.instructions || parsed.description || actType,
       type: actType,
-      content: parsed
+      content: parsed,
+      grammar_category_id:   gramCatId,
+      grammar_category_name: gramCatObj ? gramCatObj.name : null
     });
     if (error) throw error;
     const succ = document.getElementById('json-success');
@@ -3440,13 +3554,15 @@ function asgnFilter() {
   const q     = (document.getElementById('asgn-search').value || '').toLowerCase();
   const lvl   = document.getElementById('asgn-lvl-filter').value;
   const type  = document.getElementById('asgn-type-filter').value;
+  const gram  = document.getElementById('asgn-gram-filter').value;
   const container = document.getElementById('asgn-act-results');
 
   let results = allActivities.filter(a => {
     const matchQ   = !q || (a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q);
     const matchLvl = !lvl || a.level === lvl;
     const matchType= !type || a.type === type;
-    return matchQ && matchLvl && matchType;
+    const matchGram= !gram || a.grammar_category_id === gram;
+    return matchQ && matchLvl && matchType && matchGram;
   });
 
   if (!results.length) {
@@ -3649,6 +3765,132 @@ document.addEventListener('click', function(e) {
     setTimeout(asgnFilter, 50);
   }
 });
+
+
+// â•â• GRAMMAR CATEGORIES â•â•
+let allGrammarCats = [];
+
+async function loadGrammarCategories() {
+  try {
+    const { data } = await db.from('grammar_categories').select('id, name, active').order('name');
+    allGrammarCats = data || [];
+    renderGrammarCategories();
+    populateGrammarSelects();
+  } catch(e) { console.error('loadGrammarCategories', e); }
+}
+
+function renderGrammarCategories() {
+  const tbody = document.getElementById('grammar-tbody');
+  const count = document.getElementById('grammar-count');
+  if (!tbody) return;
+  count.textContent = allGrammarCats.length + ' Categorías';
+  if (!allGrammarCats.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No hay Categorías. Crea la primera.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allGrammarCats.map(c => {
+    const actCount = (window.allActivities||[]).filter(a => a.grammar_category_id === c.id).length;
+    return `<tr>
+      <td><strong>${c.name}</strong></td>
+      <td><span style="font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;background:${c.active?'#E6F4EA':'#F5F5F5'};color:${c.active?'#2E7D32':'#888'}">${c.active?'Activa':'Inactiva'}</span></td>
+      <td style="color:var(--muted);font-size:13px">${actCount} actividad${actCount!==1?'es':''}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm" style="margin-right:4px" onclick="openEditGrammarModal('${c.id}','${c.name.replace(/'/g,"\\'")}')">Editar</button>
+        <button class="btn btn-sm" style="margin-right:4px" onclick="toggleGrammarCategory('${c.id}',${c.active})">${c.active?'Desactivar':'Activar'}</button>
+        <button class="btn btn-sm" style="color:var(--danger)" onclick="openDeleteGrammarModal('${c.id}','${c.name.replace(/'/g,"\\'")}',${actCount})">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function populateGrammarSelects() {
+  // Assign filter dropdown
+  const asgnSel = document.getElementById('asgn-gram-filter');
+  if (asgnSel) {
+    const cur = asgnSel.value;
+    asgnSel.innerHTML = '<option value="">Categoría gram.</option>' +
+      allGrammarCats.filter(c=>c.active).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    asgnSel.value = cur;
+  }
+}
+
+function openAddGrammarModal() {
+  document.getElementById('grammarModalTitle').textContent = 'Nueva Categoría';
+  document.getElementById('grammarModalId').value = '';
+  document.getElementById('grammarModalName').value = '';
+  openModal('grammarModal');
+  setTimeout(()=>document.getElementById('grammarModalName').focus(),100);
+}
+
+function openEditGrammarModal(id, name) {
+  document.getElementById('grammarModalTitle').textContent = 'Editar Categoría';
+  document.getElementById('grammarModalId').value = id;
+  document.getElementById('grammarModalName').value = name;
+  openModal('grammarModal');
+  setTimeout(()=>document.getElementById('grammarModalName').focus(),100);
+}
+
+async function saveGrammarCategory() {
+  const id   = document.getElementById('grammarModalId').value;
+  const name = document.getElementById('grammarModalName').value.trim();
+  if (!name) { showToast('Escribe un nombre para la Categoría'); return; }
+  try {
+    if (id) {
+      await db.from('grammar_categories').update({ name }).eq('id', id);
+      showToast('Categoría actualizada');
+    } else {
+      await db.from('grammar_categories').insert({ name, active: true });
+      showToast('Categoría creada');
+    }
+    closeModal('grammarModal');
+    await loadGrammarCategories();
+  } catch(e) { console.error(e); showToast('Error al guardar Categoría'); }
+}
+
+async function toggleGrammarCategory(id, currentActive) {
+  try {
+    await db.from('grammar_categories').update({ active: !currentActive }).eq('id', id);
+    showToast(currentActive ? 'Categoría desactivada' : 'Categoría activada');
+    await loadGrammarCategories();
+  } catch(e) { showToast('Error al actualizar Categoría'); }
+}
+
+function openDeleteGrammarModal(id, name, actCount) {
+  document.getElementById('gramDelName').textContent = name;
+  document.getElementById('gramDelId').value = id;
+  const replaceRow = document.getElementById('gramDelReplaceRow');
+  const replaceNote = document.getElementById('gramDelReplaceNote');
+  if (actCount > 0) {
+    replaceRow.style.display = '';
+    replaceNote.textContent = actCount + ' actividad' + (actCount!==1?'es':'') + ' usan esta Categoría. Puedes reasignarlas antes de eliminar.';
+    const sel = document.getElementById('gramDelReplaceSel');
+    sel.innerHTML = '<option value="">â€” Sin Categoría â€”</option>' +
+      allGrammarCats.filter(c=>c.id!==id&&c.active).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  } else {
+    replaceRow.style.display = 'none';
+  }
+  openModal('grammarDeleteModal');
+}
+
+async function confirmDeleteGrammarCategory() {
+  const id      = document.getElementById('gramDelId').value;
+  const replaceId = document.getElementById('gramDelReplaceSel').value;
+  try {
+    if (replaceId) {
+      const replaceCat = allGrammarCats.find(c=>c.id===replaceId);
+      await db.from('activities').update({
+        grammar_category_id: replaceId,
+        grammar_category_name: replaceCat ? replaceCat.name : null
+      }).eq('grammar_category_id', id);
+    } else {
+      await db.from('activities').update({ grammar_category_id: null, grammar_category_name: null }).eq('grammar_category_id', id);
+    }
+    await db.from('grammar_categories').delete().eq('id', id);
+    showToast('Categoría eliminada');
+    closeModal('grammarDeleteModal');
+    await loadGrammarCategories();
+  } catch(e) { console.error(e); showToast('Error al eliminar Categoría'); }
+}
 
 </script>
 <div style="position:fixed;bottom:8px;right:12px;font-size:10px;color:rgba(0,0,0,.25);z-index:9999;pointer-events:none">v2.7</div>
