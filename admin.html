@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1167,13 +1167,12 @@ tbody tr:hover td{background:#FDFAF6}
 // ══════════════════════════════════════════════════
 const SUPABASE_URL   = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzb3lxdW9wZHN1bm1pYWtmb3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDc3MzMsImV4cCI6MjA5NjU4MzczM30.WNcKwYRUu1ShBDU6ZnG9i9y2caYDjRCPPksDWncp8mo';
-const SUPABASE_SVC   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzb3lxdW9wZHN1bm1pYWtmb3NhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTAwNzczMywiZXhwIjoyMDk2NTgzNzMzfQ.L2t8MewW3VUON_BRpmpGScMRjAK0k_V51C7QOtC-KyY';
 const ADMIN_EMAIL    = 'gustavo@letracaribe.com';
 // ══════════════════════════════════════════════════
 
 const { createClient } = window.supabase;
 const dbAuth = createClient(SUPABASE_URL, SUPABASE_ANON);
-const db     = createClient(SUPABASE_URL, SUPABASE_SVC);
+const db     = createClient(SUPABASE_URL, SUPABASE_ANON);
 let bulkMode = false;
 let selectedActivities = new Set();
 
@@ -2484,11 +2483,9 @@ function renderActivitiesGrid(filtered) {
   if (!grid) return;
   if (!rows.length) {
     grid.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">No hay actividades aún.</div></div>';
-    buildActivityTree();
     return;
   }
   grid.innerHTML = rows.map((a,i) => actCardHtml(a,i)).join('');
-  buildActivityTree();
 }
 
 // ══ LIBRARY ══
@@ -3103,168 +3100,143 @@ function jsonPreview() {
 function abrirVistaEstudiante() {
   const raw = document.getElementById('json-content').value.trim();
   if (!raw) { alert('Pega un JSON primero'); return; }
-  
+
   let parsed;
   try {
-    const normalized = raw.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-');
+    const normalized = raw.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-');
     parsed = JSON.parse(normalized);
-  } catch(e) {
-    alert('JSON inválido: ' + e.message);
-    return;
-  }
-  
+  } catch(e) { alert('JSON inválido: ' + e.message); return; }
+
+  estudianteParsed = JSON.parse(JSON.stringify(parsed));
+  const type = parsed.type || '';
+  const isSplit = type === 'reading' || type === 'audio';
+
   const modal = document.createElement('div');
   modal.id = 'modal-vista-estudiante';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
-  
-  let html = '<div style="background:white;border-radius:var(--r-lg);max-width:800px;width:100%;max-height:85vh;overflow-y:auto;padding:24px;position:relative;box-shadow:var(--shadow-lg)">';
-  html += '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted)">✕</button>';
-  
-  const type = parsed.type || '';
-  
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+
+  let html = '<div style="background:#FAFAF7;border-radius:16px;width:100%;max-width:' + (isSplit?'1000px':'750px') + ';display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.2);margin:auto">';
+
+  html += '<div style="background:white;border-bottom:1px solid #E0DAD2;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-radius:16px 16px 0 0">'
+    + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8C8479;margin-bottom:2px">Vista del estudiante — editable</div>'
+    + '<div style="font-size:13px;font-weight:600;color:#1C1A17">' + (parsed.instructions||'') + '</div></div>'
+    + '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#8C8479">✕</button>'
+    + '</div>';
+
+  html += '<div style="padding:20px;overflow-y:auto;max-height:70vh;' + (isSplit?'display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start':'') + '">';
+
   if (type === 'fill-blank' || type === 'drag-drop') {
-    const instructions = parsed.instructions || 'Completa los espacios en blanco.';
-    const sentences = parsed.sentences || [];
-    html += '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px">' + instructions + '</div>';
-    sentences.forEach((s, si) => {
+    (parsed.sentences||[]).forEach((s, si) => {
       if (!s.hasBlank || !s.parts) {
-        html += '<p style="font-family:var(--serif);font-size:15px;line-height:1.9;color:var(--ink-soft);margin-bottom:10px;padding:8px;border-left:3px solid var(--border);cursor:text" contenteditable="true" onblur="guardarTextoEstudiante(' + si + ',null,this.textContent)">' + (s.text||'') + '</p>';
+        html += '<div style="margin-bottom:12px">'
+          + '<div style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;margin-bottom:4px">Oración ' + (si+1) + '</div>'
+          + '<div style="font-family:var(--serif);font-size:15px;line-height:1.9;color:#4A4540;padding:10px;background:white;border:1.5px solid #E0DAD2;border-radius:8px" contenteditable="true" onblur="veEdit(\'sentences.' + si + '.text\',this.textContent)">' + (s.text||'') + '</div>'
+          + '</div>';
         return;
       }
-      html += '<div style="font-family:var(--serif);font-size:14px;line-height:2.2;margin-bottom:10px;padding:10px;background:var(--sand);border-radius:var(--r)">';
+      html += '<div style="margin-bottom:14px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;padding:12px">'
+        + '<div style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;margin-bottom:8px">Oración ' + (si+1) + '</div>'
+        + '<div style="font-family:var(--serif);font-size:14px;line-height:2.4">';
       s.parts.forEach((part, pi) => {
-        html += '<span style="cursor:text;padding:2px 4px;border-radius:3px" contenteditable="true" onblur="guardarTextoEstudiante(' + si + ',' + pi + ',this.textContent)">' + part + '</span>';
-        if (pi < s.blanks.length) {
-          html += '<span style="display:inline-block;width:80px;height:2px;background:#333;margin:0 6px;vertical-align:middle"></span>';
+        html += '<span style="background:#F5F0E8;border-radius:4px;padding:2px 5px;margin:1px;cursor:text" contenteditable="true" onblur="veEdit(\'sentences.' + si + '.parts.' + pi + '\',this.textContent)">' + part + '</span>';
+        if (pi < (s.blanks||[]).length) {
+          const b = s.blanks[pi];
+          html += ' <span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle">'
+            + '<span style="display:inline-block;width:60px;height:2px;background:#E8670A;vertical-align:middle"></span>'
+            + '<span style="font-size:11px;background:#FDF0E4;color:#E8670A;border-radius:4px;padding:2px 7px;font-weight:600;cursor:text" contenteditable="true" onblur="veEdit(\'sentences.' + si + '.blanks.' + pi + '.answer\',this.textContent)" title="Respuesta correcta">' + (b.answer||'…') + '</span>'
+            + '</span> ';
         }
       });
-      html += '</div>';
+      html += '</div></div>';
     });
   }
   else if (type === 'reading') {
-    const readingText = parsed.readingText || parsed.text || '';
-    const questions = parsed.questions || [];
-    html += '<div style="font-size:13px;color:var(--ink);padding:12px;background:var(--sand);border-radius:var(--r);margin-bottom:14px;max-height:200px;overflow-y:auto;cursor:text;border-left:3px solid var(--orange)" contenteditable="true" onblur="guardarTextoLectura(this.textContent)">' + readingText + '</div>';
-    questions.forEach((q, qi) => {
-      html += '<div style="margin-bottom:12px;padding:10px;border:1.5px solid var(--border);border-radius:var(--r)">';
-      html += '<div style="font-weight:600;margin-bottom:8px;cursor:text;padding:4px" contenteditable="true" onblur="guardarPregunta(' + qi + ',this.textContent)">' + (qi+1) + '. ' + (q.text||q.q||'') + '</div>';
-      (q.opts||[]).forEach(o => {
-        html += '<div style="margin:6px 0;font-size:13px"><input type="radio" name="q' + qi + '" style="margin-right:8px" disabled> ' + o + '</div>';
-      });
-      html += '</div>';
-    });
-  }
-  else if (type === 'match') {
-    const pairs = parsed.pairs || [];
-    html += '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px">Relaciona los elementos</div>';
-    pairs.forEach((p, pi) => {
-      html += '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:12px">';
-      html += '<div style="padding:10px;background:var(--sand);border-radius:var(--r);cursor:text" contenteditable="true" onblur="guardarMatchIzq(' + pi + ',this.textContent)">' + (p.left||'') + '</div>';
-      html += '<span style="color:var(--muted)">→</span>';
-      html += '<div style="padding:10px;background:var(--sand);border-radius:var(--r);cursor:text" contenteditable="true" onblur="guardarMatchDer(' + pi + ',this.textContent)">' + (p.right||'') + '</div>';
-      html += '</div>';
-    });
+    html += '<div>'
+      + '<div style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;margin-bottom:8px">Texto de lectura</div>'
+      + '<div style="font-family:var(--serif);font-size:14px;line-height:1.9;color:#1C1A17;padding:14px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;min-height:180px" contenteditable="true" onblur="veEdit(\'readingText\',this.textContent)">' + (parsed.readingText||parsed.text||'') + '</div>'
+      + '</div>';
+    html += '<div>';
+    (parsed.questions||[]).forEach((q,qi) => { html += veQuestionHtml(q,qi); });
+    html += '</div>';
   }
   else if (type === 'audio') {
-    const youtubeUrl = parsed.youtubeUrl || '';
-    const audioUrl = parsed.audioUrl || '';
-    const questions = parsed.questions || [];
-    html += '<div style="background:var(--ink);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:13px;color:white">🎵 ' + (youtubeUrl ? 'YouTube: ' + youtubeUrl : audioUrl ? 'Audio: ' + audioUrl : 'Sin audio') + '</div>';
-    questions.forEach((q, qi) => {
-      html += '<div style="margin-bottom:12px;padding:10px;border:1.5px solid var(--border);border-radius:var(--r)">';
-      html += '<div style="font-weight:600;margin-bottom:8px;cursor:text" contenteditable="true" onblur="guardarPregunta(' + qi + ',this.textContent)">' + (qi+1) + '. ' + (q.text||q.q||'') + '</div>';
-      if (q.opts) {
-        q.opts.forEach(o => {
-          html += '<div style="margin:6px 0;font-size:13px"><input type="radio" name="a' + qi + '" style="margin-right:8px" disabled> ' + o + '</div>';
-        });
-      }
-      html += '</div>';
-    });
+    const url = parsed.youtubeUrl||parsed.audioUrl||'';
+    html += '<div>'
+      + '<div style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;margin-bottom:8px">Audio / Video</div>'
+      + '<div style="background:white;border:1.5px solid #E0DAD2;border-radius:8px;padding:12px;font-size:12px;color:#4A4540;word-break:break-all">Ἳ5 ' + (url||'Sin URL de audio') + '</div>'
+      + '</div>';
+    html += '<div>';
+    (parsed.questions||[]).forEach((q,qi) => { html += veQuestionHtml(q,qi); });
+    html += '</div>';
   }
   else if (type === 'mc') {
-    const questions = parsed.questions || [];
-    questions.forEach((q, qi) => {
-      html += '<div style="margin-bottom:12px;padding:10px;border:1.5px solid var(--border);border-radius:var(--r)">';
-      html += '<div style="font-weight:600;margin-bottom:8px;cursor:text" contenteditable="true" onblur="guardarPregunta(' + qi + ',this.textContent)">' + (qi+1) + '. ' + (q.text||q.q||'') + '</div>';
-      (q.opts||[]).forEach(o => {
-        html += '<div style="margin:6px 0;font-size:13px"><input type="radio" name="q' + qi + '" style="margin-right:8px" disabled> ' + o + '</div>';
-      });
-      html += '</div>';
+    (parsed.questions||[]).forEach((q,qi) => { html += veQuestionHtml(q,qi); });
+  }
+  else if (type === 'match') {
+    (parsed.pairs||[]).forEach((p,pi) => {
+      html += '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:10px">'
+        + '<div style="padding:10px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;font-size:14px" contenteditable="true" onblur="veEdit(\'pairs.' + pi + '.left\',this.textContent)">' + (p.left||'') + '</div>'
+        + '<span style="color:#8C8479;font-size:18px">⇄</span>'
+        + '<div style="padding:10px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;font-size:14px" contenteditable="true" onblur="veEdit(\'pairs.' + pi + '.right\',this.textContent)">' + (p.right||'') + '</div>'
+        + '</div>';
     });
   }
   else {
     html += '<p style="color:var(--muted)">Tipo no soportado: ' + type + '</p>';
   }
-  
-  html += '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px">';
-  html += '<button onclick="guardarCambiosEstudiante()" style="flex:1;padding:12px;background:var(--green);color:white;border:none;border-radius:var(--r);cursor:pointer;font-weight:600;font-size:13px">✓ Guardar cambios</button>';
-  html += '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="flex:1;padding:12px;background:var(--sand);color:var(--ink);border:none;border-radius:var(--r);cursor:pointer;font-weight:600;font-size:13px">Cerrar</button>';
-  html += '</div></div>';
-  
+
+  html += '</div>';
+  html += '<div style="background:white;border-top:1px solid #E0DAD2;padding:14px 20px;display:flex;gap:8px;border-radius:0 0 16px 16px">'
+    + '<button onclick="guardarCambiosEstudiante()" style="flex:1;padding:11px;background:#E8670A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">✓ Guardar cambios al JSON</button>'
+    + '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="padding:11px 20px;background:#F5F0E8;color:#1C1A17;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Cerrar</button>'
+    + '</div></div>';
+
   modal.innerHTML = html;
   document.body.appendChild(modal);
 }
 
+function veQuestionHtml(q, qi) {
+  let h = '<div style="margin-bottom:12px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;padding:12px">'
+    + '<div style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;margin-bottom:6px">Pregunta ' + (qi+1) + '</div>'
+    + '<div style="font-size:14px;font-weight:600;color:#1C1A17;margin-bottom:8px;padding:4px;border-radius:4px" contenteditable="true" onblur="veEditQuestion(' + qi + ',\'text\',this.textContent)">' + (q.text||q.q||'') + '</div>';
+  if (q.type === 'open') {
+    h += '<div style="padding:8px;background:#F5F0E8;border-radius:6px;font-size:12px;color:#8C8479;font-style:italic">Respuesta abierta del estudiante</div>';
+  } else if (q.opts) {
+    q.opts.forEach((o, oi) => {
+      const isCor = q.correct === oi;
+      h += '<div style="display:flex;align-items:center;gap:8px;margin:5px 0;padding:4px 6px;border-radius:6px;' + (isCor?'background:#FDF0E4':'') + '">'
+        + '<input type="radio" name="ve_q' + qi + '" ' + (isCor?'checked':'') + ' onchange="veEditQuestion(' + qi + ',\'correct\',' + oi + ')" style="cursor:pointer;accent-color:#E8670A;flex-shrink:0">'
+        + '<span style="flex:1;font-size:13px;' + (isCor?'color:#E8670A;font-weight:600':'color:#1C1A17') + '" contenteditable="true" onblur="veEditOption(' + qi + ',' + oi + ',this.textContent)">' + o + '</span>'
+        + (isCor ? '<span style="font-size:10px;background:#E8670A;color:white;padding:2px 6px;border-radius:4px;font-weight:600;flex-shrink:0">✓ correcta</span>' : '')
+        + '</div>';
+    });
+  }
+  h += '</div>';
+  return h;
+}
+
 let estudianteParsed = null;
 
-function guardarTextoEstudiante(si, pi, texto) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const p = JSON.parse(raw);
-    if (p.sentences && p.sentences[si]) {
-      if (pi === null) {
-        p.sentences[si].text = texto;
-      } else if (p.sentences[si].parts) {
-        p.sentences[si].parts[pi] = texto;
-      }
-      estudianteParsed = p;
-    }
-  } catch(e) {}
+function veEdit(path, value) {
+  if (!estudianteParsed) return;
+  const keys = path.split('.');
+  let obj = estudianteParsed;
+  for (let i = 0; i < keys.length - 1; i++) {
+    obj = obj[keys[i]];
+    if (obj === undefined || obj === null) return;
+  }
+  obj[keys[keys.length - 1]] = value;
 }
 
-function guardarTextoLectura(texto) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const p = JSON.parse(raw);
-    if (p.readingText !== undefined) p.readingText = texto;
-    else p.text = texto;
-    estudianteParsed = p;
-  } catch(e) {}
+function veEditQuestion(qi, field, value) {
+  if (!estudianteParsed || !estudianteParsed.questions) return;
+  estudianteParsed.questions[qi][field] = value;
+  if (field === 'text' && estudianteParsed.questions[qi].q !== undefined) estudianteParsed.questions[qi].q = value;
 }
 
-function guardarPregunta(qi, texto) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const p = JSON.parse(raw);
-    if (p.questions && p.questions[qi]) {
-      if (texto.includes('. ')) texto = texto.split('. ').slice(1).join('. ');
-      p.questions[qi].text = texto;
-      if (p.questions[qi].q !== undefined) p.questions[qi].q = texto;
-      estudianteParsed = p;
-    }
-  } catch(e) {}
-}
-
-function guardarMatchIzq(pi, texto) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const p = JSON.parse(raw);
-    if (p.pairs && p.pairs[pi]) {
-      p.pairs[pi].left = texto;
-      estudianteParsed = p;
-    }
-  } catch(e) {}
-}
-
-function guardarMatchDer(pi, texto) {
-  const raw = document.getElementById('json-content').value.trim();
-  try {
-    const p = JSON.parse(raw);
-    if (p.pairs && p.pairs[pi]) {
-      p.pairs[pi].right = texto;
-      estudianteParsed = p;
-    }
-  } catch(e) {}
+function veEditOption(qi, oi, value) {
+  if (!estudianteParsed || !estudianteParsed.questions) return;
+  estudianteParsed.questions[qi].opts[oi] = value;
 }
 
 function guardarCambiosEstudiante() {
