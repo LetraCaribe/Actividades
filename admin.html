@@ -3543,14 +3543,21 @@ function jsonPreview() {
 }
 
 function abrirVistaEstudiante() {
-  const raw = document.getElementById('json-content').value.trim();
-  if (!raw) { alert('Pega un JSON primero'); return; }
-
   let parsed;
-  try {
-    const normalized = raw.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-');
-    parsed = JSON.parse(normalized);
-  } catch(e) { alert('JSON invalido: ' + e.message); return; }
+  const textEl = document.getElementById('imp-text-paste');
+  const rawText = textEl ? textEl.value.trim() : '';
+
+  if (rawText) {
+    const sentences = parseBlankText(rawText);
+    parsed = { type: 'fill-blank', title: '', level: '', instructions: '', sentences: sentences };
+  } else {
+    const raw = document.getElementById('json-content').value.trim();
+    if (!raw) { alert('Pega un texto o JSON primero'); return; }
+    try {
+      const normalized = raw.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-');
+      parsed = JSON.parse(normalized);
+    } catch(e) { alert('JSON invalido: ' + e.message); return; }
+  }
 
   estudianteParsed = JSON.parse(JSON.stringify(parsed));
   const type = parsed.type || '';
