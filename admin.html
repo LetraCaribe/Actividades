@@ -402,6 +402,10 @@ tbody tr:hover td{background:#FDFAF6}
             <option value="">Todos los niveles</option>
             <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option>
           </select>
+          <select class="filter-select" id="f-sort" onchange="filterStudents()">
+            <option value="newest">Más recientes</option>
+            <option value="oldest">Más antiguos</option>
+          </select>
           <button class="btn btn-coral btn-sm" onclick="showPanel('assign')">+ Asignar tarea</button>
         </div>
         <div class="card">
@@ -610,6 +614,10 @@ tbody tr:hover td{background:#FDFAF6}
           </select>
           <select class="form-select" id="f-act-gram" onchange="filterActivitiesPanel()" style="width:140px">
             <option value="">Categoría</option>
+          </select>
+          <select class="form-select" id="f-act-sort" onchange="filterActivitiesPanel()" style="width:140px">
+            <option value="newest">Más recientes</option>
+            <option value="oldest">Más antiguas</option>
           </select>
           <button class="btn btn-coral btn-sm" onclick="showPanel('creator-hub')">+ Nueva actividad</button>
         </div>
@@ -1428,7 +1436,7 @@ function renderStudentsTable(filtered){
       <td><span style="color:var(--coral);font-weight:600">${pend}</span></td>
       <td style="font-weight:600">${s.score||0}</td>
       <td class="td-muted">${since}</td>
-      <td><button class="btn btn-coral btn-sm" onclick="event.stopPropagation();openAssignModalFor('${s.id}','${s.full_name}')">+ Asignar</button></td>
+      <td><button class="btn btn-coral btn-sm" onclick="event.stopPropagation();assignStudentQuick('${s.id}','${escapeHtml(s.full_name)}')">+ Asignar</button></td>
     </tr>
     <tr class="student-detail" id="det-${s.id}"><td colspan="8"><div class="detail-inner">
       <div class="detail-grid">
@@ -1441,15 +1449,23 @@ function renderStudentsTable(filtered){
         <span class="badge ${a.completed?'badge-done':'badge-pend'}">${a.completed?'✓':'⏳'}</span>
         <span style="flex:1">${a.activities?.title||'—'}</span>
         <span class="td-muted">${new Date(a.assigned_at).toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</span>
+        <button onclick="event.stopPropagation();deleteAssignment('${a.id}')" title="Quitar asignación" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:2px 4px;border-radius:4px;line-height:1" onmouseenter="this.style.color='var(--red)'" onmouseleave="this.style.color='var(--muted)'"><i class="ti ti-trash"></i></button>
       </div>`).join(''):'<div style="color:var(--muted);font-size:13px">Sin actividades asignadas.</div>'}
     </div></td></tr>`;
   }).join('');
 }
 function toggleDetail(id){document.getElementById('det-'+id)?.classList.toggle('open');}
 function filterStudents(){
-  const n=document.getElementById('f-name').value.toLowerCase();
-  const l=document.getElementById('f-level').value;
-  renderStudentsTable(allStudents.filter(s=>(!n||s.full_name.toLowerCase().includes(n))&&(!l||s.level===l)));
+  const n    = document.getElementById('f-name').value.toLowerCase();
+  const l    = document.getElementById('f-level').value;
+  const sort = document.getElementById('f-sort')?.value || 'newest';
+  const filtered = allStudents
+    .filter(s => (!n || s.full_name.toLowerCase().includes(n)) && (!l || s.level === l))
+    .sort((a, b) => {
+      const da = new Date(a.created_at||0), db = new Date(b.created_at||0);
+      return sort === 'oldest' ? da - db : db - da;
+    });
+  renderStudentsTable(filtered);
 }
 
 // ══ SELECTS ══
@@ -1606,27 +1622,37 @@ const rows = (filtered || allResponses)
     return;
   }
 
-  box.innerHTML = students.map(s => {
+  box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">'
+    + students.map(s => {
     const last = s.lastDate
       ? s.lastDate.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})
       : '—';
-
+    const profile = allStudents.find(p => p.full_name === s.name);
+    const level = profile?.level || '';
+    const initial = s.name.trim().charAt(0).toUpperCase();
+    const errPct = s.responses > 0 ? Math.round((s.incorrect / s.responses) * 100) : 0;
+    const errColor = errPct === 0 ? '#1A7A2A' : errPct < 30 ? '#B85A00' : '#C41E1E';
+    const errBg    = errPct === 0 ? '#D1F0DC' : errPct < 30 ? '#FDF0E4' : '#FDEAEA';
     return `
-      <div class="card"
-           onclick="openStudentResponses(decodeURIComponent('${encodeURIComponent(s.name)}'))"
-           style="cursor:pointer;padding:20px;border:1px solid var(--border);border-radius:16px;margin-bottom:0">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <div>
-            <div style="font-size:22px;font-weight:700">${escapeHtml(s.name)}</div>
-            <div style="margin-top:6px;font-size:13px;color:var(--muted)">
-              ${s.activities.size} actividades · ${s.responses} respuestas · ${s.incorrect} errores
-            </div>
+      <div onclick="openStudentResponses(decodeURIComponent('${encodeURIComponent(s.name)}'))"
+           style="background:white;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:all .15s"
+           onmouseenter="this.style.borderColor='var(--coral)';this.style.transform='translateY(-1px)'"
+           onmouseleave="this.style.borderColor='var(--border)';this.style.transform=''">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:38px;height:38px;border-radius:50%;background:#FBF0ED;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--coral);flex-shrink:0">${initial}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(s.name)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:1px">Última: ${last}</div>
           </div>
-          <div style="font-size:12px;color:var(--muted)">Última: ${last}</div>
+          <i class="ti ti-chevron-right" style="color:var(--muted);font-size:16px;flex-shrink:0"></i>
         </div>
-      </div>
-    `;
-  }).join('');
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${level ? `<span class="act-badge act-badge-lvl">${level}</span>` : ''}
+          <span style="font-size:11px;background:var(--sand);color:var(--muted);border-radius:4px;padding:2px 7px"><i class="ti ti-layout-grid" style="font-size:10px;vertical-align:-1px"></i> ${s.activities.size}</span>
+          <span style="font-size:11px;background:${errBg};color:${errColor};border-radius:4px;padding:2px 7px;font-weight:600;margin-left:auto">${s.incorrect} errores</span>
+        </div>
+      </div>`;
+  }).join('') + '</div>';
 }
 
 function openStudentResponses(studentName){
@@ -1680,27 +1706,34 @@ const rows = allResponses.filter(r =>
       <button type="button" class="btn btn-outline btn-sm" onclick="filterResponses()">Volver</button>
     </div>
 
-    ${activities.length ? activities.map(a => {
+    ${activities.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">' + activities.map(a => {
       const last = a.lastDate
         ? a.lastDate.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})
         : '—';
-
+      const actObj = allActivities.find(x => String(x.slug) === String(a.key) || String(x.id) === String(a.key));
+      const ic = ACTIVITY_ICONS[actObj?.type] || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
+      const scoreable = a.total - (a.open || 0);
+      const correct = scoreable - a.incorrect;
+      const pct = scoreable > 0 ? Math.round((correct / scoreable) * 100) : null;
+      const pctColor = pct === null ? '#8C8479' : pct >= 70 ? '#1A7A2A' : pct >= 40 ? '#B85A00' : '#C41E1E';
+      const pctBg    = pct === null ? '#F5F0E8' : pct >= 70 ? '#D1F0DC' : pct >= 40 ? '#FDF0E4' : '#FDEAEA';
       return `
-        <div class="card"
-             onclick="openReviewModal(decodeURIComponent('${encodeURIComponent(studentName)}'), decodeURIComponent('${encodeURIComponent(a.key)}'))"
-             style="cursor:pointer;padding:18px;border:1px solid var(--border);border-radius:16px;margin-bottom:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div>
-              <div style="font-size:18px;font-weight:700">${escapeHtml(a.title)}</div>
-              <div style="margin-top:5px;font-size:13px;color:var(--muted)">Última: ${last}</div>
+        <div onclick="openReviewModal(decodeURIComponent('${encodeURIComponent(studentName)}'), decodeURIComponent('${encodeURIComponent(a.key)}'))"
+             style="background:white;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:all .15s"
+             onmouseenter="this.style.borderColor='var(--coral)';this.style.transform='translateY(-1px)'"
+             onmouseleave="this.style.borderColor='var(--border)';this.style.transform=''">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;border-radius:8px;background:${ic.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="ti ${ic.icon}" style="font-size:17px;color:${ic.color}"></i>
             </div>
-            <div style="font-size:20px;font-weight:700;color:var(--coral)">
-              ${a.incorrect} de ${a.total}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(a.title)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:1px">${last}</div>
             </div>
+            <span style="font-size:13px;font-weight:700;background:${pctBg};color:${pctColor};border-radius:6px;padding:4px 10px;flex-shrink:0">${pct !== null ? pct + '%' : '—'}</span>
           </div>
-        </div>
-      `;
-    }).join('') : '<div class="empty"><div class="empty-text">Este estudiante todavía no tiene actividades.</div></div>'}
+        </div>`;
+    }).join('') + '</div>' : '<div class="empty"><div class="empty-text">Este estudiante todavía no tiene actividades.</div></div>'}
   `;
 }
 
@@ -1834,16 +1867,21 @@ function filterActivities(){
   filterActivitiesPanel();
 }
 function filterActivitiesPanel(){
-  const q   = (document.getElementById('f-act-search')||{}).value?.toLowerCase()||'';
-  const lvl = (document.getElementById('f-act-level')||{}).value||'';
-  const typ = (document.getElementById('f-act-type')||{}).value||'';
-  const gram= (document.getElementById('f-act-gram')||{}).value||'';
-  const results = allActivities.filter(a =>
+  const q    = (document.getElementById('f-act-search')||{}).value?.toLowerCase()||'';
+  const lvl  = (document.getElementById('f-act-level')||{}).value||'';
+  const typ  = (document.getElementById('f-act-type')||{}).value||'';
+  const gram = (document.getElementById('f-act-gram')||{}).value||'';
+  const sort = (document.getElementById('f-act-sort')||{}).value||'newest';
+  let results = allActivities.filter(a =>
     (!q   || (a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q)) &&
     (!lvl || a.level === lvl) &&
     (!typ || a.type === typ) &&
     (!gram|| String(a.grammar_category_id) === gram)
   );
+  results = results.sort((a, b) => {
+    const da = new Date(a.created_at||0), db = new Date(b.created_at||0);
+    return sort === 'oldest' ? da - db : db - da;
+  });
   const lbl = document.getElementById('act-list-label');
   const isFiltered = q || lvl || typ || gram;
   if (lbl) lbl.textContent = isFiltered
@@ -1909,6 +1947,22 @@ async function deleteActivitiesByIds(ids){
     !cleanIds.some(id => String(id) === String(a.id))
   );
 }
+async function deleteAssignment(id) {
+  if (!confirm('¿Quitar esta asignación? Se eliminarán también las respuestas del estudiante para esta actividad.')) return;
+  try {
+    const asgn = allAssignments.find(a => String(a.id) === String(id));
+    if (asgn) {
+      await db.from('responses').delete().eq('student_id', asgn.student_id).eq('activity_slug', asgn.activities?.slug || '');
+    }
+    const { error } = await db.from('assignments').delete().eq('id', id);
+    if (error) throw error;
+    showToast('Asignación eliminada');
+    await loadAll();
+  } catch(e) {
+    showToast('Error al eliminar: ' + (e.message || e));
+  }
+}
+
 async function deleteActivity(id){
   const cleanId = normalizeActivityId_(id);
 
@@ -2325,6 +2379,16 @@ function assignActivityQuick(id) {
   asgnUpdateActChips();
   showPanel('assign');
   setTimeout(() => asgnGoStep(2), 80);
+}
+
+function assignStudentQuick(id, name) {
+  asgnSelectedStudents = [{ id, name }];
+  asgnSelectedActs = [];
+  showPanel('assign');
+  setTimeout(() => {
+    asgnGoStep(1);
+    asgnUpdateStudentChips();
+  }, 80);
 }
 
 // Evita onclick inline, que se rompe si el ID es UUID/texto.
@@ -3885,6 +3949,18 @@ async function jsonSave() {
       showToast('✓ Actividad guardada desde JSON');
     }
     await loadAll();
+    // Limpiar formulario después de guardar
+    document.getElementById('json-title').value = '';
+    document.getElementById('json-content').value = '';
+    document.getElementById('json-grammar-cat').value = '';
+    document.getElementById('json-level').value = 'B1';
+    document.getElementById('json-type').value = 'fill-blank';
+    const audioWrap = document.getElementById('json-audio-wrap');
+    if (audioWrap) audioWrap.style.display = 'none';
+    const audioUrl = document.getElementById('json-audio-url');
+    if (audioUrl) audioUrl.value = '';
+    const previewArea = document.getElementById('json-preview-area');
+    if (previewArea) previewArea.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Pega el JSON y haz clic en "Vista previa"</div></div>';
   } catch(e) {
     console.error(e);
     const errEl = document.getElementById('json-error');
