@@ -3594,10 +3594,10 @@ function abrirVistaEstudiante() {
         html += '<span style="background:#F5F0E8;border-radius:4px;padding:2px 5px;margin:1px;cursor:text" contenteditable="true" onblur="veEdit(\'sentences.' + si + '.parts.' + pi + '\',this.textContent)">' + part + '</span>';
         if (pi < (s.blanks||[]).length) {
           const b = s.blanks[pi];
-          html += ' <span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle">'
-            + '<span style="display:inline-block;width:60px;height:2px;background:#E8670A;vertical-align:middle"></span>'
-            + '<span style="font-size:11px;background:#FDF0E4;color:#E8670A;border-radius:4px;padding:2px 7px;font-weight:600;cursor:text" contenteditable="true" onblur="veEdit(\'sentences.' + si + '.blanks.' + pi + '.answer\',this.textContent)" title="Respuesta correcta">' + (b.answer||'…') + '</span>'
-            + '</span> ';
+          html += '<span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle;margin:0 3px">';
+          html += '<input type="text" value="' + escapeHtml(b.answer||'') + '" placeholder="respuesta" onchange="veEdit(\'sentences.' + si + '.blanks.' + pi + '.answer\',this.value)" style="border:none;border-bottom:2px solid #E8670A;min-width:70px;width:' + Math.max(70,(b.answer||'').length*9+40) + 'px;padding:2px 6px;font-family:var(--serif);font-size:14px;color:#E8670A;font-weight:600;background:#FDF0E4;border-radius:2px 2px 0 0;outline:none">';
+          html += (b.hint ? '<span style="font-size:12px;color:#8C8479;font-style:italic;white-space:nowrap">(' + escapeHtml(b.hint) + ')</span>' : '');
+          html += '</span>';
         }
       });
       html += '</div></div>';
