@@ -306,30 +306,7 @@ tbody tr:hover td{background:#FDFAF6}
 
 <!-- ══ LOGIN ══ -->
 <!-- ══ ADMIN PORTAL ══ -->
-<!-- LOGIN SCREEN -->
-<div id="loginScreen" style="position:fixed;inset:0;background:#F5F0E8;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
-  <div style="background:white;border-radius:16px;padding:40px 36px;max-width:400px;width:100%;box-shadow:0 8px 40px rgba(28,26,23,.15)">
-    <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:#1C1A17;margin-bottom:4px">Letra Caribe</div>
-    <div style="font-size:13px;color:#9E8E7E;margin-bottom:28px">Portal administrativo</div>
-    <div style="margin-bottom:14px">
-      <label style="display:block;font-size:12px;font-weight:600;color:#1C1A17;margin-bottom:5px">Correo</label>
-      <input id="loginEmail" type="email" placeholder="correo@letracaribe.com" onkeydown="if(event.key==='Enter')doLogin()"
-        style="width:100%;padding:10px 12px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:14px;font-family:var(--sans);box-sizing:border-box;outline:none">
-    </div>
-    <div style="margin-bottom:20px">
-      <label style="display:block;font-size:12px;font-weight:600;color:#1C1A17;margin-bottom:5px">Contraseña</label>
-      <input id="loginPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"
-        style="width:100%;padding:10px 12px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:14px;font-family:var(--sans);box-sizing:border-box;outline:none">
-    </div>
-    <div id="loginErr" style="display:none;background:#FDEAEA;border:1px solid #F0B8B8;border-radius:8px;padding:9px 12px;font-size:13px;color:#C41E1E;margin-bottom:14px"></div>
-    <button id="btnLogin" onclick="doLogin()"
-      style="width:100%;padding:12px;background:#E8670A;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans)">
-      Entrar al portal →
-    </button>
-  </div>
-</div>
-
-<div id="adminPortal" class="layout hidden">
+<div id="adminPortal" class="layout">
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -1215,7 +1192,6 @@ tbody tr:hover td{background:#FDFAF6}
 // ══════════════════════════════════════════════════
 const SUPABASE_URL   = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzb3lxdW9wZHN1bm1pYWtmb3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDc3MzMsImV4cCI6MjA5NjU4MzczM30.WNcKwYRUu1ShBDU6ZnG9i9y2caYDjRCPPksDWncp8mo';
-const ADMIN_EMAIL    = 'gustavo@letracaribe.com';
 // ══════════════════════════════════════════════════
 
 const { createClient } = window.supabase;
@@ -1227,47 +1203,10 @@ let selectedActivities = new Set();
 let allStudents=[], allActivities=[], allAssignments=[], allResponses=[];
 let pendingGrades={}, currentActivityType='mc', qCount=0;
 
-// ══ AUTH ══
-async function doLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
-  const pass=document.getElementById('loginPass').value;
-  const errEl=document.getElementById('loginErr');
-  const btn=document.getElementById('btnLogin');
-  if(!email||!pass){showErr(errEl,'Completa todos los campos.');return;}
-  if(email!==ADMIN_EMAIL){showErr(errEl,'Acceso no autorizado.');return;}
-  btn.disabled=true;btn.textContent='Verificando…';errEl.style.display='none';
-  try{
-    const{data,error}=await dbAuth.auth.signInWithPassword({email,password:pass});
-    if(error) throw error;
-    showAdminPortal();
-    await loadAll();
-  }catch(e){
-    showErr(errEl,'Correo o contraseña incorrectos.');
-    btn.disabled=false;btn.textContent='Entrar al portal →';
-  }
-}
-async function doLogout(){
-  await dbAuth.auth.signOut();
-  document.getElementById('adminPortal').classList.add('hidden');
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('loginPass').value = '';
-  document.getElementById('loginEmail').value = '';
-}
 function showErr(el,msg){el.textContent=msg;el.style.display='block';}
 
-function showAdminPortal() {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('adminPortal').classList.remove('hidden');
-}
-
-// Check for existing session on load
-(async () => {
-  const { data: { session } } = await dbAuth.auth.getSession();
-  if (session && session.user.email === ADMIN_EMAIL) {
-    showAdminPortal();
-    await loadAll();
-  }
-})();
+// Load data on start
+(async () => { await loadAll(); })();
 
 // ══ LOAD DATA ══
 async function loadAll(){
