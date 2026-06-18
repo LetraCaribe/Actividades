@@ -2873,7 +2873,7 @@ function actCardHtml(a) {
       </div>
     </div>
     <div class="act-item-actions">
-      ${bulkMode ? "<button type=""button"" class=""btn btn-outline btn-sm"" data-act-action=""select"" data-activity-id="""">Seleccionar</button>" : ""}
+      ${bulkMode ? '<button type="button" class="btn btn-outline btn-sm" data-act-action="select" data-activity-id="' + aid + '">Seleccionar</button>' : ''}
       <button type="button" class="btn btn-outline btn-sm" title="Editar" data-act-action="edit" data-activity-id="${aid}"><i class="ti ti-pencil"></i></button>
       <button type="button" class="btn btn-outline btn-sm" title="Asignar" data-act-action="assign" data-activity-id="${aid}"><i class="ti ti-user-plus"></i></button>
       <button type="button" class="btn btn-danger btn-sm" title="Eliminar" data-act-action="delete" data-activity-id="${aid}"><i class="ti ti-trash"></i></button>
