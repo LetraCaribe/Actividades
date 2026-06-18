@@ -3543,17 +3543,17 @@ function jsonPreview() {
 }
 
 function abrirVistaEstudiante() {
-  const raw = document.getElementById(‘json-content’).value.trim();
-  if (!raw) { alert(‘Pega un JSON primero’); return; }
+  const raw = document.getElementById('json-content').value.trim();
+  if (!raw) { alert('Pega un JSON primero'); return; }
 
   let parsed;
   try {
     const normalized = raw.replace(/[‘’]/g, “’”).replace(/[“”]/g, ‘”’).replace(/[–—]/g, ‘-’);
     parsed = JSON.parse(normalized);
-  } catch(e) { alert(‘JSON invalido: ‘ + e.message); return; }
+  } catch(e) { alert('JSON invalido: ' + e.message); return; }
 
   estudianteParsed = JSON.parse(JSON.stringify(parsed));
-  const type = parsed.type || ‘’;
+  const type = parsed.type || '';
   const isSplit = type === 'reading' || type === 'audio';
 
   const modal = document.createElement('div');
