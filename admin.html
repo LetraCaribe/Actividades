@@ -1916,8 +1916,10 @@ function abrirVistaRevision(studentName, activityKey) {
   if (!activity) { showToast('Actividad no encontrada'); return; }
 
   let parsed;
-  try { parsed = JSON.parse(activity.content_json || activity.content || '{}'); }
-  catch(e) { showToast('Error al leer el contenido de la actividad'); return; }
+  try {
+    const raw = activity.content_json || activity.content;
+    parsed = (raw && typeof raw === 'object') ? raw : JSON.parse(raw || '{}');
+  } catch(e) { showToast('Error al leer el contenido de la actividad'); return; }
 
   const scoreable = rows.filter(r => r.is_correct !== null);
   const correct   = rows.filter(r => r.is_correct === true).length;
