@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Letra Caribe — Portal Administrativo v2.7</title>
+<title>Letra Caribe — Portal Administrativo v2.9</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -306,7 +306,30 @@ tbody tr:hover td{background:#FDFAF6}
 
 <!-- ══ LOGIN ══ -->
 <!-- ══ ADMIN PORTAL ══ -->
-<div id="adminPortal" class="layout">
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="position:fixed;inset:0;background:#F5F0E8;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+  <div style="background:white;border-radius:16px;padding:40px 36px;max-width:400px;width:100%;box-shadow:0 8px 40px rgba(28,26,23,.15)">
+    <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:#1C1A17;margin-bottom:4px">Letra Caribe</div>
+    <div style="font-size:13px;color:#9E8E7E;margin-bottom:28px">Portal administrativo</div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:12px;font-weight:600;color:#1C1A17;margin-bottom:5px">Correo</label>
+      <input id="loginEmail" type="email" placeholder="correo@letracaribe.com" onkeydown="if(event.key==='Enter')doLogin()"
+        style="width:100%;padding:10px 12px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:14px;font-family:var(--sans);box-sizing:border-box;outline:none">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="display:block;font-size:12px;font-weight:600;color:#1C1A17;margin-bottom:5px">Contraseña</label>
+      <input id="loginPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"
+        style="width:100%;padding:10px 12px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:14px;font-family:var(--sans);box-sizing:border-box;outline:none">
+    </div>
+    <div id="loginErr" style="display:none;background:#FDEAEA;border:1px solid #F0B8B8;border-radius:8px;padding:9px 12px;font-size:13px;color:#C41E1E;margin-bottom:14px"></div>
+    <button id="btnLogin" onclick="doLogin()"
+      style="width:100%;padding:12px;background:#E8670A;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans)">
+      Entrar al portal →
+    </button>
+  </div>
+</div>
+
+<div id="adminPortal" class="layout hidden">
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -1271,16 +1294,15 @@ let pendingGrades={}, currentActivityType='mc', qCount=0;
 async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
-  const errEl=document.getElementById('loginError');
+  const errEl=document.getElementById('loginErr');
   const btn=document.getElementById('btnLogin');
   if(!email||!pass){showErr(errEl,'Completa todos los campos.');return;}
   if(email!==ADMIN_EMAIL){showErr(errEl,'Acceso no autorizado.');return;}
-  btn.disabled=true;btn.textContent='Verificando…';errEl.classList.remove('show');
+  btn.disabled=true;btn.textContent='Verificando…';errEl.style.display='none';
   try{
     const{data,error}=await dbAuth.auth.signInWithPassword({email,password:pass});
     if(error) throw error;
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('adminPortal').classList.remove('hidden');
+    showAdminPortal();
     await loadAll();
   }catch(e){
     showErr(errEl,'Correo o contraseña incorrectos.');
@@ -1290,10 +1312,25 @@ async function doLogin(){
 async function doLogout(){
   await dbAuth.auth.signOut();
   document.getElementById('adminPortal').classList.add('hidden');
-  document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('loginPass').value='';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginEmail').value = '';
 }
-function showErr(el,msg){el.textContent=msg;el.classList.add('show');}
+function showErr(el,msg){el.textContent=msg;el.style.display='block';}
+
+function showAdminPortal() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminPortal').classList.remove('hidden');
+}
+
+// Check for existing session on load
+(async () => {
+  const { data: { session } } = await dbAuth.auth.getSession();
+  if (session && session.user.email === ADMIN_EMAIL) {
+    showAdminPortal();
+    await loadAll();
+  }
+})();
 
 // ══ LOAD DATA ══
 async function loadAll(){
@@ -2300,6 +2337,7 @@ document.addEventListener('click', function(e){
   if(action === 'delete') deleteActivity(id);
   if(action === 'assign') assignActivityQuick(id);
   if(action === 'select') toggleActivitySelected(id);
+  if(action === 'edit')   editActivity(id);
 });
 
 // ══ ACTIVITY CREATOR ══
@@ -2871,6 +2909,7 @@ function actCardHtml(a) {
       </div>
     </div>
     <div class="act-item-actions">
+      <button type="button" class="btn btn-outline btn-sm" title="Editar" data-act-action="edit" data-activity-id="${aid}"><i class="ti ti-pencil"></i></button>
       <button type="button" class="btn btn-outline btn-sm" title="Asignar" data-act-action="assign" data-activity-id="${aid}"><i class="ti ti-user-plus"></i></button>
       <button type="button" class="btn btn-danger btn-sm" title="Eliminar" data-act-action="delete" data-activity-id="${aid}"><i class="ti ti-trash"></i></button>
     </div>
@@ -3354,6 +3393,67 @@ function auReset() {
 }
 
 
+// ══ EDIT ACTIVITY ══
+let _editingActivityId = null;
+
+function editActivity(id) {
+  const a = allActivities.find(x => String(x.id) === String(id));
+  if (!a) { showToast('Actividad no encontrada'); return; }
+
+  _editingActivityId = a.id;
+
+  // Navigate to creator hub → JSON tab
+  showPanel('creator-hub');
+  const jsonTab = document.getElementById('hubtab-json');
+  if (jsonTab) hubSwitch('json', jsonTab);
+
+  // Fill fields
+  document.getElementById('json-title').value = a.title || '';
+  const levelSel = document.getElementById('json-level');
+  if (levelSel) levelSel.value = a.level || 'B1';
+  const typeSel = document.getElementById('json-type');
+  if (typeSel) { typeSel.value = a.type || 'fill-blank'; toggleJsonAudioField(typeSel.value); }
+  const gramSel = document.getElementById('json-grammar-cat');
+  if (gramSel) gramSel.value = a.grammar_category_id || '';
+
+  // Audio URL if present
+  const content = a.content || {};
+  const audioUrl = content.youtubeUrl || content.audioUrl || '';
+  const audioField = document.getElementById('json-audio-url');
+  if (audioField) audioField.value = audioUrl;
+
+  // Put content JSON in textarea
+  document.getElementById('json-content').value = JSON.stringify(
+    typeof content === 'string' ? JSON.parse(content) : content, null, 2
+  );
+
+  // Update save button label
+  const saveBtn = document.querySelector('[onclick="jsonSave()"]');
+  if (saveBtn) saveBtn.innerHTML = '✏️ Actualizar actividad';
+
+  // Show edit banner
+  let banner = document.getElementById('json-edit-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'json-edit-banner';
+    banner.style.cssText = 'background:#FDF0E4;border:1px solid #F5D3B0;border-radius:var(--r);padding:9px 13px;font-size:12px;color:#B85A00;font-weight:500;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px';
+    const textarea = document.getElementById('json-content');
+    textarea.parentElement.insertBefore(banner, textarea.parentElement.firstChild);
+  }
+  banner.innerHTML = '<span><i class="ti ti-pencil"></i> Editando: <strong>' + escapeHtml(a.title) + '</strong></span>'
+    + '<button onclick="cancelEditActivity()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#B85A00;text-decoration:underline;font-family:var(--sans)">Cancelar edición</button>';
+
+  showToast('Actividad cargada para editar');
+}
+
+function cancelEditActivity() {
+  _editingActivityId = null;
+  const banner = document.getElementById('json-edit-banner');
+  if (banner) banner.remove();
+  const saveBtn = document.querySelector('[onclick="jsonSave()"]');
+  if (saveBtn) saveBtn.innerHTML = '💾 Guardar actividad';
+}
+
 // ══ CREATOR HUB ══
 function hubSwitch(tab, btn) {
   document.querySelectorAll('.hub-tab').forEach(b => b.classList.remove('active'));
@@ -3754,18 +3854,36 @@ async function jsonSave() {
   const gramCatObj  = gramCatId ? allGrammarCats.find(c=>c.id===gramCatId) : null;
 
   try {
-    const { error } = await db.from('activities').insert({
-      slug, title, level,
-      description: parsed.instructions || parsed.description || actType,
-      type: actType,
-      content: parsed,
-      grammar_category_id:   gramCatId,
-      grammar_category_name: gramCatObj ? gramCatObj.name : null
-    });
-    if (error) throw error;
-    const succ = document.getElementById('json-success');
-    if (succ) { succ.style.display='block'; setTimeout(()=>succ.style.display='none',4000); }
-    showToast('✓ Actividad guardada desde JSON');
+    if (_editingActivityId) {
+      // UPDATE existing activity
+      const { error } = await db.from('activities').update({
+        title, level,
+        description: parsed.instructions || parsed.description || actType,
+        type: actType,
+        content: parsed,
+        grammar_category_id:   gramCatId,
+        grammar_category_name: gramCatObj ? gramCatObj.name : null
+      }).eq('id', _editingActivityId);
+      if (error) throw error;
+      const succ = document.getElementById('json-success');
+      if (succ) { succ.textContent = '✓ Actividad actualizada.'; succ.style.display='block'; setTimeout(()=>succ.style.display='none',4000); }
+      showToast('✓ Actividad actualizada');
+      cancelEditActivity();
+    } else {
+      // INSERT new activity
+      const { error } = await db.from('activities').insert({
+        slug, title, level,
+        description: parsed.instructions || parsed.description || actType,
+        type: actType,
+        content: parsed,
+        grammar_category_id:   gramCatId,
+        grammar_category_name: gramCatObj ? gramCatObj.name : null
+      });
+      if (error) throw error;
+      const succ = document.getElementById('json-success');
+      if (succ) { succ.textContent = '✓ Actividad guardada.'; succ.style.display='block'; setTimeout(()=>succ.style.display='none',4000); }
+      showToast('✓ Actividad guardada desde JSON');
+    }
     await loadAll();
   } catch(e) {
     console.error(e);
@@ -4358,6 +4476,6 @@ async function confirmDeleteGrammarCategory() {
   </div>
 </div>
 
-<div style="position:fixed;bottom:8px;right:12px;font-size:10px;color:rgba(0,0,0,.25);z-index:9999;pointer-events:none">v2.7</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:10px;color:rgba(0,0,0,.25);z-index:9999;pointer-events:none">v2.9</div>
 </body>
 </html>
