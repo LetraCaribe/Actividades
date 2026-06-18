@@ -1067,12 +1067,12 @@ function renderActList(containerId, rows) {
       '<div class="act-card-top">'
       + '<div class="act-icon" style="background:' + ic.bg + '"><i class="ti ' + ic.icon + '" style="color:' + ic.color + ';font-size:17px"></i></div>'
       + '<div class="act-info"><div class="act-name">' + (act.title||'Actividad') + '</div></div>'
+      + dueHtml
       + '<i class="ti ti-chevron-right act-arrow"></i>'
       + '</div>'
       + '<div class="act-meta">'
       + '<span class="act-badge" style="background:#E6F1FB;color:#185FA5">' + (act.level||'A1') + '</span>'
       + (catCode ? '<span class="act-badge" style="background:#EEEDFE;color:#534AB7">' + catCode + '</span>' : '')
-      + dueHtml
       + '</div>'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">'
       + '<span style="font-size:11px;font-weight:600;color:var(--orange);background:var(--orange-lt);padding:3px 9px;border-radius:20px">Pendiente</span>'
