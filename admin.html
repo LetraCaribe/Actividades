@@ -2861,7 +2861,7 @@ function actCardHtml(a) {
   const cat = (typeof allGrammarCats !== 'undefined' ? allGrammarCats : []).find(c => String(c.id) === String(a.grammar_category_id));
   const catCode = cat ? cat.name : '';
   const statDone = completed > 0 ? `<span class="act-stat-done"><i class="ti ti-circle-check" style="font-size:12px;vertical-align:-1px"></i> ${completed}</span>` : '';
-  return `<div class="act-item">
+  return `<div class="act-item" style="${bulkMode ? 'flex-wrap:wrap' : ''}">
     <div class="act-item-icon" style="background:${ic.bg}"><i class="ti ${ic.icon}" style="font-size:18px;color:${ic.color}"></i></div>
     <div class="act-item-body">
       <div class="act-item-title">${a.title}</div>
@@ -2872,7 +2872,7 @@ function actCardHtml(a) {
         ${statDone}
       </div>
     </div>
-    <div class="act-item-actions">
+    <div class="act-item-actions" style="${bulkMode ? 'width:100%;padding-top:4px' : ''}">
       ${bulkMode ? '<button type="button" data-act-action="select" data-activity-id="' + aid + '" style="width:24px;height:24px;border:2px solid #ccc;border-radius:4px;background:white;cursor:pointer;flex-shrink:0" title="Seleccionar"></button>' : ''}
       <button type="button" class="btn btn-outline btn-sm" title="Editar" data-act-action="edit" data-activity-id="${aid}"><i class="ti ti-pencil"></i></button>
       <button type="button" class="btn btn-outline btn-sm" title="Asignar" data-act-action="assign" data-activity-id="${aid}"><i class="ti ti-user-plus"></i></button>
