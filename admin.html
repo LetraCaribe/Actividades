@@ -3674,6 +3674,9 @@ function abrirVistaEstudiante() {
   html += '<button onclick="guardarDesdeModal()" style="padding:9px 18px;background:#E8670A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">💾 Guardar actividad</button>';
   html += '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="padding:9px 16px;background:#F5F0E8;color:#1C1A17;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Cerrar</button>';
   html += '</div></div></div>';
+  modal.innerHTML = html;
+  document.body.appendChild(modal);
+}
 
 function veQuestionHtml(q, qi) {
   let h = '<div style="margin-bottom:12px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;padding:12px">'
