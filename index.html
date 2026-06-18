@@ -103,18 +103,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 /* ACTIVITY CARDS */
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .section-title{font-family:var(--serif);font-size:17px;font-weight:700}
-.act-list{display:flex;flex-direction:column;gap:9px}
-.act-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s}
-.act-card:hover{border-color:var(--orange);box-shadow:var(--shadow);transform:translateY(-1px)}
-.act-card.done-card{border-color:#B7DFC4;background:#F6FBF8;cursor:default}
-.act-card.done-card:hover{transform:none;box-shadow:none}
-.act-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:19px}
+.act-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.act-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:all .15s}
+.act-card:hover{border-color:var(--orange);box-shadow:var(--shadow)}
+.act-card-top{display:flex;align-items:center;gap:10px}
+.act-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .act-info{flex:1;min-width:0}
-.act-name{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:3px}
-.act-meta{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.act-due{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:3px;margin-top:3px}
-.act-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
-.act-arrow{font-size:18px;color:var(--border)}
+.act-name{font-size:13px;font-weight:600;color:var(--ink);line-height:1.3}
+.act-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.act-due{font-size:11px;color:#C41E1E;display:flex;align-items:center;gap:3px;font-weight:500}
+.act-due.ok{color:var(--muted)}
+.act-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.act-arrow{font-size:16px;color:var(--border);margin-left:auto}
 /* PROGRESS BAR */
 .player-progress{padding:0 22px 12px;background:var(--white)}
 .progress-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
@@ -1038,38 +1038,44 @@ const ACT_ICONS_S = {
 function renderActList(containerId, rows) {
   const el = document.getElementById(containerId);
   if (!rows.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📬</div><div class="empty-text">Tu profesor aún no ha asignado actividades.</div></div>';
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">✅</div><div class="empty-text">¡Todo al día! No tienes actividades pendientes.</div></div>';
     return;
   }
   el.innerHTML = '';
   rows.forEach((a) => {
     const act = a.activities || {};
-    const done = !!a.completed;
-    const ic = ACT_ICONS_S[act.type] || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
-    const dueHtml = a.due_date
-      ? '<div class="act-due"><i class="ti ti-calendar-due" style="font-size:11px"></i>' + new Date(a.due_date).toLocaleDateString('es-CO',{day:'numeric',month:'short'}) + '</div>'
-      : '';
-    const div = document.createElement('div');
-    div.className = 'act-card' + (done ? ' done-card' : '');
-    div.innerHTML =
-      '<div class="act-icon" style="background:' + ic.bg + '"><i class="ti ' + ic.icon + '" style="color:' + ic.color + ';font-size:19px"></i></div>'
-      + '<div class="act-info">'
-      + '<div class="act-name">' + (act.title||'Actividad') + '</div>'
-      + '<div class="act-meta"><span style="background:#E6F1FB;color:#185FA5;font-size:10px;font-weight:600;padding:1px 6px;border-radius:20px">' + (act.level||'A1') + '</span>'
-      + (act.description ? '<span>' + act.description + '</span>' : '') + '</div>'
-      + dueHtml
-      + '</div>'
-      + (done
-        ? '<span class="act-badge" style="background:#D1F0DC;color:var(--green)">✓ Hecha</span>'
-        : '<span class="act-badge" style="background:var(--orange-lt);color:var(--orange)">Pendiente</span>'
-          + '<span class="act-arrow">›</span>');
-    if (!done) {
-      div.style.cursor = 'pointer';
-      div.addEventListener('click', (function(id){ return function(){ openActivity(id); }; })(a.id));
-    } else {
-      div.style.cursor = 'pointer';
-      div.addEventListener('click', (function(id){ return function(){ openActivityReview(id); }; })(a.id));
+    const ic  = ACT_ICONS_S[act.type] || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
+
+    // Fecha límite — roja si vence en ≤2 días
+    let dueHtml = '';
+    if (a.due_date) {
+      const daysLeft = Math.ceil((new Date(a.due_date) - new Date()) / 86400000);
+      const urgent   = daysLeft <= 2;
+      dueHtml = '<span class="act-due' + (urgent ? '' : ' ok') + '">'
+        + '<i class="ti ti-calendar-due" style="font-size:11px"></i> '
+        + new Date(a.due_date).toLocaleDateString('es-CO',{day:'numeric',month:'short'})
+        + (urgent ? ' · ' + (daysLeft <= 0 ? 'Vencida' : daysLeft + 'd') : '')
+        + '</span>';
     }
+
+    // Categoría gramatical
+    const catCode = act.grammar_category_name ? act.grammar_category_name.substring(0,4).toUpperCase() : '';
+
+    const div = document.createElement('div');
+    div.className = 'act-card';
+    div.innerHTML =
+      '<div class="act-card-top">'
+      + '<div class="act-icon" style="background:' + ic.bg + '"><i class="ti ' + ic.icon + '" style="color:' + ic.color + ';font-size:17px"></i></div>'
+      + '<div class="act-info"><div class="act-name">' + (act.title||'Actividad') + '</div></div>'
+      + '<i class="ti ti-chevron-right act-arrow"></i>'
+      + '</div>'
+      + '<div class="act-meta">'
+      + '<span class="act-badge" style="background:#E6F1FB;color:#185FA5">' + (act.level||'A1') + '</span>'
+      + (catCode ? '<span class="act-badge" style="background:#EEEDFE;color:#534AB7">' + catCode + '</span>' : '')
+      + dueHtml
+      + '</div>';
+
+    div.addEventListener('click', () => openActivity(a.id));
     el.appendChild(div);
   });
 }
@@ -1092,8 +1098,7 @@ function renderArchive(doneList) {
       ? new Date(a.completed_at).toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' })
       : '—';
 
-    // Score: buscamos en responses — por ahora mostramos badge "Hecha" si no hay score
-    const score = a.score ?? null;
+    const score = a.score_pct ?? null;
     let scoreBadge = '';
     if (score !== null) {
       const cls = score >= 80 ? 'high' : score >= 60 ? 'mid' : 'low';
@@ -1753,14 +1758,18 @@ async function submitActivity() {
     if (rows.length > 0) {
       await db.from('responses').insert(rows);
     }
-    // Mark assignment complete
-    await db.from('assignments').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', currentAssignmentId);
-    // Update score
-    const mcCorrect = Object.values(playerAnswers).filter(a => a?.correct).length;
-    const newScore = (currentProfile?.score || 0) + (mcCorrect * 10);
+    // Mark assignment complete + save score_pct
+    const correct = Object.values(playerAnswers).filter(a => a?.correct).length;
+    const scorePct = playerTotalQ > 0 ? Math.round((correct / playerTotalQ) * 100) : null;
+    await db.from('assignments').update({
+      completed: true,
+      completed_at: new Date().toISOString(),
+      score_pct: scorePct
+    }).eq('id', currentAssignmentId);
+    // Update profile score
+    const newScore = (currentProfile?.score || 0) + (correct * 10);
     await db.from('profiles').update({ score: newScore }).eq('id', currentUser.id);
     currentProfile.score = newScore;
-    const correct = Object.values(playerAnswers).filter(a => a?.correct).length;
     showResultsScreen(correct, playerTotalQ);
     await loadAssignments();
     await loadLeaderboard();
