@@ -719,14 +719,6 @@ tbody tr:hover td{background:#FDFAF6}
             <button class="hub-tab" id="hubtab-dragdrop" onclick="hubSwitch('dragdrop',this)">🔀 Drag & Drop</button>
           </div>
 
-          <!-- SHARED GRAMMAR CATEGORY SELECTOR -->
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 14px;background:var(--sand);border-radius:var(--r)">
-            <span style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">Categoría gramatical:</span>
-            <select class="form-select" id="hub-grammar-cat" style="flex:1;max-width:280px">
-              <option value="">— Sin categoría —</option>
-            </select>
-          </div>
-
           <!-- JSON IMPORTER -->
           <div id="hub-json" class="hub-section">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -868,9 +860,14 @@ tbody tr:hover td{background:#FDFAF6}
                   💡 Usa ___ (mínimo 3 guiones) para cada espacio en blanco. Agrega (pista) justo antes o después del guión para incluir una pista.
                 </div>
                 <div class="form-group"><label class="form-label">Título</label><input class="form-input" id="imp-title" placeholder="Ej: Los verbos irregulares en pasado"></div>
-                <div class="form-group">
-                  <label class="form-label">Categoría gramatical <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
-                  <select class="form-select" id="imp-grammar-cat"><option value="">— Sin categoría —</option></select>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div class="form-group">
+                    <label class="form-label">Categoría gramatical <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
+                    <select class="form-select" id="imp-grammar-cat"><option value="">— Sin categoría —</option></select>
+                  </div>
+                  <div class="form-group"><label class="form-label">Nivel</label>
+                    <select class="form-select" id="imp-level"><option>A1</option><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>
+                  </div>
                 </div>
                 <div class="form-group"><label class="form-label">Texto de la actividad</label>
                   <textarea class="form-textarea" id="imp-text-paste" rows="10" placeholder="Pega aquí el texto...&#10;&#10;Ejemplo:&#10;Ayer yo _______ (ir) al mercado. Ella _______ (comprar) muchas cosas."></textarea>
@@ -3762,7 +3759,7 @@ async function guardarDesdeModal() {
   // Sync any inputs that haven't fired onchange yet
   document.querySelectorAll('#modal-vista-estudiante input[type="text"]').forEach(inp => inp.dispatchEvent(new Event('change')));
   const title = ((document.getElementById('imp-title')?.value || '') || (document.getElementById('json-title')?.value || '')).trim();
-  const level = document.getElementById('json-level')?.value || 'B1';
+  const level = document.getElementById('imp-level')?.value || document.getElementById('json-level')?.value || 'B1';
   if (!title) { showToast('Escribe el título de la actividad.'); return; }
   const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
   const actType = estudianteParsed.type || 'fill-blank';
@@ -3834,7 +3831,7 @@ async function jsonSave() {
   const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
   const actType = parsed.type || type;
 
-  const gramCatId   = document.getElementById('json-grammar-cat').value || null;
+  const gramCatId   = (document.getElementById('imp-grammar-cat')?.value || document.getElementById('json-grammar-cat')?.value) || null;
   const gramCatObj  = gramCatId ? allGrammarCats.find(c=>c.id===gramCatId) : null;
 
   try {
@@ -4345,11 +4342,11 @@ function populateGrammarSelects() {
     jsonSel.value = cur;
   }
 
-  const hubSel = document.getElementById('hub-grammar-cat');
-  if (hubSel) {
-    const cur = hubSel.value;
-    hubSel.innerHTML = '<option value="">— Sin categoría —</option>' + opts;
-    hubSel.value = cur;
+  const impSel = document.getElementById('imp-grammar-cat');
+  if (impSel) {
+    const cur = impSel.value;
+    impSel.innerHTML = '<option value="">— Sin categoría —</option>' + opts;
+    impSel.value = cur;
   }
 
   const actGramSel = document.getElementById('f-act-gram');
