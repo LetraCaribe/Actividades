@@ -3763,12 +3763,16 @@ async function guardarDesdeModal() {
   if (!title) { showToast('Escribe el título de la actividad.'); return; }
   const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
   const actType = estudianteParsed.type || 'fill-blank';
+  const gramCatId = (document.getElementById('imp-grammar-cat')?.value || document.getElementById('json-grammar-cat')?.value) || null;
+  const gramCatObj = gramCatId ? allGrammarCats.find(c=>String(c.id)===String(gramCatId)) : null;
   try {
     const { error } = await db.from('activities').insert({
       slug, title, level,
       description: estudianteParsed.instructions || actType,
       type: actType,
-      content: estudianteParsed
+      content: estudianteParsed,
+      grammar_category_id: gramCatId ? Number(gramCatId) : null,
+      grammar_category_name: gramCatObj ? gramCatObj.name : null
     });
     if (error) throw error;
     document.getElementById('modal-vista-estudiante').remove();
