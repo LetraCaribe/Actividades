@@ -2209,13 +2209,16 @@ function toggleActivitySelected(id){
     const btnId = btn.getAttribute('data-activity-id');
 
     if(selectedActivities.has(btnId)){
-      btn.textContent = 'Seleccionada';
-      btn.classList.remove('btn-outline');
-      btn.classList.add('btn-teal');
+      btn.textContent = '✓';
+      btn.style.background = '#E8670A';
+      btn.style.borderColor = '#E8670A';
+      btn.style.color = 'white';
+      btn.style.fontWeight = '700';
     } else {
-      btn.textContent = 'Seleccionar';
-      btn.classList.remove('btn-teal');
-      btn.classList.add('btn-outline');
+      btn.textContent = '';
+      btn.style.background = 'white';
+      btn.style.borderColor = '#ccc';
+      btn.style.color = '';
     }
   });
 
