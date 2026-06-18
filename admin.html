@@ -3666,14 +3666,14 @@ function abrirVistaEstudiante() {
   }
 
   html += '</div>';
-  html += '<div style="background:white;border-top:1px solid #E0DAD2;padding:14px 20px;display:flex;gap:8px;border-radius:0 0 16px 16px">'
-    + '<button onclick="guardarCambiosEstudiante()" style="flex:1;padding:11px;background:#E8670A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Guardar cambios al JSON</button>'
-    + '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="padding:11px 20px;background:#F5F0E8;color:#1C1A17;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Cerrar</button>'
-    + '</div></div>';
-
-  modal.innerHTML = html;
-  document.body.appendChild(modal);
-}
+  html += '</div>';
+  html += '<div style="background:white;border-top:1px solid #E0DAD2;padding:14px 20px;border-radius:0 0 16px 16px">';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  html += '<input id="ve-title" type="text" placeholder="Título de la actividad" style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:13px;font-family:var(--sans);outline:none" value="' + escapeHtml(parsed.title||'') + '">';
+  html += '<select id="ve-level" style="padding:9px 10px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:13px;font-family:var(--sans);background:white;cursor:pointer"><option value="A1">A1</option><option value="A2">A2</option><option value="B1" selected>B1</option><option value="B2">B2</option><option value="C1">C1</option></select>';
+  html += '<button onclick="guardarDesdeModal()" style="padding:9px 18px;background:#E8670A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">💾 Guardar actividad</button>';
+  html += '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="padding:9px 16px;background:#F5F0E8;color:#1C1A17;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Cerrar</button>';
+  html += '</div></div></div>';
 
 function veQuestionHtml(q, qi) {
   let h = '<div style="margin-bottom:12px;background:white;border:1.5px solid #E0DAD2;border-radius:8px;padding:12px">'
@@ -3740,6 +3740,32 @@ function guardarCambiosEstudiante() {
     showToast('JSON listo — revisa y da click en Guardar actividad');
   } else {
     document.getElementById('modal-vista-estudiante').remove();
+  }
+}
+
+async function guardarDesdeModal() {
+  if (!estudianteParsed) { showToast('No hay datos para guardar.'); return; }
+  // Sync any inputs that haven't fired onchange yet
+  document.querySelectorAll('#modal-vista-estudiante input[type="text"]').forEach(inp => inp.dispatchEvent(new Event('change')));
+  const title = (document.getElementById('ve-title')?.value || '').trim();
+  const level = document.getElementById('ve-level')?.value || 'B1';
+  if (!title) { showToast('Escribe el título de la actividad.'); return; }
+  const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
+  const actType = estudianteParsed.type || 'fill-blank';
+  try {
+    const { error } = await db.from('activities').insert({
+      slug, title, level,
+      description: estudianteParsed.instructions || actType,
+      type: actType,
+      content: estudianteParsed
+    });
+    if (error) throw error;
+    document.getElementById('modal-vista-estudiante').remove();
+    showToast('Actividad guardada: ' + title);
+    await loadAll();
+  } catch(e) {
+    console.error(e);
+    showToast('Error al guardar: ' + (e.message || e));
   }
 }
 let jsonParsedCache = null;
