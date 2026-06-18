@@ -1259,8 +1259,8 @@ const ADMIN_EMAIL    = 'gustavo@letracaribe.com';
 // ══════════════════════════════════════════════════
 
 const { createClient } = window.supabase;
-const dbAuth = createClient(SUPABASE_URL, SUPABASE_ANON);
 const db     = createClient(SUPABASE_URL, SUPABASE_ANON);
+const dbAuth = db;
 let bulkMode = false;
 let selectedActivities = new Set();
 
