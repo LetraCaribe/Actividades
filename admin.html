@@ -870,7 +870,7 @@ tbody tr:hover td{background:#FDFAF6}
                 <label>Texto de la actividad</label>
                 <textarea id="imp-text-paste" rows="12" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--serif);font-size:14px;line-height:1.8;resize:vertical;background:var(--sand);box-sizing:border-box" placeholder="Pega aquí el texto con los espacios en blanco marcados con _______ (mínimo 3 guiones)&#10;&#10;Ejemplo:&#10;Ayer yo _______ (ir) al mercado. Ella _______ (comprar) muchas cosas."></textarea>
               </div>
-              <button class="btn btn-teal" onclick="abrirVistaDesdeTexto()">👨‍🎓 Ver como estudiante →</button>
+              <button class="btn btn-teal" onclick="abrirVistaEstudiante()">👨‍🎓 Ver como estudiante →</button>
             </div>
           </div>
         </div>
@@ -3542,20 +3542,18 @@ function jsonPreview() {
   preview.dataset.parsed = raw;
 }
 
-function abrirVistaEstudiante(fromText) {
+function abrirVistaEstudiante() {
+  const raw = document.getElementById(‘json-content’).value.trim();
+  if (!raw) { alert(‘Pega un JSON primero’); return; }
+
   let parsed;
-  if (fromText) {
-    parsed = estudianteParsed;
-  } else {
-    const raw = document.getElementById('json-content').value.trim();
-    if (!raw) { alert('Pega un JSON primero'); return; }
-    try {
-      const normalized = raw.replace(/[‘’]/g, “’”).replace(/[“”]/g, ‘”’).replace(/[–—]/g, ‘-’);
-      parsed = JSON.parse(normalized);
-    } catch(e) { alert('JSON inválido: ' + e.message); return; }
-    estudianteParsed = JSON.parse(JSON.stringify(parsed));
-  }
-  const type = parsed.type || '';
+  try {
+    const normalized = raw.replace(/[‘’]/g, “’”).replace(/[“”]/g, ‘”’).replace(/[–—]/g, ‘-’);
+    parsed = JSON.parse(normalized);
+  } catch(e) { alert(‘JSON invalido: ‘ + e.message); return; }
+
+  estudianteParsed = JSON.parse(JSON.stringify(parsed));
+  const type = parsed.type || ‘’;
   const isSplit = type === 'reading' || type === 'audio';
 
   const modal = document.createElement('div');
@@ -3570,18 +3568,6 @@ function abrirVistaEstudiante(fromText) {
     + '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#8C8479">✕</button>'
     + '</div>';
 
-  if (fromText) {
-    html += '<div style="padding:14px 20px;border-bottom:1px solid #E0DAD2;background:#F5F0E8;display:grid;grid-template-columns:1fr 80px;gap:12px;align-items:end">'
-      + '<div><label style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;display:block;margin-bottom:4px">Título</label>'
-      + '<input id="ve-title" type="text" placeholder="Ej: Unas vacaciones inolvidables" style="width:100%;padding:8px 10px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:13px;box-sizing:border-box"></div>'
-      + '<div><label style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;display:block;margin-bottom:4px">Nivel</label>'
-      + '<select id="ve-level" style="width:100%;padding:8px 10px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:13px"><option>A1</option><option>A2</option><option selected>B1</option><option>B2</option><option>C1</option></select>'
-      + '</div></div>'
-      + '<div style="padding:10px 20px;border-bottom:1px solid #E0DAD2;background:#F5F0E8">'
-      + '<label style="font-size:10px;font-weight:600;color:#8C8479;text-transform:uppercase;display:block;margin-bottom:4px">Instrucciones para el estudiante</label>'
-      + '<input id="ve-instructions" type="text" value="Completa los espacios con la forma correcta del verbo entre paréntesis." style="width:100%;padding:8px 10px;border:1.5px solid #E0DAD2;border-radius:8px;font-size:13px;box-sizing:border-box">'
-      + '</div>';
-  }
 
   html += '<div style="padding:20px;overflow-y:auto;max-height:70vh;' + (isSplit?'display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start':'') + '">';
 
@@ -3673,17 +3659,10 @@ function abrirVistaEstudiante(fromText) {
   }
 
   html += '</div>';
-  if (fromText) {
-    html += '<div style="background:white;border-top:1px solid #E0DAD2;padding:14px 20px;display:flex;gap:8px;border-radius:0 0 16px 16px">'
-      + '<button onclick="guardarDesdeTexto()" style="flex:1;padding:11px;background:#2D9E8F;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Guardar en Supabase</button>'
-      + '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="padding:11px 20px;background:#F5F0E8;color:#1C1A17;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Cancelar</button>'
-      + '</div></div>';
-  } else {
-    html += '<div style="background:white;border-top:1px solid #E0DAD2;padding:14px 20px;display:flex;gap:8px;border-radius:0 0 16px 16px">'
-      + '<button onclick="guardarCambiosEstudiante()" style="flex:1;padding:11px;background:#E8670A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">✓ Guardar cambios al JSON</button>'
-      + '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="padding:11px 20px;background:#F5F0E8;color:#1C1A17;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Cerrar</button>'
-      + '</div></div>';
-  }
+  html += '<div style="background:white;border-top:1px solid #E0DAD2;padding:14px 20px;display:flex;gap:8px;border-radius:0 0 16px 16px">'
+    + '<button onclick="guardarCambiosEstudiante()" style="flex:1;padding:11px;background:#E8670A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Guardar cambios al JSON</button>'
+    + '<button onclick="document.getElementById(\'modal-vista-estudiante\').remove()" style="padding:11px 20px;background:#F5F0E8;color:#1C1A17;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;font-family:var(--sans)">Cerrar</button>'
+    + '</div></div>';
 
   modal.innerHTML = html;
   document.body.appendChild(modal);
@@ -3755,69 +3734,6 @@ function guardarCambiosEstudiante() {
   }
 }
 
-function abrirVistaDesdeTexto() {
-  const text = document.getElementById('imp-text-paste').value.trim();
-  if (!text) { showToast('Pega un texto primero'); return; }
-
-  const sentences = parseBlankText(text);
-  if (!sentences.some(s => s.hasBlank)) {
-    showToast('No se encontraron espacios en blanco. Usa _______ (mínimo 3 guiones)');
-    return;
-  }
-
-  estudianteParsed = {
-    type: 'fill-blank',
-    title: '',
-    level: 'B1',
-    instructions: 'Completa los espacios con la forma correcta del verbo entre paréntesis.',
-    sentences: sentences
-  };
-
-  abrirVistaEstudiante(true);
-}
-
-async function guardarDesdeTexto() {
-  const titleEl = document.getElementById('ve-title');
-  const levelEl = document.getElementById('ve-level');
-  const instrEl = document.getElementById('ve-instructions');
-  if (!titleEl || !estudianteParsed) { showToast('Error: datos incompletos'); return; }
-
-  const title = titleEl.value.trim();
-  const level = levelEl ? levelEl.value : 'B1';
-  const instructions = instrEl ? instrEl.value.trim() : '';
-
-  if (!title) { showToast('Escribe el título de la actividad'); titleEl.focus(); return; }
-
-  const blanks = (estudianteParsed.sentences || []).flatMap(s => s.blanks || []);
-  const empty = blanks.filter(b => !b.answer || b.answer === '…' || b.answer.trim() === '');
-  if (empty.length > 0) {
-    showToast('Completa ' + empty.length + ' respuesta(s) maestra(s) antes de guardar');
-    return;
-  }
-
-  estudianteParsed.title = title;
-  estudianteParsed.level = level;
-  estudianteParsed.instructions = instructions;
-
-  const slug = title.toLowerCase().replace(/[\s]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,50) + '-' + Date.now();
-
-  const { error } = await db.from('activities').insert({
-    slug, title, level,
-    description: instructions || 'fill-blank',
-    type: 'fill-blank',
-    content: estudianteParsed,
-    grammar_category_id: null,
-    grammar_category_name: null
-  });
-
-  if (error) { showToast('Error al guardar: ' + error.message); return; }
-
-  showToast('✓ Actividad guardada en Supabase');
-  document.getElementById('modal-vista-estudiante').remove();
-  document.getElementById('imp-text-paste').value = '';
-  estudianteParsed = null;
-  await loadAll();
-}
 
 let jsonParsedCache = null;
 
