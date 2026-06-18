@@ -736,7 +736,7 @@ tbody tr:hover td{background:#FDFAF6}
           <!-- TYPE TABS -->
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px" id="hub-tabs">
             <button class="hub-tab active" id="hubtab-json" onclick="hubSwitch('json',this)">📋 Importar JSON</button>
-            <button class="hub-tab" id="hubtab-word" onclick="hubSwitch('word',this)">📂 Importar Word</button>
+            <button class="hub-tab" id="hubtab-word" onclick="hubSwitch('word',this)">📝 Pegar texto</button>
             <button class="hub-tab" id="hubtab-reading" onclick="hubSwitch('reading',this)">📖 Comprensión lectora</button>
             <button class="hub-tab" id="hubtab-match" onclick="hubSwitch('match',this)">🔗 Emparejar</button>
             <button class="hub-tab" id="hubtab-audio" onclick="hubSwitch('audio',this)">🎵 Audio</button>
@@ -2626,8 +2626,12 @@ function parseBlankText(text) {
       // Has blanks
       const blanks = [];
       for (let i = 0; i < parts.length - 1; i++) {
-        // Try to extract verb hint from parentheses before/after blank
         const hint = extractHint(parts[i], parts[i+1]);
+        if (hint) {
+          // Remove the (hint) from the text so it doesn't appear twice
+          parts[i]   = parts[i].replace(/\s*[(][^)]+[)]\s*$/, '');
+          parts[i+1] = parts[i+1].replace(/^\s*[(][^)]+[)]\s*/, '');
+        }
         blanks.push({ index: i, hint, answer: '' });
       }
       sentences.push({ text: line, parts, blanks, hasBlank: true });
