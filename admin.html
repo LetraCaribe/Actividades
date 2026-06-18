@@ -153,6 +153,24 @@ tbody tr:hover td{background:#FDFAF6}
 .modal-close{font-size:22px;background:none;border:none;cursor:pointer;color:var(--muted);line-height:1}
 .modal-body{padding:18px 22px 22px}
 .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:white;position:sticky;bottom:0}
+/* REVIEW MODAL */
+.review-modal{max-width:680px}
+.review-modal .modal-head{background:var(--sand);border-bottom:3px solid var(--orange)}
+.review-modal-banner{background:var(--orange-lt);border:1px solid #F5D3B0;border-radius:var(--r);padding:8px 14px;font-size:12px;color:var(--orange-dk);font-weight:500;margin-bottom:16px;display:flex;align-items:center;gap:6px}
+.review-q-card{border-radius:var(--r);padding:14px 16px;margin-bottom:10px;border:1px solid}
+.review-q-card.correct{background:#F0FBF3;border-color:#5DBF78}
+.review-q-card.incorrect{background:var(--red-lt);border-color:#E07070}
+.review-q-card.open{background:var(--sand);border-color:var(--border)}
+.review-q-num{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
+.review-q-text{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px;line-height:1.4}
+.review-q-answer{font-size:13px;padding:7px 10px;border-radius:8px;display:flex;align-items:center;gap:6px}
+.review-q-answer.ok{background:#D1F0DC;color:var(--green)}
+.review-q-answer.bad{background:#F8D7D7;color:var(--red)}
+.review-q-answer.neutral{background:var(--white);color:var(--ink-soft)}
+.review-q-correct{font-size:11px;color:var(--green);font-weight:600;margin-top:5px;display:flex;align-items:center;gap:4px}
+.review-score-bar{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:12px 16px;background:var(--white);border:1px solid var(--border);border-radius:var(--r)}
+.review-score-val{font-size:28px;font-weight:700;color:var(--orange);font-family:var(--serif);line-height:1}
+.review-score-info{font-size:12px;color:var(--muted)}
 .form-select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:white;outline:none;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .form-textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:white;outline:none;resize:none;line-height:1.5}
 .hub-tab{padding:8px 16px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--white);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);color:var(--muted);transition:all .15s}
@@ -1632,7 +1650,7 @@ const rows = allResponses.filter(r =>
 
       return `
         <div class="card"
-             onclick="openStudentActivityResponses(decodeURIComponent('${encodeURIComponent(studentName)}'), decodeURIComponent('${encodeURIComponent(a.key)}'))"
+             onclick="openReviewModal(decodeURIComponent('${encodeURIComponent(studentName)}'), decodeURIComponent('${encodeURIComponent(a.key)}'))"
              style="cursor:pointer;padding:18px;border:1px solid var(--border);border-radius:16px;margin-bottom:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
             <div>
@@ -1874,6 +1892,63 @@ async function deleteActivity(id){
     console.error('Error deleting activity:', e);
     showToast('Error al eliminar: ' + (e.message || 'verifica Supabase.'));
   }
+}
+
+function openReviewModal(studentName, activityKey) {
+  const rows = allResponses.filter(r =>
+    responseStudentName(r) === studentName &&
+    responseActivityKey(r) === activityKey
+  );
+  if (!rows.length) { showToast('No hay respuestas registradas'); return; }
+
+  const activity = allActivities.find(a =>
+    String(a.slug) === String(activityKey) || String(a.id) === String(activityKey)
+  );
+  const title = activity?.title || activityKey;
+  const level = activity?.level || '';
+
+  // Score
+  const scoreable = rows.filter(r => r.is_correct !== null);
+  const correct   = rows.filter(r => r.is_correct === true).length;
+  const pct       = scoreable.length > 0 ? Math.round((correct / scoreable.length) * 100) : null;
+
+  document.getElementById('review-modal-title').textContent = title;
+  document.getElementById('review-modal-sub').textContent   = studentName + (level ? ' · ' + level : '');
+  document.getElementById('review-score-val').textContent   = pct !== null ? pct + '%' : '—';
+  document.getElementById('review-score-info').textContent  =
+    pct !== null ? `${correct} de ${scoreable.length} correctas` : 'Sin preguntas evaluables';
+
+  // Renderizar preguntas
+  const sorted = [...rows].sort((a, b) => (a.question_num || 0) - (b.question_num || 0));
+  document.getElementById('review-modal-body').innerHTML = sorted.map(r => {
+    const ok      = r.is_correct === true;
+    const bad     = r.is_correct === false;
+    const cls     = ok ? 'correct' : bad ? 'incorrect' : 'open';
+    const answerCls = ok ? 'ok' : bad ? 'bad' : 'neutral';
+    const icon    = ok ? '<i class="ti ti-circle-check" style="color:var(--green)"></i>'
+                  : bad ? '<i class="ti ti-circle-x" style="color:var(--red)"></i>'
+                  : '<i class="ti ti-pencil" style="color:var(--muted)"></i>';
+    return `
+      <div class="review-q-card ${cls}">
+        <div class="review-q-num">Pregunta ${r.question_num || '—'}</div>
+        <div class="review-q-text">${escapeHtml(r.question_text || '—')}</div>
+        <div class="review-q-answer ${answerCls}">${icon} ${escapeHtml(r.answer || 'Sin respuesta')}</div>
+        ${bad ? `<div class="review-q-correct"><i class="ti ti-check"></i> Correcta: ${escapeHtml(r.correct_answer || r.expected_answer || 'No registrada')}</div>` : ''}
+        ${cls === 'open' ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">Respuesta abierta — pendiente de calificar</div>` : ''}
+      </div>`;
+  }).join('');
+
+  // Botón reasignar
+  const enc = encodeURIComponent(studentName);
+  const encK = encodeURIComponent(activityKey);
+  document.getElementById('review-reassign-btn').onclick =
+    () => { closeReviewModal(); reassignActivity(enc, encK); };
+
+  document.getElementById('review-overlay').classList.remove('hidden');
+}
+
+function closeReviewModal() {
+  document.getElementById('review-overlay').classList.add('hidden');
 }
 
 async function reassignActivity(studentNameEncoded, activityKeyEncoded) {
@@ -4089,6 +4164,33 @@ async function confirmDeleteGrammarCategory() {
 }
 
 </script>
+<!-- MODAL REVISIÓN DE RESPUESTAS -->
+<div class="overlay hidden" id="review-overlay" onclick="if(event.target===this)closeReviewModal()">
+  <div class="modal review-modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="review-modal-title">—</div>
+        <div class="modal-sub" id="review-modal-sub">—</div>
+      </div>
+      <button class="modal-close" onclick="closeReviewModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="review-modal-banner"><i class="ti ti-eye"></i> Modo revisión — respuestas del estudiante</div>
+      <div class="review-score-bar">
+        <div class="review-score-val" id="review-score-val">—</div>
+        <div class="review-score-info" id="review-score-info">—</div>
+      </div>
+      <div id="review-modal-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" style="color:var(--coral);border-color:var(--coral)" id="review-reassign-btn">
+        <i class="ti ti-refresh"></i> Reasignar
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="closeReviewModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div style="position:fixed;bottom:8px;right:12px;font-size:10px;color:rgba(0,0,0,.25);z-index:9999;pointer-events:none">v2.7</div>
 </body>
 </html>
