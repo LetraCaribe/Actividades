@@ -1059,7 +1059,7 @@ function renderActList(containerId, rows) {
     }
 
     // Categoría gramatical
-    const catCode = act.grammar_category_name ? act.grammar_category_name.substring(0,4).toUpperCase() : '';
+    const catCode = act.grammar_category_name || '';
 
     const div = document.createElement('div');
     div.className = 'act-card';

@@ -2564,7 +2564,7 @@ function actCardHtml(a) {
   const assigned = allAssignments.filter(x => String(x.activity_id) === String(a.id)).length;
   const completed = allAssignments.filter(x => String(x.activity_id) === String(a.id) && x.completed).length;
   const cat = (typeof allGrammarCats !== 'undefined' ? allGrammarCats : []).find(c => String(c.id) === String(a.grammar_category_id));
-  const catCode = cat ? cat.name.substring(0,4).toUpperCase() : '';
+  const catCode = cat ? cat.name : '';
   const statDone = completed > 0 ? `<span class="act-stat-done"><i class="ti ti-circle-check" style="font-size:12px;vertical-align:-1px"></i> ${completed}</span>` : '';
   return `<div class="act-item">
     <div class="act-item-icon" style="background:${ic.bg}"><i class="ti ${ic.icon}" style="font-size:18px;color:${ic.color}"></i></div>
@@ -3622,7 +3622,7 @@ function asgnFilter() {
     const isSelected = asgnSelectedActs.some(x => x.id === a.id);
     const ic = (typeof ACTIVITY_ICONS !== 'undefined' && ACTIVITY_ICONS[a.type]) || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
     const _cat = (typeof allGrammarCats !== 'undefined' ? allGrammarCats : []).find(c => String(c.id) === String(a.grammar_category_id));
-    const catCode = _cat ? _cat.name.substring(0,4).toUpperCase() : '';
+    const catCode = _cat ? _cat.name : '';
     const div = document.createElement('div');
     div.className = 'asgn-act-card' + (isSelected ? ' selected' : '');
     div.innerHTML =
