@@ -265,6 +265,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .btn-submit{padding:10px 24px;background:var(--green);color:white;border:none;border-radius:var(--r);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;margin-left:auto}
 .btn-submit:hover{opacity:.88}
 .btn-submit:disabled{opacity:.5;cursor:default}
+/* REVIEW MODE */
+.review-banner{background:var(--orange-lt);border-bottom:1px solid #F5D3B0;padding:7px 22px;font-size:12px;color:var(--orange-dk);font-weight:500;display:flex;align-items:center;gap:6px}
+.review-correct input,.review-correct select{background:#E4F5E8!important;border-color:#5DBF78!important;color:#1A7A2A!important}
+.review-incorrect input,.review-incorrect select{background:#FDEAEA!important;border-color:#E07070!important;color:#C41E1E!important;text-decoration:line-through}
+.review-correct .mc-option{background:#E4F5E8!important;border-color:#5DBF78!important;color:#1A7A2A!important;pointer-events:none}
+.review-incorrect .mc-option{background:#FDEAEA!important;border-color:#E07070!important;color:#C41E1E!important;pointer-events:none}
+.review-correct-answer{font-size:11px;color:#1A7A2A;font-weight:600;margin-top:3px}
+.player-review-mode input,.player-review-mode select,.player-review-mode textarea{pointer-events:none}
+.player-review-mode .mc-option,.player-review-mode .match-item,.player-review-mode .drag-word{pointer-events:none}
 
 /* LIBRARY */
 .lib-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
@@ -498,6 +507,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
       </div>
       <button class="player-close" onclick="closePlayer()">×</button>
     </div>
+    <div class="review-banner" id="review-banner" style="display:none"><i class="ti ti-eye"></i> Modo revisión — solo lectura</div>
     <div class="player-progress" id="player-progress" style="display:none">
       <div class="progress-label">
         <span id="progress-text">Pregunta 1 de 1</span>
@@ -793,12 +803,12 @@ function showResultsScreen(correct, total) {
   document.getElementById('results-score-lbl').textContent = pct !== null ? `${correct} de ${total} correctas` : 'Actividad enviada';
   document.getElementById('results-note').value = '';
 
-  // Tamaño canvas y confeti
-  setTimeout(() => {
-    const canvas = document.getElementById('confetti-canvas');
-    if (canvas) { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
-    launchConfetti(themeId);
-  }, 50);
+  // Confeti desactivado temporalmente
+  // setTimeout(() => {
+  //   const canvas = document.getElementById('confetti-canvas');
+  //   if (canvas) { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+  //   launchConfetti(themeId);
+  // }, 50);
 }
 
 async function saveNoteAndClose() {
@@ -1017,6 +1027,9 @@ function renderActList(containerId, rows) {
     if (!done) {
       div.style.cursor = 'pointer';
       div.addEventListener('click', (function(id){ return function(){ openActivity(id); }; })(a.id));
+    } else {
+      div.style.cursor = 'pointer';
+      div.addEventListener('click', (function(id){ return function(){ openActivityReview(id); }; })(a.id));
     }
     el.appendChild(div);
   });
@@ -1675,8 +1688,91 @@ function closePlayer() {
   if (overlay) overlay.classList.remove('show');
   const canvas = document.getElementById('confetti-canvas');
   if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+  // Limpiar modo revisión
+  document.getElementById('review-banner').style.display = 'none';
+  document.getElementById('playerModal').classList.remove('player-review-mode');
+  const submitBtn = document.getElementById('btn-submit');
+  if (submitBtn) submitBtn.style.display = '';
+  const reviewClose = document.getElementById('btn-review-close');
+  if (reviewClose) reviewClose.remove();
 }
 function closePlayerOutside(e) { if (e.target === document.getElementById('playerOverlay')) closePlayer(); }
+
+async function openActivityReview(assignmentId) {
+  const assignment = allAssignments.find(a => String(a.id) === String(assignmentId));
+  if (!assignment) return;
+
+  // Abrir player normalmente (renderiza la actividad)
+  await openActivity(assignmentId);
+
+  // Ocultar submit, mostrar banner y botón cerrar
+  const submitBtn = document.getElementById('btn-submit');
+  if (submitBtn) { submitBtn.style.display = 'none'; }
+  const footer = document.querySelector('.player-footer');
+  if (footer && !footer.querySelector('#btn-review-close')) {
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'btn-review-close';
+    closeBtn.className = 'btn-submit';
+    closeBtn.style.background = 'var(--muted)';
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.onclick = closePlayer;
+    footer.appendChild(closeBtn);
+  }
+  document.getElementById('review-banner').style.display = 'flex';
+  document.getElementById('playerModal').classList.add('player-review-mode');
+
+  // Cargar respuestas guardadas
+  try {
+    const act = assignment.activities;
+    const { data: responses } = await db
+      .from('responses')
+      .select('*')
+      .eq('student_id', currentUser.id)
+      .eq('activity_slug', act.slug)
+      .order('question_num', { ascending: true });
+
+    if (!responses || !responses.length) return;
+
+    // Mostrar score en footer
+    const total   = responses.filter(r => r.is_correct !== null).length;
+    const correct = responses.filter(r => r.is_correct === true).length;
+    const scoreEl = document.getElementById('player-score');
+    if (scoreEl && total > 0) scoreEl.textContent = correct + '/' + total;
+
+    // Aplicar respuestas al DOM por question_num y tipo
+    responses.forEach(r => {
+      const qnum = r.question_num;
+      const answer = r.answer || '';
+      const isOk = r.is_correct;
+
+      // fill-blank: id="fib-{si}-{bi}" donde question_num = si*100 + bi + 1
+      const si = Math.floor((qnum - 1) / 100);
+      const bi = (qnum - 1) % 100;
+      const fibEl = document.getElementById('fib-' + si + '-' + bi);
+      if (fibEl) {
+        fibEl.value = answer;
+        fibEl.disabled = true;
+        const wrap = fibEl.closest('span') || fibEl.parentElement;
+        wrap.classList.add(isOk ? 'review-correct' : 'review-incorrect');
+        return;
+      }
+
+      // mc: busca botones .mc-opt dentro de #mcb-{qnum-1}
+      const mcBox = document.getElementById('mcb-' + (qnum - 1));
+      if (mcBox) {
+        const btns = mcBox.querySelectorAll('.mc-opt');
+        btns.forEach(btn => {
+          if (btn.textContent.trim() === answer.trim()) {
+            btn.classList.add(isOk ? 'review-correct' : 'review-incorrect');
+          }
+        });
+        return;
+      }
+    });
+  } catch(e) {
+    console.warn('No se pudieron cargar respuestas:', e);
+  }
+}
 
 // ══ LIBRARY ══
 async function loadLibrary() {
