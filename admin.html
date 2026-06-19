@@ -307,7 +307,6 @@ tbody tr:hover td{background:#FDFAF6}
     <button class="sb-item" id="sb-students" onclick="showPanel('students')"><span class="si">👥</span> Estudiantes <span class="sb-badge" id="badge-students">0</span></button>
     <button class="sb-item" id="sb-assign" onclick="showPanel('assign')"><span class="si">📤</span> Asignar tarea</button>
     <button class="sb-item" id="sb-responses" onclick="showPanel('responses')"><span class="si">📝</span> Respuestas</button>
-    <button class="sb-item" id="sb-grading" onclick="showPanel('grading')"><span class="si">✏️</span> Calificar <span class="sb-badge" id="badge-grading" style="display:none">!</span></button>
     <div class="sb-section">Contenido</div>
     <button class="sb-item" id="sb-activities" onclick="showPanel('activities')"><span class="si">📚</span> Actividades</button>
     <button class="sb-item" id="sb-creator-hub" onclick="showPanel('creator-hub')"><span class="si">➕</span> Crear actividad</button>
@@ -547,15 +546,6 @@ tbody tr:hover td{background:#FDFAF6}
 
 </div>
         </div>
-      </div>
-
-      <!-- GRADING -->
-      <div class="panel" id="panel-grading">
-        <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <p style="font-size:13px;color:var(--muted)">Marca ✓ o ✗ cada respuesta abierta y añade una nota si quieres.</p>
-          <button class="btn btn-coral btn-sm" onclick="saveAllGrades()">💾 Guardar todo</button>
-        </div>
-        <div id="grading-area"><div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Cargando…</div></div></div>
       </div>
 
       <!-- ACTIVITIES LIST -->
@@ -1205,7 +1195,7 @@ let bulkMode = false;
 let selectedActivities = new Set();
 
 let allStudents=[], allActivities=[], allAssignments=[], allResponses=[];
-let pendingGrades={}, currentActivityType='mc', qCount=0;
+let currentActivityType='mc', qCount=0;
 
 function showErr(el,msg){el.textContent=msg;el.style.display='block';}
 
@@ -1234,7 +1224,7 @@ allResponses = (r || []).map(resp => {
 });
     renderStats();renderRecent();renderStudentsTable();renderRecentAssigns();
   buildActivityTree();
-    renderResponsesTable();renderGrading();renderActivitiesGrid();populateSelects();
+    renderResponsesTable();renderActivitiesGrid();populateSelects();
     loadLibrary();loadGrammarCategories();
     document.getElementById('badge-students').textContent=allStudents.length;
     const pg=allResponses.filter(r=>r.question_type==='open'&&r.is_correct===null).length;
@@ -1690,43 +1680,6 @@ function filterResponses(){
   }));
 }
 
-// ══ GRADING ══
-function renderGrading(){
-  const open=allResponses.filter(r=>r.question_type==='open'&&r.is_correct===null);
-  const area=document.getElementById('grading-area');
-  if(!open.length){area.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">¡Todo calificado! No hay respuestas abiertas pendientes.</div></div>';return;}
-  area.innerHTML=open.map(r=>{
-    const pg=pendingGrades[r.id]||{};
-    const dt=new Date(r.submitted_at).toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
-    return `<div class="grade-item">
-      <div class="grade-item-head"><strong style="font-size:13px">${r.student_name||'—'}</strong><span class="badge badge-a2">${r.activity_slug||'—'}</span><span style="font-size:12px;color:var(--muted)">P${r.question_num}</span><span style="font-size:12px;color:var(--muted);margin-left:auto">${dt}</span></div>
-      <div class="grade-body">
-        <div class="grade-q">Pregunta</div>
-        <div class="grade-q-text">${r.question_text||'—'}</div>
-        <div class="grade-response">${r.answer||'<em style="color:var(--muted)">Sin respuesta</em>'}</div>
-        <div class="grade-btns">
-          <button class="grade-btn ok ${pg.is_correct===true?'active':''}" onclick="setGrade('${r.id}',true,this)">✓ Correcta</button>
-          <button class="grade-btn bad ${pg.is_correct===false?'active':''}" onclick="setGrade('${r.id}',false,this)">✗ Incorrecta</button>
-          <input class="grade-note" placeholder="Nota para el estudiante…" id="gnote-${r.id}" value="${pg.teacher_note||''}" oninput="pendingGrades['${r.id}']=Object.assign(pendingGrades['${r.id}']||{},{teacher_note:this.value})">
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-function setGrade(id,correct,btn){
-  if(!pendingGrades[id]) pendingGrades[id]={};
-  pendingGrades[id].is_correct=correct;
-  btn.closest('.grade-btns').querySelectorAll('.grade-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-}
-async function saveAllGrades(){
-  const entries=Object.entries(pendingGrades).filter(([,v])=>v.is_correct!==undefined);
-  if(!entries.length){showToast('No hay calificaciones para guardar.');return;}
-  try{
-    await Promise.all(entries.map(([id,g])=>db.from('responses').update({is_correct:g.is_correct,teacher_note:g.teacher_note||null}).eq('id',id)));
-    showToast(`✓ ${entries.length} calificaciones guardadas`);pendingGrades={};await loadAll();
-  }catch(e){showToast('Error al guardar.');}
-}
 
 // ══ ACTIVITIES GRID ══
 function renderActivitiesGrid(filtered){
