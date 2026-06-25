@@ -1167,7 +1167,7 @@ function _lpDragDrop(content, state, refreshScore) {
   if (!document.getElementById('lego-dnd-styles')) {
     var dst = document.createElement('style');
     dst.id = 'lego-dnd-styles';
-    dst.textContent = '.lp-dnd-bank{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}.lp-dnd-word{padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font-size:14px;user-select:none}.lp-dnd-word.sel{outline:2px solid var(--orange)}.lp-dnd-word.used{opacity:.35;pointer-events:none}.lp-dnd-blank{display:inline-block;min-width:64px;border-bottom:2px solid var(--border);text-align:center;cursor:pointer;margin:0 4px;padding:0 4px;vertical-align:middle}.lp-dnd-blank.filled-correct{border-color:var(--green);color:var(--green)}.lp-dnd-blank.filled-wrong{border-color:var(--red);color:var(--red)}';
+    dst.textContent = '.lp-dnd-bank{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}.lp-dnd-word{padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:grab;font-size:14px;user-select:none;touch-action:none}.lp-dnd-word.sel{outline:2px solid var(--orange)}.lp-dnd-word.used{opacity:.35;pointer-events:none}.lp-dnd-word.dragging{opacity:.4}.lp-dnd-ghost{position:fixed;z-index:9999;pointer-events:none;padding:6px 12px;border:1px solid var(--orange);border-radius:8px;background:var(--white,#fff);font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.18)}.lp-dnd-blank{display:inline-block;min-width:64px;border-bottom:2px solid var(--border);text-align:center;cursor:pointer;margin:0 4px;padding:0 4px;vertical-align:middle}.lp-dnd-blank.over{background:var(--orange-lt,#FDEEE8)}.lp-dnd-blank.filled-correct{border-color:var(--green);color:var(--green)}.lp-dnd-blank.filled-wrong{border-color:var(--red);color:var(--red)}';
     document.head.appendChild(dst);
   }
   var answers = state.answers;
@@ -1182,13 +1182,56 @@ function _lpDragDrop(content, state, refreshScore) {
   var bankEls = [];
   function clearSel(){ bankEls.forEach(function(b){ b.classList.remove('sel'); }); }
   var bank = document.createElement('div'); bank.className = 'lp-dnd-bank';
+  var drag = null;
+  function blankFromPoint(x, y){
+    var t = document.elementFromPoint(x, y);
+    while (t && !(t.classList && t.classList.contains('lp-dnd-blank'))) t = t.parentElement;
+    return t;
+  }
+  function onMove(e){
+    if (!drag) return;
+    var dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+    if (!drag.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      drag.moved = true;
+      drag.srcEl.classList.add('dragging');
+      var g = document.createElement('div'); g.className = 'lp-dnd-ghost'; g.textContent = drag.word;
+      document.body.appendChild(g); drag.ghost = g;
+    }
+    if (drag.moved && drag.ghost){
+      drag.ghost.style.left = (e.clientX + 12) + 'px';
+      drag.ghost.style.top = (e.clientY + 12) + 'px';
+      if (drag.over) drag.over.classList.remove('over');
+      var b = blankFromPoint(e.clientX, e.clientY);
+      drag.over = b; if (b) b.classList.add('over');
+    }
+  }
+  function onUp(e){
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    if (!drag) return;
+    var d = drag; drag = null;
+    if (d.moved){
+      if (d.ghost) d.ghost.remove();
+      d.srcEl.classList.remove('dragging');
+      if (d.over) d.over.classList.remove('over');
+      var b = blankFromPoint(e.clientX, e.clientY);
+      if (b && b._lpPlace) b._lpPlace(d.word, d.srcEl);
+      selected = null; clearSel();
+    } else {
+      if (selected && selected.el === d.srcEl) { selected = null; clearSel(); }
+      else { selected = { word: d.word, el: d.srcEl }; clearSel(); d.srcEl.classList.add('sel'); }
+    }
+  }
   bankWords.forEach(function(w){
-    var el = document.createElement('span'); el.className = 'lp-dnd-word'; el.textContent = w; el.draggable = true;
-    el.addEventListener('click', function(){
-      if (selected && selected.el === el) { selected = null; clearSel(); return; }
-      selected = { word: w, el: el }; clearSel(); el.classList.add('sel');
+    var el = document.createElement('span'); el.className = 'lp-dnd-word'; el.textContent = w;
+    el.addEventListener('pointerdown', function(e){
+      if (el.classList.contains('used')) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      drag = { word: w, srcEl: el, ghost: null, over: null, startX: e.clientX, startY: e.clientY, moved: false };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
     });
-    el.addEventListener('dragstart', function(e){ selected = { word: w, el: el }; e.dataTransfer.setData('text/plain', w); });
     bankEls.push(el); bank.appendChild(el);
   });
   wrap.appendChild(bank);
@@ -1211,9 +1254,8 @@ function _lpDragDrop(content, state, refreshScore) {
           answers[key] = { correct: ok, answer: word };
           refreshScore();
         }
+        blankEl._lpPlace = place;
         blankEl.addEventListener('click', function(){ if (selected) { place(selected.word, selected.el); selected = null; clearSel(); } });
-        blankEl.addEventListener('dragover', function(e){ e.preventDefault(); });
-        blankEl.addEventListener('drop', function(e){ e.preventDefault(); var w = e.dataTransfer.getData('text/plain'); place(w, selected ? selected.el : null); selected = null; clearSel(); });
         line.appendChild(blankEl);
       }
     });
