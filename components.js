@@ -382,7 +382,7 @@ function LegoInnerHub(cfg) {
     '.lego-inner-tab{font-size:12px;padding:3px 12px;border-radius:99px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-weight:500;}',
     '.lego-inner-tab.active{background:var(--white);border-color:var(--border);color:var(--ink);}',
     '.lego-inner-content{flex:1;}',
-    '.lego-inner-panel{padding:12px;}.lego-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;}.lego-modal{background:var(--white);border-radius:var(--r);width:90%;max-width:560px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;}.lego-modal-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);}.lego-modal-m0{flex-shrink:0;}.lego-modal-m1{flex:1;font-size:16px;font-weight:600;color:var(--ink);text-align:center;}.lego-modal-m6{flex-shrink:0;}.lego-modal-m2{font-size:13px;color:var(--muted);padding:10px 20px;border-bottom:1px solid var(--border);text-align:center;}.lego-modal-m3{padding:20px;}.lego-modal-m4{padding:0 20px 16px;}.lego-modal-actions{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);}.lego-modal-m5{flex:1;}.lego-modal-m7{flex:1;}.lego-modal-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}.lego-modal-m8,.lego-modal-m9,.lego-modal-m10{}'
+    '.lego-inner-panel{padding:12px;}.lego-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;}.lego-modal{background:var(--white);border-radius:var(--r);width:90%;max-width:560px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;}.lego-modal-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);}.lego-modal-m0{flex-shrink:0;}.lego-modal-m1{flex:1;font-size:16px;font-weight:600;color:var(--ink);text-align:center;}.lego-modal-m6{flex-shrink:0;}.lego-modal-m2{font-size:13px;color:var(--muted);padding:10px 20px;border-bottom:1px solid var(--border);text-align:center;}.lego-modal-m3{padding:20px;}.lego-modal-m4{padding:0 20px 16px;}.lego-modal-actions{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);}.lego-modal-m5{flex:1;}.lego-modal-m7{flex:1;}.lego-modal-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}.lego-modal-m8,.lego-modal-m9,.lego-modal-m10{}.lego-modal--tall{height:90vh}.lego-modal--tall .lego-modal-m3{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}'
   ].join('');
   document.head.appendChild(s);
 })();
@@ -656,7 +656,7 @@ function LegoPlayer(activity, opts) {
   if (!document.getElementById('lego-player-styles')) {
     var st = document.createElement('style');
     st.id = 'lego-player-styles';
-    st.textContent = '.lego-player{font-size:15px}.lp-instr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}.lp-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500}.lp-sentence{font-family:var(--serif,serif);font-size:15px;line-height:2.2;color:var(--ink);margin-bottom:10px}.lp-input{border:none;border-bottom:2px solid var(--border);background:transparent;font-family:inherit;font-size:15px;text-align:center;min-width:70px;outline:none;padding:2px 4px}.lp-input.correct{border-color:var(--green);color:var(--green)}.lp-input.tilde{border-color:#DAA520;color:#DAA520}.lp-input.wrong{border-color:var(--red);color:var(--red)}.lp-fb{font-size:11px;margin-top:2px;min-height:13px}.lp-score{font-weight:700;margin-bottom:12px;color:var(--ink-soft)}.lp-text{font-family:var(--serif,serif);font-size:15px;line-height:1.8;color:var(--ink);margin-bottom:14px}.lp-mc-block{margin-bottom:16px}.lp-mc-q{display:flex;gap:8px;font-weight:600;margin-bottom:8px;align-items:flex-start}.lp-mc-num{background:var(--coral);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}.lp-mc-opts{display:flex;flex-direction:column;gap:6px}.lp-mc-opt{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-mc-opt:disabled{cursor:default}.lp-mc-opt.correct{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-mc-opt.wrong{background:var(--red-lt);border-color:var(--red);color:var(--red)}.lp-mc-fb{font-size:12px;margin-top:6px;min-height:14px}.lp-open{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:14px}';
+    st.textContent = '.lego-player{font-size:15px;height:100%;display:flex;flex-direction:column;min-height:0}.lp-instr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}.lp-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500}.lp-sentence{font-family:var(--serif,serif);font-size:15px;line-height:2.2;color:var(--ink);margin-bottom:10px}.lp-input{border:none;border-bottom:2px solid var(--border);background:transparent;font-family:inherit;font-size:15px;text-align:center;min-width:70px;outline:none;padding:2px 4px}.lp-input.correct{border-color:var(--green);color:var(--green)}.lp-input.tilde{border-color:#DAA520;color:#DAA520}.lp-input.wrong{border-color:var(--red);color:var(--red)}.lp-fb{font-size:11px;margin-top:2px;min-height:13px}.lp-score{font-weight:700;margin-bottom:12px;color:var(--ink-soft);flex-shrink:0}.lp-text{font-family:var(--serif,serif);font-size:15px;line-height:1.8;color:var(--ink);margin-bottom:14px}.lp-mc-block{margin-bottom:16px}.lp-mc-q{display:flex;gap:8px;font-weight:600;margin-bottom:8px;align-items:flex-start}.lp-mc-num{background:var(--coral);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}.lp-mc-opts{display:flex;flex-direction:column;gap:6px}.lp-mc-opt{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-mc-opt:disabled{cursor:default}.lp-mc-opt.correct{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-mc-opt.wrong{background:var(--red-lt);border-color:var(--red);color:var(--red)}.lp-mc-fb{font-size:12px;margin-top:6px;min-height:14px}.lp-open{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:14px}.lp-body{flex:1 1 auto;min-height:0;overflow:auto}';
     document.head.appendChild(st);
   }
   var content = {};
@@ -690,13 +690,13 @@ function LegoPlayer(activity, opts) {
   if (mode === 'review' && supported) { body = _lpReview(content, activity, type, opts.saved || []); scoreEl.style.display = 'none'; }
   if (mode === 'edit' && supported) { body = _lpEdit(content, activity, type); scoreEl.style.display = 'none'; }
   if (supported) root.appendChild(scoreEl);
-  root.appendChild(body);
+  var lpBody = document.createElement('div'); lpBody.className = 'lp-body'; lpBody.appendChild(body); root.appendChild(lpBody);
   if (supported) refreshScore();
 
   if (mode === 'play' && supported) {
     var submit = document.createElement('button');
     submit.className = 'btn btn-coral';
-    submit.style.marginTop = '16px';
+    submit.style.marginTop = '16px'; submit.style.flexShrink = '0';
     submit.textContent = 'Enviar respuestas';
     submit.onclick = function(){
       var sc = state.score();
@@ -795,13 +795,27 @@ function _lpFillBlank(content, isDropdown, state, refreshScore) {
   return wrap;
 }
 
+function _lpSplit(stim, qs){
+  if (!document.getElementById('lego-split-styles')) {
+    var sp = document.createElement('style'); sp.id = 'lego-split-styles';
+    sp.textContent = '.lp-split-c{container-type:inline-size;height:100%;min-height:0}.lp-split{display:flex;flex-direction:column;gap:10px;height:100%;min-height:0}.lp-split-stim{flex:0 0 auto;overflow:auto;max-height:45%}.lp-split-qs{flex:1 1 auto;min-height:0;overflow:auto}@container (min-width:600px){.lp-split{flex-direction:row;align-items:stretch}.lp-split-stim{flex:0 0 42%;max-height:none}}';
+    document.head.appendChild(sp);
+  }
+  var c = document.createElement('div'); c.className = 'lp-split-c';
+  var box = document.createElement('div'); box.className = 'lp-split';
+  var a = document.createElement('div'); a.className = 'lp-split-stim'; a.appendChild(stim);
+  var b = document.createElement('div'); b.className = 'lp-split-qs'; b.appendChild(qs);
+  box.appendChild(a); box.appendChild(b);
+  c.appendChild(box);
+  return c;
+}
 function _lpMC(content, activity, state, refreshScore) {
   var answers = state.answers;
   var wrap = document.createElement('div');
   var readingText = content.readingText || (activity && activity.reading_text) || '';
-  if (readingText) {
-    var rt = document.createElement('div'); rt.className = 'lp-text'; rt.textContent = readingText; wrap.appendChild(rt);
-  }
+  var rt = null;
+  if (readingText) { rt = document.createElement('div'); rt.className = 'lp-text'; rt.textContent = readingText; }
+  var qBox = readingText ? document.createElement('div') : wrap;
   var questions = content.questions || [];
   questions.forEach(function(q, qi){
     var block = document.createElement('div');
@@ -840,7 +854,7 @@ function _lpMC(content, activity, state, refreshScore) {
       });
       block.appendChild(optsWrap); block.appendChild(fb);
     }
-    wrap.appendChild(block);
+    qBox.appendChild(block);
   });
   state.score = function(){
     var total = 0, correct = 0;
@@ -854,6 +868,7 @@ function _lpMC(content, activity, state, refreshScore) {
       return { key:'mc-'+qi, questionText: q.text||q.q||'', answer: a.answer||'', isCorrect: a.correct === undefined ? false : a.correct };
     });
   };
+  if (readingText) wrap.appendChild(_lpSplit(rt, qBox));
   return wrap;
 }
 
@@ -961,33 +976,33 @@ function _lpTrueFalse(content, state, refreshScore) {
 }
 
 function _lpAudio(content, activity, state, refreshScore) {
-  var wrap = document.createElement('div');
-  wrap.appendChild(_lpAudioControls(content));
+  var stim = _lpAudioControls(content);
+  var qs = document.createElement('div');
   var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions || 'Escucha el audio y responde.';
-  wrap.appendChild(instr);
+  qs.appendChild(instr);
   var subtype = content.audioType || content.subtype || 'comprehension';
   if (subtype === 'comprehension' || subtype === 'mc') {
-    wrap.appendChild(_lpMC(content, activity, state, refreshScore));
+    qs.appendChild(_lpMC(content, activity, state, refreshScore));
   } else if (subtype === 'fillblank') {
-    wrap.appendChild(_lpFillBlank(content, false, state, refreshScore));
+    qs.appendChild(_lpFillBlank(content, false, state, refreshScore));
   } else if (subtype === 'dictation') {
     var ta = document.createElement('textarea'); ta.className = 'lp-open'; ta.rows = 6; ta.placeholder = 'Escribe lo que escuchas...';
     ta.addEventListener('input', function(){ state.answers['open-0'] = { open: true, answer: ta.value.trim() }; });
-    wrap.appendChild(ta);
+    qs.appendChild(ta);
     state.score = function(){ return { correct: 0, total: 0 }; };
     state.detail = function(){ var a = state.answers['open-0'] || {}; return [{ key:'dictation', questionText: 'Dictado', answer: a.answer || '', isCorrect: null }]; };
   } else if (subtype === 'truefalse') {
-    wrap.appendChild(_lpTrueFalse(content, state, refreshScore));
+    qs.appendChild(_lpTrueFalse(content, state, refreshScore));
   } else if (subtype === 'order') {
-    wrap.appendChild(_lpOrder(content, state, refreshScore));
+    qs.appendChild(_lpOrder(content, state, refreshScore));
   } else if (subtype === 'vocab') {
-    wrap.appendChild(_lpVocab(content, state, refreshScore));
+    qs.appendChild(_lpVocab(content, state, refreshScore));
   } else {
-    wrap.appendChild(LegoEmpty({ text: 'Subtipo de audio "' + subtype + '" no soportado.' }));
+    qs.appendChild(LegoEmpty({ text: 'Subtipo de audio no soportado.' }));
     state.score = function(){ return { correct: 0, total: 0 }; };
     state.detail = function(){ return []; };
   }
-  return wrap;
+  return _lpSplit(stim, qs);
 }
 
 function _lpOrderVocabStyles() {
