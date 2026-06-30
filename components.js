@@ -382,7 +382,7 @@ function LegoInnerHub(cfg) {
     '.lego-inner-tab{font-size:12px;padding:3px 12px;border-radius:99px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-weight:500;}',
     '.lego-inner-tab.active{background:var(--white);border-color:var(--border);color:var(--ink);}',
     '.lego-inner-content{flex:1;}',
-    '.lego-inner-panel{padding:12px;}.lego-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;}.lego-modal{background:var(--white);border-radius:var(--r);width:90%;max-width:560px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;}.lego-modal-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);}.lego-modal-m0{flex-shrink:0;}.lego-modal-m1{flex:1;font-size:16px;font-weight:600;color:var(--ink);text-align:center;}.lego-modal-m6{flex-shrink:0;}.lego-modal-m2{font-size:13px;color:var(--muted);padding:10px 20px;border-bottom:1px solid var(--border);text-align:center;}.lego-modal-m3{padding:20px;}.lego-modal-m4{padding:0 20px 16px;}.lego-modal-actions{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);}.lego-modal-m5{flex:1;}.lego-modal-m7{flex:1;}.lego-modal-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}.lego-modal-m8,.lego-modal-m9,.lego-modal-m10{}.lego-modal--tall{height:90vh}.lego-modal--tall .lego-modal-m3{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}'
+    '.lego-inner-panel{padding:12px;}.lego-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;}.lego-modal{background:var(--white);border-radius:var(--r);width:90%;max-width:560px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;}.lego-modal-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);}.lego-modal-m0{flex-shrink:0;}.lego-modal-m1{flex:1;font-size:16px;font-weight:600;color:var(--ink);text-align:center;}.lego-modal-m6{flex-shrink:0;}.lego-modal-m2{font-size:13px;color:var(--muted);padding:10px 20px;border-bottom:1px solid var(--border);text-align:center;}.lego-modal-m3{padding:20px;}.lego-modal-m4{padding:0 20px 16px;}.lego-modal-actions{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);}.lego-modal-m5{flex:1;}.lego-modal-m7{flex:1;}.lego-modal-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}.lego-modal-m8,.lego-modal-m9,.lego-modal-m10{}.lego-modal--tall{height:90vh}.lego-modal--tall .lego-modal-m3{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}.lego-modal--wide{max-width:1100px}'
   ].join('');
   document.head.appendChild(s);
 })();
@@ -445,9 +445,12 @@ function LegoModal(slots) {
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+  if (!LegoModal._stack) LegoModal._stack = [];
+  LegoModal._stack.push(overlay);
 
   LegoModal.close = function() {
-    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    var ov = (LegoModal._stack && LegoModal._stack.length) ? LegoModal._stack.pop() : overlay;
+    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
   };
 
   return overlay;
@@ -534,6 +537,325 @@ function LegoChip(text, opts) {
   }
   return chip;
 }
+
+// -- LegoLibraryMaterial ------------------------------------
+// Card sellada para materiales de biblioteca. Reusa LegoCard + LegoChip.
+//   LegoLibraryMaterial(item, { grammarName:'Ser/estar', onRead:fn, onEdit:fn, onDelete:fn })
+function LegoLibraryMaterial(item, opts) {
+  item = item || {};
+  opts = opts || {};
+
+  var grammarName = opts.grammarName || '';
+  if (!grammarName && item.grammar_categories && item.grammar_categories.name) {
+    grammarName = item.grammar_categories.name;
+  }
+
+  function action(label, fn, danger) {
+    if (typeof fn !== 'function') return '';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm';
+    btn.textContent = label;
+    if (danger) btn.style.color = 'var(--red)';
+    btn.onclick = function() { fn(item); };
+    return btn;
+  }
+
+  return LegoCard({
+    L2: item.title || 'Material sin titulo',
+    L3: item.description || '',
+    L4: LegoChip(item.level || 'A1', 'level'),
+    L5: grammarName ? LegoChip(grammarName, 'cat') : '',
+    L8: action('Leer', opts.onRead, false),
+    L9: action('Editar', opts.onEdit, false),
+    L10: action('Eliminar', opts.onDelete, true)
+  });
+}
+
+
+// -- LegoPdfViewer ------------------------------------------
+// Visor especializado para PDFs de Google Drive dentro de Biblioteca.
+//   LegoPdfViewer({ title, driveUrl, previewUrl }) -> nodo DOM
+function LegoPdfViewer(section, opts) {
+  section = section || {};
+  opts = opts || {};
+
+  if (!document.getElementById('lego-pdf-viewer-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-pdf-viewer-styles';
+    st.textContent = '.lego-pdf-reader{position:fixed;inset:0;z-index:2000;background:#1C1A17;display:flex;flex-direction:column}.lego-pdf-reader__bar{height:58px;display:flex;align-items:center;gap:10px;padding:0 18px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0}.lego-pdf-reader__title{font-size:16px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lego-pdf-reader__spacer{flex:1}.lego-pdf-reader__frame{width:100%;height:calc(100vh - 58px);border:0;background:#1C1A17;display:block}.lego-pdf-inline{display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}.lego-pdf-inline__frame{width:100%;flex:1;min-height:520px;border:1px solid var(--border);border-radius:var(--r);background:var(--sand)}.lego-pdf-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.lego-pdf-hint{font-size:12px;color:var(--muted);margin-left:auto}@media(max-width:720px){.lego-pdf-reader__bar{height:54px;padding:0 10px}.lego-pdf-reader__title{font-size:14px}.lego-pdf-reader__frame{height:calc(100vh - 54px)}.lego-pdf-hint{display:none}}';
+    document.head.appendChild(st);
+  }
+
+  var previewUrl = section.previewUrl || '';
+  var driveUrl = section.driveUrl || previewUrl;
+
+  function addActions(parent) {
+    var actions = document.createElement('div');
+    actions.className = 'lego-pdf-actions';
+    if (driveUrl) {
+      var openBtn = document.createElement('a');
+      openBtn.className = 'btn btn-coral';
+      openBtn.href = driveUrl;
+      openBtn.target = '_blank';
+      openBtn.rel = 'noopener';
+      openBtn.textContent = 'Abrir en Drive';
+      actions.appendChild(openBtn);
+    }
+    if (previewUrl) {
+      var previewBtn = document.createElement('a');
+      previewBtn.className = 'btn';
+      previewBtn.href = previewUrl;
+      previewBtn.target = '_blank';
+      previewBtn.rel = 'noopener';
+      previewBtn.textContent = 'Abrir preview';
+      actions.appendChild(previewBtn);
+    }
+    parent.appendChild(actions);
+  }
+
+  if (opts.fullscreen) {
+    var reader = document.createElement('div');
+    reader.className = 'lego-pdf-reader';
+
+    var bar = document.createElement('div');
+    bar.className = 'lego-pdf-reader__bar';
+
+    var title = document.createElement('div');
+    title.className = 'lego-pdf-reader__title';
+    title.textContent = opts.title || section.title || 'PDF';
+    bar.appendChild(title);
+
+    var spacer = document.createElement('div');
+    spacer.className = 'lego-pdf-reader__spacer';
+    bar.appendChild(spacer);
+
+    if (driveUrl) {
+      var driveBtn = document.createElement('a');
+      driveBtn.className = 'btn btn-sm';
+      driveBtn.href = driveUrl;
+      driveBtn.target = '_blank';
+      driveBtn.rel = 'noopener';
+      driveBtn.textContent = 'Drive';
+      bar.appendChild(driveBtn);
+    }
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'btn btn-sm';
+    closeBtn.type = 'button';
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.onclick = function() { if (reader.parentNode) reader.parentNode.removeChild(reader); };
+    bar.appendChild(closeBtn);
+    reader.appendChild(bar);
+
+    if (previewUrl) {
+      var fullFrame = document.createElement('iframe');
+      fullFrame.className = 'lego-pdf-reader__frame';
+      fullFrame.src = previewUrl;
+      fullFrame.title = section.title || 'PDF de Google Drive';
+      fullFrame.loading = 'lazy';
+      fullFrame.allow = 'autoplay';
+      reader.appendChild(fullFrame);
+    } else {
+      reader.appendChild(LegoEmpty({ text: 'Este PDF no tiene enlace de preview.' }));
+    }
+
+    document.body.appendChild(reader);
+    return reader;
+  }
+
+  var wrap = document.createElement('div');
+  wrap.className = 'lego-pdf-inline';
+
+  if (previewUrl) {
+    var frame = document.createElement('iframe');
+    frame.className = 'lego-pdf-inline__frame';
+    frame.src = previewUrl;
+    frame.title = section.title || 'PDF de Google Drive';
+    frame.loading = 'lazy';
+    frame.allow = 'autoplay';
+    wrap.appendChild(frame);
+  } else {
+    wrap.appendChild(LegoEmpty({ text: 'Este PDF no tiene enlace de preview.' }));
+  }
+
+  addActions(wrap);
+  var hint = document.createElement('span');
+  hint.className = 'lego-pdf-hint';
+  hint.textContent = 'Si no carga, revisa que Drive permita ver con el enlace.';
+  wrap.lastChild.appendChild(hint);
+  return wrap;
+}
+
+
+// -- LegoLibraryViewer --------------------------------------
+// Visor de un material de biblioteca dentro de un LegoModal. Sellado con textContent.
+// Reusado en index (estudiante lee) y admin (preview del profesor).
+//   LegoLibraryViewer(item)  // item: { title, level, content:{sections:[]}, grammar_categories:{name} | grammarName }
+function LegoLibraryViewer(item) {
+  item = item || {};
+  var content = item.content || {};
+  var sections = (content && content.sections) || [];
+  var hasPdfDrive = sections.some(function(section) { return section && section.type === 'pdf-drive'; });
+  if (hasPdfDrive) {
+    var pdfSection = sections.find(function(section) { return section && section.type === 'pdf-drive'; });
+    return LegoPdfViewer(pdfSection, { fullscreen: true, title: item.title || (pdfSection && pdfSection.title) || 'PDF' });
+  }
+
+  var body = document.createElement('div');
+  if (hasPdfDrive) {
+    body.style.cssText = 'display:flex;flex-direction:column;min-height:0;flex:1';
+  }
+
+  var meta = document.createElement('div');
+  meta.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px';
+  meta.appendChild(LegoChip(item.level || 'A1', 'level'));
+  var gramName = (item.grammar_categories && item.grammar_categories.name) || item.grammarName || '';
+  if (gramName) meta.appendChild(LegoChip(gramName, 'cat'));
+  body.appendChild(meta);
+
+  if (!sections.length) {
+    body.appendChild(LegoEmpty({ text: 'Este material no tiene contenido todavia.' }));
+  }
+
+  function heading(txt) {
+    var h = document.createElement('div');
+    h.textContent = txt;
+    h.style.cssText = 'margin:16px 0 8px;font-size:16px;font-weight:600;color:var(--ink)';
+    return h;
+  }
+
+  sections.forEach(function(section) {
+    if (section.type === 'text') {
+      if (section.title) body.appendChild(heading(section.title));
+      var p = document.createElement('p');
+      p.textContent = section.body || '';
+      p.style.cssText = 'line-height:1.6;color:var(--ink-soft);margin-bottom:12px;white-space:pre-wrap';
+      body.appendChild(p);
+    } else if (section.type === 'table') {
+      if (section.title) body.appendChild(heading(section.title));
+      var table = document.createElement('table');
+      table.style.cssText = 'width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px';
+      (section.rows || []).forEach(function(rowArr, idx) {
+        var tr = document.createElement('tr');
+        tr.style.cssText = idx === 0 ? 'border-bottom:2px solid var(--border);background:var(--sand)' : 'border-bottom:1px solid var(--border)';
+        (Array.isArray(rowArr) ? rowArr : Object.values(rowArr || {})).forEach(function(val) {
+          var td = document.createElement('td');
+          td.textContent = (val === null || val === undefined) ? '' : val;
+          td.style.cssText = 'padding:8px 12px;text-align:left' + (idx === 0 ? ';font-weight:600' : '');
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      });
+      body.appendChild(table);
+    } else if (section.type === 'exercise') {
+      if (section.title) body.appendChild(heading(section.title));
+      var ex = document.createElement('p');
+      ex.textContent = section.text || '';
+      ex.style.cssText = 'line-height:1.6;color:var(--ink-soft);font-style:italic;background:var(--sand);padding:12px;border-radius:var(--r);margin-bottom:12px;white-space:pre-wrap';
+      body.appendChild(ex);
+    } else if (section.type === 'image') {
+      if (section.url) {
+        var img = document.createElement('img');
+        img.src = section.url;
+        img.alt = section.caption || '';
+        img.style.cssText = 'max-width:100%;border-radius:var(--r);margin:8px 0;display:block';
+        body.appendChild(img);
+      }
+      if (section.caption) {
+        var cap = document.createElement('p');
+        cap.textContent = section.caption;
+        cap.style.cssText = 'font-size:12px;color:var(--muted);text-align:center;margin-bottom:12px';
+        body.appendChild(cap);
+      }
+    }
+  });
+
+  var xBtn = document.createElement('button');
+  xBtn.className = 'btn';
+  xBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)';
+  xBtn.appendChild(LegoIcon('ti-x'));
+  xBtn.onclick = function() { if (window.LegoModal && LegoModal.close) LegoModal.close(); };
+
+  var cerrar = document.createElement('button');
+  cerrar.className = 'btn';
+  cerrar.textContent = 'Cerrar';
+  cerrar.onclick = function() { if (window.LegoModal && LegoModal.close) LegoModal.close(); };
+
+  var overlay = LegoModal({ M1: item.title || 'Material', M6: xBtn, M3: body, M7: cerrar });
+  return overlay;
+}
+
+// -- LegoLibraryFilters -------------------------------------
+// Barra de filtros para biblioteca: busqueda + nivel + categoria. Compartida admin/index.
+//   LegoLibraryFilters({ items, catName, onFilter })  catName(item)->string ; onFilter(filtered)
+function LegoLibraryFilters(opts) {
+  opts = opts || {};
+  var items = opts.items || [];
+  var catName = opts.catName || function(it){ return (it.grammar_categories && it.grammar_categories.name) || ''; };
+  var onFilter = opts.onFilter || function(){};
+
+  var ctrlCss = 'padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--white);color:var(--ink)';
+
+  var bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px';
+
+  var search = document.createElement('input');
+  search.type = 'text';
+  search.placeholder = 'Buscar material...';
+  search.style.cssText = 'flex:1;min-width:160px;' + ctrlCss;
+
+  var levelOpts = [{ value:'', label:'Todos los niveles' }].concat(['A1','A2','B1','B2','C1'].map(function(l){ return { value:l, label:l }; }));
+  var levelSel = LegoSelect({ options: levelOpts });
+  levelSel.style.cssText = ctrlCss + ';min-width:130px';
+
+  var cats = [];
+  items.forEach(function(it){ var n = catName(it); if (n && cats.indexOf(n) === -1) cats.push(n); });
+  cats.sort();
+  var catOpts = [{ value:'', label:'Todas las categorias' }].concat(cats.map(function(c){ return { value:c, label:c }; }));
+  var catSel = LegoSelect({ options: catOpts });
+  catSel.style.cssText = ctrlCss + ';min-width:150px';
+
+  function apply() {
+    var q = (search.value || '').toLowerCase();
+    var lvl = levelSel.value;
+    var cat = catSel.value;
+    var filtered = items.filter(function(it){
+      var mQ = !q || ((it.title || '').toLowerCase().indexOf(q) !== -1) || ((it.description || '').toLowerCase().indexOf(q) !== -1);
+      var mL = !lvl || it.level === lvl;
+      var mC = !cat || catName(it) === cat;
+      return mQ && mL && mC;
+    });
+    onFilter(filtered);
+  }
+  search.addEventListener('input', apply);
+  levelSel.addEventListener('change', apply);
+  catSel.addEventListener('change', apply);
+
+  bar.appendChild(search); bar.appendChild(levelSel); bar.appendChild(catSel);
+  return bar;
+}
+
+// -- LegoActionGrid -----------------------------------------
+// Agrupa botones de accion en una grilla compacta. No crea botones: ordena nodos existentes.
+//   LegoActionGrid([btnAsignar, btnEliminar, btnVer, btnEditar])
+function LegoActionGrid(actions, opts) {
+  opts = opts || {};
+  if (!document.getElementById('lego-action-grid-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-action-grid-styles';
+    st.textContent = '.lego-action-grid{display:grid;grid-template-columns:repeat(2,auto);gap:6px;align-items:center;justify-content:end}.lego-action-grid .btn{width:38px;height:32px;justify-content:center;padding:0}.lego-action-grid .btn .ti{font-size:15px}';
+    document.head.appendChild(st);
+  }
+  var grid = document.createElement('div');
+  grid.className = 'lego-action-grid';
+  if (opts.className) grid.classList.add(opts.className);
+  (actions || []).forEach(function(action) {
+    if (action instanceof HTMLElement) grid.appendChild(action);
+  });
+  return grid;
+}
+
 
 // -- LegoIcon ----------------------------------------------
 // Atomo de icono: devuelve un <i> Tabler. name = 'ti-...'.
@@ -868,7 +1190,7 @@ function _lpMC(content, activity, state, refreshScore) {
       return { key:'mc-'+qi, questionText: q.text||q.q||'', answer: a.answer||'', isCorrect: a.correct === undefined ? false : a.correct };
     });
   };
-  if (readingText) wrap.appendChild(_lpSplit(rt, qBox));
+  if (readingText) return _lpSplit(rt, qBox);
   return wrap;
 }
 
@@ -876,18 +1198,19 @@ function _lpAudioControls(content) {
   var audioUrl = content.audioUrl || content.audio_url || '';
   var youtubeUrl = content.youtubeUrl || content.youtube_url || '';
   var title = content.audioTitle || content.title || 'Audio';
+  var isVideo = !!youtubeUrl || !!content.isVideo;
   if (youtubeUrl) {
     var ytId = (youtubeUrl.match(/(?:v=|youtu\.be\/)([\w-]{11})/) || [])[1] || '';
-    var yt = document.createElement('div');
     if (ytId) {
-      yt.style.cssText = 'position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:10px;margin-bottom:18px';
+      var yt = document.createElement('div');
+      yt.style.cssText = 'width:100%;aspect-ratio:16/9;max-height:46vh;overflow:hidden;border-radius:10px;background:#000';
       var ifr = document.createElement('iframe');
       ifr.src = 'https://www.youtube.com/embed/' + ytId;
-      ifr.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:0';
+      ifr.style.cssText = 'width:100%;height:100%;border:0';
       ifr.allowFullscreen = true;
       yt.appendChild(ifr);
+      return yt;
     }
-    return yt;
   }
   if (audioUrl && audioUrl.indexOf('drive.google.com') !== -1) {
     var driveId = '';
@@ -898,8 +1221,13 @@ function _lpAudioControls(content) {
     if (driveId) {
       var difr = document.createElement('iframe');
       difr.src = 'https://drive.google.com/file/d/' + driveId + '/preview';
-      difr.style.cssText = 'width:100%;height:80px;border:0;border-radius:10px';
       difr.setAttribute('allow', 'autoplay');
+      if (isVideo) {
+        dv.style.cssText = 'width:100%;aspect-ratio:16/9;max-height:46vh;overflow:hidden;border-radius:10px;background:#000';
+        difr.style.cssText = 'width:100%;height:100%;border:0';
+      } else {
+        difr.style.cssText = 'width:100%;height:80px;border:0;border-radius:10px';
+      }
       dv.appendChild(difr);
     }
     return dv;
@@ -1001,6 +1329,21 @@ function _lpAudio(content, activity, state, refreshScore) {
     qs.appendChild(LegoEmpty({ text: 'Subtipo de audio no soportado.' }));
     state.score = function(){ return { correct: 0, total: 0 }; };
     state.detail = function(){ return []; };
+  }
+  var isVideoLayout = !!(content.youtubeUrl || content.youtube_url) || !!content.isVideo;
+  if (isVideoLayout) {
+    if (!document.getElementById('lego-vsplit-styles')) {
+      var vsp = document.createElement('style'); vsp.id = 'lego-vsplit-styles';
+      vsp.textContent = '.lp-vsplit-c{container-type:inline-size;height:100%;min-height:0}.lp-vsplit{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}.lp-vsplit-stim{flex:0 0 auto}.lp-vsplit-qs{flex:1 1 auto;min-height:0;overflow:auto}@container (min-width:600px){.lp-vsplit{flex-direction:row;align-items:stretch}.lp-vsplit-stim{flex:0 0 55%;align-self:flex-start}.lp-vsplit-qs{height:100%}}';
+      document.head.appendChild(vsp);
+    }
+    var vc = document.createElement('div'); vc.className = 'lp-vsplit-c';
+    var vbox = document.createElement('div'); vbox.className = 'lp-vsplit';
+    var va = document.createElement('div'); va.className = 'lp-vsplit-stim'; va.appendChild(stim);
+    var vb = document.createElement('div'); vb.className = 'lp-vsplit-qs'; vb.appendChild(qs);
+    vbox.appendChild(va); vbox.appendChild(vb);
+    vc.appendChild(vbox);
+    return vc;
   }
   return _lpSplit(stim, qs);
 }

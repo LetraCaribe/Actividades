@@ -130,7 +130,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 /* ACTIVITY PLAYER (mount unico — LegoPlayer rinde adentro) */
 .player-overlay{display:none;position:fixed;inset:0;background:rgba(28,26,23,.6);z-index:200;align-items:center;justify-content:center;padding:16px}
 .player-overlay.open{display:flex}
-.player-modal{background:var(--white);border-radius:var(--r-lg);max-width:760px;width:100%;height:88vh;max-height:88vh;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
+.player-modal{background:var(--white);border-radius:var(--r-lg);max-width:1100px;width:100%;height:88vh;max-height:88vh;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
 .player-header{padding:20px 22px 16px;border-bottom:1px solid var(--border);background:var(--white);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
 .player-htitle{font-family:var(--serif);font-size:18px;font-weight:700;color:var(--ink)}
 .player-hlevel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:3px}
@@ -185,7 +185,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 
     <!-- form login -->
     <div id="form-login">
-      <div class="login-title">Bienvenido</div>
+      <div class="login-title">Bienvenido de vuelta</div>
       <div class="login-sub">Ingresa para ver tus actividades.</div>
       <div class="form-err" id="login-err"></div>
       <div class="fg"><label>Correo</label><input class="fi" id="login-email" type="email" autocomplete="email"></div>
@@ -226,6 +226,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
     <nav class="side-nav">
       <button class="snav-item active" id="snav-dashboard" type="button" onclick="showTab('dashboard')"><span class="sni">🏠</span> Inicio</button>
       <button class="snav-item" id="snav-actividades" type="button" onclick="showTab('actividades')"><span class="sni">📝</span> Actividades</button>
+      <button class="snav-item" id="snav-biblioteca" type="button" onclick="showTab('biblioteca')"><span class="sni">📚</span> Biblioteca</button>
       <button class="snav-item" id="snav-puntajes" type="button" onclick="showTab('puntajes')"><span class="sni">🏆</span> Puntajes</button>
       <button class="snav-item" id="snav-perfil" type="button" onclick="showTab('perfil')"><span class="sni">👤</span> Perfil</button>
     </nav>
@@ -250,6 +251,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
           <button class="archive-toggle" type="button" onclick="toggleArchive()"><span id="archive-caret">▸</span> Completadas</button>
           <div id="act-archive" class="hidden" style="margin-top:12px"></div>
         </div>
+      </section>
+
+      <!-- BIBLIOTECA -->
+      <section class="tab-panel" id="tab-biblioteca">
+        <div class="section-head"><div class="section-title">Biblioteca</div></div>
+        <div id="library-filters"></div>
+        <div id="library-mount"></div>
       </section>
 
       <!-- PUNTAJES -->
@@ -449,7 +457,7 @@ async function showPlatform(){
   $('wb-greeting').textContent = '¡Hola, ' + name.split(/\s+/)[0] + '!';
   $('wb-sub').textContent = g.sub;
   // cargar datos en paralelo
-  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard() ]);
+  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary() ]);
   renderProfile();
 }
 
@@ -668,6 +676,42 @@ async function loadLeaderboard(){
     });
   }
   mount.replaceChildren(frag);
+}
+
+// ── biblioteca ──
+async function loadLibrary(){
+  try {
+    const { data } = await db.from('library').select('*, grammar_categories(name)').order('created_at', { ascending: false });
+    const items = data || [];
+    const fb = $('library-filters');
+    if (fb) fb.replaceChildren(LegoLibraryFilters({ items: items, onFilter: renderLibrary }));
+    renderLibrary(items);
+  } catch(e) {
+    console.error('loadLibrary', e);
+    showToast('Error al cargar biblioteca');
+  }
+}
+
+function renderLibrary(items){
+  const mount = $('library-mount');
+  if (!items.length) {
+    mount.replaceChildren(LegoEmpty({ text: 'No hay materiales disponibles.' }));
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  items.forEach(function(item) {
+    const card = LegoLibraryMaterial(item, {
+      onRead: function(material) { openLibraryViewer(material); }
+    });
+    frag.appendChild(card);
+  });
+
+  mount.replaceChildren(frag);
+}
+
+function openLibraryViewer(item){
+  LegoLibraryViewer(item);
 }
 
 // ── profile ──
