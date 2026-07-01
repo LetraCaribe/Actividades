@@ -692,6 +692,13 @@ function LegoPdfViewer(section, opts) {
 // Visor de un material de biblioteca dentro de un LegoModal. Sellado con textContent.
 // Reusado en index (estudiante lee) y admin (preview del profesor).
 //   LegoLibraryViewer(item)  // item: { title, level, content:{sections:[]}, grammar_categories:{name} | grammarName }
+function _llpImgSrc(url) {
+  url = (url || '').trim();
+  var m = url.match(/\/file\/d\/([^/]+)/) || url.match(/[?&]id=([^&]+)/);
+  if (m && m[1]) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200';
+  return url;
+}
+
 function LegoLibraryViewer(item) {
   item = item || {};
   var content = item.content || {};
@@ -702,47 +709,109 @@ function LegoLibraryViewer(item) {
     return LegoPdfViewer(pdfSection, { fullscreen: true, title: item.title || (pdfSection && pdfSection.title) || 'PDF' });
   }
 
-  var body = document.createElement('div');
-  if (hasPdfDrive) {
-    body.style.cssText = 'display:flex;flex-direction:column;min-height:0;flex:1';
+  if (!document.getElementById('lego-libpage-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-libpage-styles';
+    st.textContent = [
+      '.lego-libpage{font-family:Arial,Helvetica,sans-serif;color:#1C1A17;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-hero{background:linear-gradient(135deg,#D4522A,#A83E1E 60%,#B54D07);padding:24px 28px;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-kick{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;opacity:.9}',
+      '.llp-title{font-family:Georgia,"Times New Roman",serif;font-size:36px;line-height:1.05;margin:6px 0 8px}',
+      '.llp-sub{font-size:13.5px;line-height:1.5;opacity:.93;max-width:560px;margin:0}',
+      '.llp-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}',
+      '.llp-chip{background:rgba(255,255,255,.92);color:#A83E1E;border-radius:999px;font-size:11px;font-weight:800;padding:5px 11px}',
+      '.llp-body{padding:22px 28px 26px}',
+      '.llp-h{font-family:Georgia,"Times New Roman",serif;font-size:18px;color:#1C1A17;margin:18px 0 8px}',
+      '.llp-body>.llp-h:first-child{margin-top:0}',
+      '.llp-p{font-size:14px;line-height:1.65;color:#4A4540;margin:0 0 12px;white-space:pre-wrap;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;border-radius:12px;padding:12px 14px;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-ex{font-size:14px;line-height:1.6;color:#4A4540;font-style:italic;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;border-radius:12px;padding:12px 14px;margin:0 0 12px;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-table{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13.5px;margin:0 0 12px}',
+      '.llp-table td{padding:9px 12px;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-table tr:first-child td{background:#A83E1E;color:#fff;font-weight:700}',
+      '.llp-table tr:not(:first-child) td.llp-c0{background:linear-gradient(180deg,#fff,#E4F5E8)}.llp-table tr:not(:first-child) td.llp-c1{background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-table tr:not(:first-child) td.llp-c2{background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-table tr:not(:first-child) td.llp-c3{background:linear-gradient(180deg,#fff,#E6F5FB)}.llp-table tr:not(:first-child) td.llp-c4{background:linear-gradient(180deg,#fff,#FBE8FA)}',
+      '.llp-conj{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}.llp-conj-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.llp-conj-p{border-radius:11px;padding:9px 12px;text-align:center;font-weight:700;font-size:14px;background:linear-gradient(180deg,#fff,#E4F5E8);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-conj-f{border-radius:11px;padding:9px 12px;text-align:center;font-weight:800;font-size:15px;color:#C41E1E;background:linear-gradient(180deg,#fff,#FDF0E4);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-vcards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 14px}.llp-vcard{border-radius:16px;padding:14px;text-align:center;border:2px solid #E0DAD2;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-vc0{border-color:#E8670A;background:linear-gradient(180deg,#fff,#FDF0E4)}.llp-vc1{border-color:#1E6B72;background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-vc2{border-color:#7AB010;background:linear-gradient(180deg,#fff,#F0F7DC)}.llp-vc3{border-color:#C49A2A;background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-vcard-name{font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.02em;color:#1C1A17;margin-bottom:6px}.llp-vcard-ex{font-size:13px;color:#4A4540;line-height:1.35}',
+      '.llp-formula{background:linear-gradient(180deg,#fff,#FBE8FA);border:2px solid #EFA7E9;border-radius:16px;padding:14px 16px;text-align:center;font-size:18px;font-weight:800;line-height:1.4;color:#1C1A17;box-shadow:0 8px 18px rgba(28,26,23,.05);margin:0 0 10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-formula .hi{color:#C41E1E}.llp-tokens{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:0 0 14px}.llp-token{border-radius:10px;padding:6px 11px;font-size:13px;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-tk0{background:linear-gradient(180deg,#fff,#FEECEC);color:#C41E1E;border:1px solid rgba(196,30,30,.18)}.llp-tk1{background:linear-gradient(180deg,#fff,#F8EBC5);color:#854F0B;border:1px solid rgba(196,154,42,.22)}.llp-tk2{background:linear-gradient(180deg,#fff,#E6F5FB);color:#185FA5;border:1px solid rgba(145,211,240,.45)}.llp-tk3{background:linear-gradient(180deg,#fff,#E4F5E8);color:#1A7A2A;border:1px solid rgba(26,122,42,.2)}.llp-tk4{background:linear-gradient(180deg,#fff,#E4F2F4);color:#0F6E56;border:1px solid rgba(30,107,114,.2)}',
+      '.llp-excards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 14px}.llp-excard{border:2px solid #E0DAD2;border-radius:14px;overflow:hidden;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-excard-h{padding:11px 14px;font-family:Georgia,"Times New Roman",serif;font-size:15px;font-weight:700;border-bottom:1px solid rgba(28,26,23,.08);color:#1C1A17}.llp-exc0{border-color:#E8670A;background:linear-gradient(180deg,#fff,#FDF0E4)}.llp-exc1{border-color:#1E6B72;background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-exc2{border-color:#7AB010;background:linear-gradient(180deg,#fff,#F0F7DC)}.llp-exc3{border-color:#C49A2A;background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-excard-list{margin:0;padding:12px 14px 14px 30px}.llp-excard-list li{font-size:13px;line-height:1.45;color:#4A4540;margin:0 0 8px}.llp-excard-list li:last-child{margin-bottom:0}',
+      '.llp-table td:first-child{border-radius:10px 0 0 10px}',
+      '.llp-table td:last-child{border-radius:0 10px 10px 0}',
+      '.llp-img{max-width:100%;border-radius:12px;margin:6px 0;display:block}',
+      '.llp-cap{font-size:12px;color:#8C8479;text-align:center;margin:0 0 12px}',
+      '.llp-foot{display:flex;justify-content:space-between;color:#8C8479;font-size:11px;border-top:1px solid #E0DAD2;padding-top:14px;margin-top:20px}',
+      '.llp-foot b{color:#A83E1E}',
+      '@media print{body.printing-lib>*:not(.lego-modal-overlay){display:none!important}body.printing-lib .lego-modal-overlay{position:static!important;background:#fff!important;padding:0!important;display:block!important}body.printing-lib .lego-modal{box-shadow:none!important;max-width:none!important;width:100%!important;max-height:none!important;border:0!important;border-radius:0!important}body.printing-lib .lego-modal-header,body.printing-lib .lego-modal-actions{display:none!important}body.printing-lib .lego-modal-m3{padding:0!important;overflow:visible!important}@page{size:letter;margin:0.4in}}'
+    ].join('');
+    document.head.appendChild(st);
   }
 
-  var meta = document.createElement('div');
-  meta.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px';
-  meta.appendChild(LegoChip(item.level || 'A1', 'level'));
+  var page = document.createElement('div');
+  page.className = 'lego-libpage';
+
+  // hero
+  var hero = document.createElement('div');
+  hero.className = 'llp-hero';
+  var kick = document.createElement('div');
+  kick.className = 'llp-kick';
+  kick.textContent = 'Letra Caribe Language School';
+  hero.appendChild(kick);
+  var title = document.createElement('div');
+  title.className = 'llp-title';
+  title.textContent = item.title || 'Material';
+  hero.appendChild(title);
+  if (item.description) {
+    var sub = document.createElement('div');
+    sub.className = 'llp-sub';
+    sub.textContent = item.description;
+    hero.appendChild(sub);
+  }
+  var chips = document.createElement('div');
+  chips.className = 'llp-chips';
+  var lvlChip = document.createElement('span');
+  lvlChip.className = 'llp-chip';
+  lvlChip.textContent = item.level || 'A1';
+  chips.appendChild(lvlChip);
   var gramName = (item.grammar_categories && item.grammar_categories.name) || item.grammarName || '';
-  if (gramName) meta.appendChild(LegoChip(gramName, 'cat'));
-  body.appendChild(meta);
-
-  if (!sections.length) {
-    body.appendChild(LegoEmpty({ text: 'Este material no tiene contenido todavia.' }));
+  if (gramName) {
+    var catChip = document.createElement('span');
+    catChip.className = 'llp-chip';
+    catChip.textContent = gramName;
+    chips.appendChild(catChip);
   }
+  hero.appendChild(chips);
+  page.appendChild(hero);
+
+  // body
+  var body = document.createElement('div');
+  body.className = 'llp-body';
 
   function heading(txt) {
     var h = document.createElement('div');
+    h.className = 'llp-h';
     h.textContent = txt;
-    h.style.cssText = 'margin:16px 0 8px;font-size:16px;font-weight:600;color:var(--ink)';
     return h;
+  }
+
+  if (!sections.length) {
+    body.appendChild(LegoEmpty({ text: 'Este material no tiene contenido todavia.' }));
   }
 
   sections.forEach(function(section) {
     if (section.type === 'text') {
       if (section.title) body.appendChild(heading(section.title));
       var p = document.createElement('p');
+      p.className = 'llp-p';
       p.textContent = section.body || '';
-      p.style.cssText = 'line-height:1.6;color:var(--ink-soft);margin-bottom:12px;white-space:pre-wrap';
       body.appendChild(p);
     } else if (section.type === 'table') {
       if (section.title) body.appendChild(heading(section.title));
       var table = document.createElement('table');
-      table.style.cssText = 'width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px';
-      (section.rows || []).forEach(function(rowArr, idx) {
+      table.className = 'llp-table';
+      (section.rows || []).forEach(function(rowArr, rIdx) {
         var tr = document.createElement('tr');
-        tr.style.cssText = idx === 0 ? 'border-bottom:2px solid var(--border);background:var(--sand)' : 'border-bottom:1px solid var(--border)';
-        (Array.isArray(rowArr) ? rowArr : Object.values(rowArr || {})).forEach(function(val) {
+        (Array.isArray(rowArr) ? rowArr : Object.values(rowArr || {})).forEach(function(val, cIdx) {
           var td = document.createElement('td');
           td.textContent = (val === null || val === undefined) ? '' : val;
-          td.style.cssText = 'padding:8px 12px;text-align:left' + (idx === 0 ? ';font-weight:600' : '');
+          if (rIdx > 0) td.className = 'llp-c' + (cIdx % 5);
           tr.appendChild(td);
         });
         table.appendChild(tr);
@@ -751,38 +820,150 @@ function LegoLibraryViewer(item) {
     } else if (section.type === 'exercise') {
       if (section.title) body.appendChild(heading(section.title));
       var ex = document.createElement('p');
+      ex.className = 'llp-ex';
       ex.textContent = section.text || '';
-      ex.style.cssText = 'line-height:1.6;color:var(--ink-soft);font-style:italic;background:var(--sand);padding:12px;border-radius:var(--r);margin-bottom:12px;white-space:pre-wrap';
       body.appendChild(ex);
+    } else if (section.type === 'conjugation') {
+      if (section.title) body.appendChild(heading(section.title));
+      var cj = document.createElement('div');
+      cj.className = 'llp-conj';
+      (section.rows || []).forEach(function(pair) {
+        var cr = document.createElement('div');
+        cr.className = 'llp-conj-row';
+        var cp = document.createElement('div');
+        cp.className = 'llp-conj-p';
+        cp.textContent = (pair && pair[0]) || '';
+        var cf = document.createElement('div');
+        cf.className = 'llp-conj-f';
+        cf.textContent = (pair && pair[1]) || '';
+        cr.appendChild(cp); cr.appendChild(cf);
+        cj.appendChild(cr);
+      });
+      body.appendChild(cj);
+    } else if (section.type === 'verb-cards') {
+      if (section.title) body.appendChild(heading(section.title));
+      var vc = document.createElement('div');
+      vc.className = 'llp-vcards';
+      (section.rows || []).forEach(function(pair, i) {
+        var card = document.createElement('div');
+        card.className = 'llp-vcard llp-vc' + (i % 4);
+        var nm = document.createElement('div');
+        nm.className = 'llp-vcard-name';
+        nm.textContent = (pair && pair[0]) || '';
+        var ex = document.createElement('div');
+        ex.className = 'llp-vcard-ex';
+        ex.textContent = (pair && pair[1]) || '';
+        card.appendChild(nm); card.appendChild(ex);
+        vc.appendChild(card);
+      });
+      body.appendChild(vc);
+    } else if (section.type === 'formula') {
+      if (section.title) body.appendChild(heading(section.title));
+      if (section.formula) {
+        var fb = document.createElement('div');
+        fb.className = 'llp-formula';
+        String(section.formula).split('*').forEach(function(seg, i) {
+          if (seg === '') return;
+          if (i % 2 === 1) {
+            var hi = document.createElement('span');
+            hi.className = 'hi';
+            hi.textContent = seg;
+            fb.appendChild(hi);
+          } else {
+            fb.appendChild(document.createTextNode(seg));
+          }
+        });
+        body.appendChild(fb);
+      }
+      if (section.tokens && section.tokens.length) {
+        var tkRow = document.createElement('div');
+        tkRow.className = 'llp-tokens';
+        section.tokens.forEach(function(tk, i) {
+          if (!tk) return;
+          var sp = document.createElement('span');
+          sp.className = 'llp-token llp-tk' + (i % 5);
+          sp.textContent = tk;
+          tkRow.appendChild(sp);
+        });
+        body.appendChild(tkRow);
+      }
+    } else if (section.type === 'examples') {
+      if (section.title) body.appendChild(heading(section.title));
+      var eg = document.createElement('div');
+      eg.className = 'llp-excards';
+      (section.cards || []).forEach(function(card, ci) {
+        var c = document.createElement('div');
+        c.className = 'llp-excard llp-exc' + (ci % 4);
+        var h = document.createElement('div');
+        h.className = 'llp-excard-h';
+        h.textContent = (card && card.heading) || '';
+        c.appendChild(h);
+        var ol = document.createElement('ol');
+        ol.className = 'llp-excard-list';
+        ((card && card.items) || []).forEach(function(it) {
+          if (it === '' || it == null) return;
+          var li = document.createElement('li');
+          li.textContent = it;
+          ol.appendChild(li);
+        });
+        c.appendChild(ol);
+        eg.appendChild(c);
+      });
+      body.appendChild(eg);
     } else if (section.type === 'image') {
       if (section.url) {
         var img = document.createElement('img');
-        img.src = section.url;
+        img.className = 'llp-img';
+        img.src = _llpImgSrc(section.url);
         img.alt = section.caption || '';
-        img.style.cssText = 'max-width:100%;border-radius:var(--r);margin:8px 0;display:block';
         body.appendChild(img);
       }
       if (section.caption) {
         var cap = document.createElement('p');
+        cap.className = 'llp-cap';
         cap.textContent = section.caption;
-        cap.style.cssText = 'font-size:12px;color:var(--muted);text-align:center;margin-bottom:12px';
         body.appendChild(cap);
       }
     }
   });
 
+  var foot = document.createElement('div');
+  foot.className = 'llp-foot';
+  var fb = document.createElement('b');
+  fb.textContent = 'Letra Caribe';
+  var fs = document.createElement('span');
+  fs.textContent = item.title || '';
+  foot.appendChild(fb);
+  foot.appendChild(fs);
+  body.appendChild(foot);
+  page.appendChild(body);
+
+  // botones
   var xBtn = document.createElement('button');
   xBtn.className = 'btn';
   xBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)';
   xBtn.appendChild(LegoIcon('ti-x'));
   xBtn.onclick = function() { if (window.LegoModal && LegoModal.close) LegoModal.close(); };
 
+  var btnPrint = document.createElement('button');
+  btnPrint.className = 'btn btn-coral';
+  btnPrint.textContent = 'Imprimir / PDF';
+  btnPrint.onclick = function() {
+    document.body.classList.add('printing-lib');
+    window.print();
+    document.body.classList.remove('printing-lib');
+  };
+
   var cerrar = document.createElement('button');
   cerrar.className = 'btn';
   cerrar.textContent = 'Cerrar';
   cerrar.onclick = function() { if (window.LegoModal && LegoModal.close) LegoModal.close(); };
 
-  var overlay = LegoModal({ M1: item.title || 'Material', M6: xBtn, M3: body, M7: cerrar });
+  var overlay = LegoModal({ M6: xBtn, M3: page, M5: btnPrint, M7: cerrar });
+  var m3 = overlay.querySelector('.lego-modal-m3');
+  if (m3) m3.style.padding = '0';
+  var m = overlay.querySelector('.lego-modal');
+  if (m) m.style.maxWidth = '760px';
   return overlay;
 }
 
@@ -975,18 +1156,21 @@ function LegoPlayer(activity, opts) {
   opts = opts || {};
   var mode = opts.mode || 'play';
   var onResult = typeof opts.onResult === 'function' ? opts.onResult : null;
+  var feedback = opts.feedback !== false;
   if (!document.getElementById('lego-player-styles')) {
     var st = document.createElement('style');
     st.id = 'lego-player-styles';
-    st.textContent = '.lego-player{font-size:15px;height:100%;display:flex;flex-direction:column;min-height:0}.lp-instr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}.lp-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500}.lp-sentence{font-family:var(--serif,serif);font-size:15px;line-height:2.2;color:var(--ink);margin-bottom:10px}.lp-input{border:none;border-bottom:2px solid var(--border);background:transparent;font-family:inherit;font-size:15px;text-align:center;min-width:70px;outline:none;padding:2px 4px}.lp-input.correct{border-color:var(--green);color:var(--green)}.lp-input.tilde{border-color:#DAA520;color:#DAA520}.lp-input.wrong{border-color:var(--red);color:var(--red)}.lp-fb{font-size:11px;margin-top:2px;min-height:13px}.lp-score{font-weight:700;margin-bottom:12px;color:var(--ink-soft);flex-shrink:0}.lp-text{font-family:var(--serif,serif);font-size:15px;line-height:1.8;color:var(--ink);margin-bottom:14px}.lp-mc-block{margin-bottom:16px}.lp-mc-q{display:flex;gap:8px;font-weight:600;margin-bottom:8px;align-items:flex-start}.lp-mc-num{background:var(--coral);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}.lp-mc-opts{display:flex;flex-direction:column;gap:6px}.lp-mc-opt{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-mc-opt:disabled{cursor:default}.lp-mc-opt.correct{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-mc-opt.wrong{background:var(--red-lt);border-color:var(--red);color:var(--red)}.lp-mc-fb{font-size:12px;margin-top:6px;min-height:14px}.lp-open{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:14px}.lp-body{flex:1 1 auto;min-height:0;overflow:auto}';
+    st.textContent = '.lego-player{font-size:15px;height:100%;display:flex;flex-direction:column;min-height:0}.lp-instr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}.lp-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500}.lp-sentence{font-family:var(--serif,serif);font-size:15px;line-height:2.2;color:var(--ink);margin-bottom:10px}.lp-input{border:none;border-bottom:2px solid var(--border);background:transparent;font-family:inherit;font-size:15px;text-align:center;min-width:70px;outline:none;padding:2px 4px}.lp-input.correct{border-color:var(--green);color:var(--green)}.lp-input.tilde{border-color:#DAA520;color:#DAA520}.lp-input.wrong{border-color:var(--red);color:var(--red)}.lp-fb{font-size:11px;margin-top:2px;min-height:13px}.lp-score{font-weight:700;margin-bottom:12px;color:var(--ink-soft);flex-shrink:0}.lp-text{font-family:var(--serif,serif);font-size:15px;line-height:1.8;color:var(--ink);margin-bottom:14px}.lp-mc-block{margin-bottom:16px}.lp-mc-q{display:flex;gap:8px;font-weight:600;margin-bottom:8px;align-items:flex-start}.lp-mc-num{background:var(--coral);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}.lp-mc-opts{display:flex;flex-direction:column;gap:6px}.lp-mc-opt{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-mc-opt:disabled{cursor:default}.lp-mc-opt.correct{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-mc-opt.wrong{background:var(--red-lt);border-color:var(--red);color:var(--red)}.lp-mc-fb{font-size:12px;margin-top:6px;min-height:14px}.lp-open{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:14px}.lp-body{flex:1 1 auto;min-height:0;overflow:auto}.lp-nofeedback .lp-input.correct,.lp-nofeedback .lp-input.wrong,.lp-nofeedback .lp-input.tilde{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-mc-opt.correct,.lp-nofeedback .lp-mc-opt.wrong{background:var(--white,#fff)!important;border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-fb,.lp-nofeedback .lp-mc-fb,.lp-nofeedback .lp-legend{display:none!important}.lp-mc-opt.lp-picked{background:var(--sand);border-color:var(--coral);color:var(--ink)}.lp-input.lp-picked{border-color:var(--coral)}';
     document.head.appendChild(st);
   }
   var content = {};
   try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) {}
   var type = activity.type || content.type || 'mc';
   var state = { answers: {}, score: function(){ return { correct:0, total:0 }; }, detail: function(){ return []; } };
+  state.feedback = feedback;
   var root = document.createElement('div');
   root.className = 'lego-player';
+  if (!feedback) root.classList.add('lp-nofeedback');
   var scoreEl = document.createElement('div');
   scoreEl.className = 'lp-score';
   function refreshScore(){ var sc = state.score(); scoreEl.textContent = sc.correct + '/' + (sc.total || '?'); }
@@ -1012,6 +1196,7 @@ function LegoPlayer(activity, opts) {
   if (mode === 'review' && supported) { body = _lpReview(content, activity, type, opts.saved || []); scoreEl.style.display = 'none'; }
   if (mode === 'edit' && supported) { body = _lpEdit(content, activity, type); scoreEl.style.display = 'none'; }
   if (supported) root.appendChild(scoreEl);
+  if (!feedback) scoreEl.style.display = 'none';
   var lpBody = document.createElement('div'); lpBody.className = 'lp-body'; lpBody.appendChild(body); root.appendChild(lpBody);
   if (supported) refreshScore();
 
@@ -1165,7 +1350,7 @@ function _lpMC(content, activity, state, refreshScore) {
         b.addEventListener('click', function(){
           if (block.dataset.done) return;
           block.dataset.done = '1';
-          btns.forEach(function(bb, i){ bb.disabled = true; if (i === correctIdx) bb.classList.add('correct'); else if (i === oi) bb.classList.add('wrong'); });
+          btns.forEach(function(bb, i){ bb.disabled = true; if (state.feedback === false) { if (i === oi) bb.classList.add('lp-picked'); } else if (i === correctIdx) bb.classList.add('correct'); else if (i === oi) bb.classList.add('wrong'); });
           var ok = oi === correctIdx;
           answers['mc-'+qi] = { correct: ok, answer: o };
           fb.style.color = ok ? 'var(--green)' : 'var(--red)';
@@ -1287,7 +1472,7 @@ function _lpTrueFalse(content, state, refreshScore) {
         if (block.dataset.done) return;
         block.dataset.done = '1';
         var ok = val === s.correct;
-        btns.forEach(function(bb, i){ bb.disabled = true; var bv = (i === 0); if (bv === s.correct) bb.classList.add('correct'); else if (bv === val) bb.classList.add('wrong'); });
+        btns.forEach(function(bb, i){ bb.disabled = true; var bv = (i === 0); if (state.feedback === false) { if (bv === val) bb.classList.add('lp-picked'); } else if (bv === s.correct) bb.classList.add('correct'); else if (bv === val) bb.classList.add('wrong'); });
         answers['tf-'+si] = { correct: ok, answer: val ? 'Verdadero' : 'Falso' };
         fb.style.color = ok ? 'var(--green)' : 'var(--red)';
         fb.textContent = ok ? 'Correcto' : 'Incorrecto';
@@ -1525,7 +1710,7 @@ function _lpDragDrop(content, state, refreshScore) {
   if (!document.getElementById('lego-dnd-styles')) {
     var dst = document.createElement('style');
     dst.id = 'lego-dnd-styles';
-    dst.textContent = '.lp-dnd-bank{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}.lp-dnd-word{padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:grab;font-size:14px;user-select:none;touch-action:none}.lp-dnd-word.sel{outline:2px solid var(--orange)}.lp-dnd-word.used{opacity:.35;pointer-events:none}.lp-dnd-word.dragging{opacity:.4}.lp-dnd-ghost{position:fixed;z-index:9999;pointer-events:none;padding:6px 12px;border:1px solid var(--orange);border-radius:8px;background:var(--white,#fff);font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.18)}.lp-dnd-blank{display:inline-block;min-width:88px;border:1.5px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;margin:0 4px;padding:8px 12px;vertical-align:middle}.lp-dnd-blank.over{background:var(--orange-lt,#FDEEE8);outline:2px dashed var(--orange);outline-offset:2px}.lp-dnd-blank.filled-correct{border-color:var(--green);color:var(--green)}.lp-dnd-blank.filled-wrong{border-color:var(--red);color:var(--red)}';
+    dst.textContent = '.lp-dnd-bank{position:sticky;top:0;z-index:4;display:flex;flex-wrap:wrap;gap:6px;max-height:132px;overflow:auto;margin:0 0 16px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--white,#fff);box-shadow:0 6px 16px rgba(0,0,0,.08);overscroll-behavior:contain}.lp-dnd-word{padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:grab;font-size:14px;user-select:none;touch-action:none}.lp-dnd-word.sel{outline:2px solid var(--orange)}.lp-dnd-word.used{opacity:.35;pointer-events:none}.lp-dnd-word.dragging{opacity:.4}.lp-dnd-ghost{position:fixed;z-index:9999;pointer-events:none;padding:6px 12px;border:1px solid var(--orange);border-radius:8px;background:var(--white,#fff);font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.18)}.lp-dnd-blank{display:inline-block;min-width:88px;border:1.5px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;margin:0 4px;padding:8px 12px;vertical-align:middle}.lp-dnd-blank.over{background:var(--orange-lt,#FDEEE8);outline:2px dashed var(--orange);outline-offset:2px}.lp-dnd-blank.filled-correct{border-color:var(--green);color:var(--green)}.lp-dnd-blank.filled-wrong{border-color:var(--red);color:var(--red)}';
     document.head.appendChild(dst);
   }
   var answers = state.answers;

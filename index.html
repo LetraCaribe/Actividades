@@ -238,6 +238,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
           <div class="wb-greeting" id="wb-greeting"></div>
           <div class="wb-sub" id="wb-sub"></div>
         </div>
+        <div id="dash-clases"></div>
         <div id="wotd-mount"></div>
         <div class="section-head"><div class="section-title">Pendientes</div></div>
         <div id="dash-activities"></div>
@@ -293,15 +294,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <div class="results-overlay" id="results-overlay">
   <div class="results-card">
     <div class="results-emoji" id="results-emoji">🎉</div>
-    <div class="results-score-ring"><div class="results-score" id="results-score">0%</div><div class="results-score-lbl">Puntaje</div></div>
+    <div class="results-score-ring" id="results-ring"><div class="results-score" id="results-score">0%</div><div class="results-score-lbl">Puntaje</div></div>
     <div class="results-title" id="results-title">¡Listo!</div>
     <div class="results-sub" id="results-sub"></div>
-    <div class="results-note-wrap">
+    <div class="results-note-wrap" id="results-notewrap">
       <div class="results-note-lbl">Nota para tu profesor (opcional)</div>
       <textarea class="results-note" id="results-note" placeholder="¿Alguna duda o comentario?"></textarea>
     </div>
     <div class="results-actions">
-      <button class="btn btn-coral" type="button" onclick="saveNoteAndClose()">Guardar y cerrar</button>
+      <button class="btn btn-coral" type="button" id="results-btn" onclick="saveNoteAndClose()">Guardar y cerrar</button>
     </div>
   </div>
 </div>
@@ -321,6 +322,7 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let currentUser = null;
 let currentProfile = null;
 let allAssignments = [];
+let allCredits = [], allSessions = [];
 let resultsAsgnId = null;
 
 // ── mapa de iconos por tipo (reusado de admin: ti-* + colores) ──
@@ -457,7 +459,8 @@ async function showPlatform(){
   $('wb-greeting').textContent = '¡Hola, ' + name.split(/\s+/)[0] + '!';
   $('wb-sub').textContent = g.sub;
   // cargar datos en paralelo
-  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary() ]);
+  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary(), loadClasses() ]);
+  renderDashClasses();
   renderProfile();
 }
 
@@ -533,7 +536,7 @@ function openActivity(asgn){
   $('player-level').textContent = act.level || '';
   let node;
   try {
-    node = LegoPlayer(act, { mode: 'play', onResult: function(res){ submitActivity(asgn, res); } });
+    node = LegoPlayer(act, { mode: 'play', feedback: (asgn.eval_mode !== 'calificado'), onResult: function(res){ submitActivity(asgn, res); } });
   } catch (e) {
     console.error('LegoPlayer error:', e, act);
     node = LegoEmpty({ text: 'Error al abrir: ' + (e && e.message ? e.message : e) });
@@ -549,6 +552,25 @@ function closePlayer(){
 // ── submit (contrato del envío) ──
 async function submitActivity(asgn, res){
   const act = asgn.activities || {};
+  const total = res.total || 0;
+  const scorePct = total ? Math.round((res.score / total) * 100) : 0;
+  const mode = asgn.eval_mode || 'practica';
+  const passPct = asgn.pass_pct || 70;
+  const maxAttempts = asgn.max_attempts || 1;
+  const attemptNo = (asgn.attempts || 0) + 1;
+
+  // Calificado: no paso y le quedan intentos -> reintentar (sin feedback, sin archivar)
+  if (mode === 'calificado' && scorePct < passPct && attemptNo < maxAttempts) {
+    closePlayer();
+    try {
+      await db.from('assignments').update({ attempts: attemptNo }).eq('id', asgn.id);
+      await loadAssignments();
+    } catch (e) { console.error('retry update', e); }
+    showRetry(attemptNo, maxAttempts);
+    return;
+  }
+
+  // Final: practica siempre, o calificado que aprobo / agoto intentos
   const rows = (res.answers || []).map(function(a, i){
     return {
       student_id: currentUser.id,
@@ -561,14 +583,12 @@ async function submitActivity(asgn, res){
       is_correct: a.isCorrect
     };
   });
-  const total = res.total || 0;
-  const scorePct = total ? Math.round((res.score / total) * 100) : 0;
   closePlayer();
-  showResults(asgn, res, scorePct);
+  showResults(asgn, res, scorePct, mode, passPct);
   try {
     await db.from('responses').delete().eq('student_id', currentUser.id).eq('activity_slug', act.slug);
     if (rows.length) await db.from('responses').insert(rows);
-    await db.from('assignments').update({ completed: true, completed_at: new Date().toISOString(), score_pct: scorePct }).eq('id', asgn.id);
+    await db.from('assignments').update({ completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo }).eq('id', asgn.id);
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
     await db.from('profiles').update({ score: newScore }).eq('id', currentUser.id);
     if (currentProfile) currentProfile.score = newScore;
@@ -579,13 +599,40 @@ async function submitActivity(asgn, res){
     showToast('No se guardó: ' + (e && e.message ? e.message : e));
   }
 }
-function showResults(asgn, res, scorePct){
+function showResults(asgn, res, scorePct, mode, passPct){
   resultsAsgnId = asgn.id;
-  $('results-emoji').textContent = scorePct >= 80 ? '🎉' : scorePct >= 60 ? '👍' : '💪';
+  mode = mode || asgn.eval_mode || 'practica';
+  passPct = passPct || asgn.pass_pct || 70;
+  const ring = $('results-ring'); if (ring) ring.style.display = '';
+  const nw = $('results-notewrap'); if (nw) nw.style.display = '';
+  const btn = $('results-btn'); if (btn) btn.textContent = 'Guardar y cerrar';
   $('results-score').textContent = scorePct + '%';
-  $('results-title').textContent = scorePct >= 80 ? '¡Excelente!' : scorePct >= 60 ? '¡Bien hecho!' : '¡A seguir practicando!';
-  $('results-sub').textContent = 'Acertaste ' + (res.score || 0) + ' de ' + (res.total || 0) + '.';
+  if (mode === 'calificado') {
+    const passed = scorePct >= passPct;
+    $('results-emoji').textContent = passed ? '🎉' : '💪';
+    $('results-title').textContent = passed ? '¡Aprobaste!' : 'Nota final';
+    $('results-sub').textContent = passed
+      ? ('Superaste el ' + passPct + '%. ¡Bien hecho!')
+      : ('Esta es tu nota final: ' + scorePct + '%. Sigue practicando este tema.');
+  } else {
+    $('results-emoji').textContent = scorePct >= 80 ? '🎉' : scorePct >= 60 ? '👍' : '💪';
+    $('results-title').textContent = scorePct >= 80 ? '¡Excelente!' : scorePct >= 60 ? '¡Bien hecho!' : '¡A seguir practicando!';
+    $('results-sub').textContent = 'Acertaste ' + (res.score || 0) + ' de ' + (res.total || 0) + '.';
+  }
   $('results-note').value = asgn.student_note || '';
+  $('results-overlay').classList.add('show');
+}
+function showRetry(attemptNo, maxAttempts){
+  resultsAsgnId = null;
+  const ring = $('results-ring'); if (ring) ring.style.display = 'none';
+  const nw = $('results-notewrap'); if (nw) nw.style.display = 'none';
+  const btn = $('results-btn'); if (btn) btn.textContent = 'Volver a intentar';
+  $('results-emoji').textContent = '💪';
+  $('results-title').textContent = 'Aún no alcanzas el mínimo';
+  const left = maxAttempts - attemptNo;
+  $('results-sub').textContent = left <= 1
+    ? 'Te queda un intento. Repasa con calma y vuelve a intentarlo.'
+    : 'Inténtalo de nuevo. Puedes hacerlo mejor.';
   $('results-overlay').classList.add('show');
 }
 async function saveNoteAndClose(){
@@ -715,6 +762,105 @@ function openLibraryViewer(item){
 }
 
 // ── profile ──
+async function loadClasses(){
+  if (!currentUser) return;
+  const cr = await db.from('class_credits').select().eq('student_id', currentUser.id);
+  const cs = await db.from('class_sessions').select().eq('student_id', currentUser.id).order('class_date', { ascending: false });
+  allCredits = (cr && cr.data) || [];
+  allSessions = (cs && cs.data) || [];
+}
+function clsToday(){ const d = new Date(); const m = d.getMonth() + 1; const day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day; }
+function clsFmt(iso){ if (!iso) return ''; const p = String(iso).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : String(iso); }
+function clsHora(sess){ const t = sess.class_time ? String(sess.class_time).slice(0, 5) : ''; if (!t) return ''; const e = sess.class_end_time ? String(sess.class_end_time).slice(0, 5) : ''; return e ? (t + ' - ' + e) : t; }
+function clsCreditsTotal(){ return allCredits.reduce(function(sum, c){ return sum + (Number(c.credits) || 0); }, 0); }
+function clsActivas(){ return allSessions.filter(function(x){ return !x.cancelled; }); }
+function clsDadas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) <= hoy; }); }
+function clsProximas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) > hoy; }); }
+function clsRestantes(){ return clsCreditsTotal() - clsDadas().length; }
+function renderDashClasses(){
+  const mount = $('dash-clases');
+  if (!mount) return;
+  if (!allCredits.length && !allSessions.length) { mount.replaceChildren(); return; }
+  const rest = clsRestantes();
+  const card = mk('div');
+  card.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px';
+  const num = mk('div', null, String(rest));
+  num.style.cssText = 'font-size:32px;font-weight:800;line-height:1;color:' + (rest <= 0 ? 'var(--red)' : 'var(--coral)');
+  const info = mk('div');
+  info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+  const t1 = mk('div', null, rest === 1 ? 'clase restante' : 'clases restantes');
+  t1.style.cssText = 'font-size:14px;font-weight:700;color:var(--ink)';
+  info.appendChild(t1);
+  const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
+  const t2 = mk('div');
+  t2.style.cssText = 'font-size:12px;color:var(--muted)';
+  if (prox.length) {
+    const p = prox[0];
+    t2.textContent = 'Proxima: ' + clsFmt(p.class_date) + (clsHora(p) ? ' · ' + clsHora(p) : '');
+  } else {
+    t2.textContent = 'Sin clases programadas';
+  }
+  info.appendChild(t2);
+  card.appendChild(num);
+  card.appendChild(info);
+  mount.replaceChildren(card);
+}
+function _clsSessionCard(sess){
+  const hoy = clsToday();
+  const fecha = sess.class_date ? String(sess.class_date).slice(0, 10) : '';
+  let chip;
+  if (sess.cancelled) { chip = LegoChip('Cancelada', { bg: 'var(--sand)', color: 'var(--muted)' }); }
+  else if (fecha && fecha <= hoy) { chip = LegoChip('Dada', { bg: 'var(--green-lt)', color: 'var(--green)' }); }
+  else { chip = LegoChip('Programada', { bg: 'var(--orange-lt)', color: 'var(--orange-dk)' }); }
+  const hora = clsHora(sess);
+  return LegoCard({ L2: clsFmt(sess.class_date), L3: hora || 'Sin hora', L4: chip });
+}
+function _clsCollapsible(titulo, lista){
+  const box = mk('div');
+  box.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);margin-top:8px;overflow:hidden';
+  const head = mk('button');
+  head.type = 'button';
+  head.style.cssText = 'width:100%;background:var(--sand);border:none;padding:10px 12px;text-align:left;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px';
+  const list = mk('div');
+  list.style.cssText = 'padding:10px;display:none;flex-direction:column;gap:8px';
+  const caret = mk('span', null, '▸');
+  const label = mk('span', null, titulo + ' (' + lista.length + ')');
+  head.appendChild(caret); head.appendChild(label);
+  if (lista.length) { lista.forEach(function(sess){ list.appendChild(_clsSessionCard(sess)); }); }
+  else { list.appendChild(LegoEmpty({ text: 'Nada aqui.' })); }
+  head.onclick = function(){ const open = list.style.display === 'none'; list.style.display = open ? 'flex' : 'none'; caret.textContent = open ? '▾' : '▸'; };
+  box.appendChild(head); box.appendChild(list);
+  return box;
+}
+function renderClasesCard(){
+  const card = mk('div');
+  card.style.cssText = 'margin-top:16px;padding-top:16px;border-top:1px solid var(--border)';
+  const head = mk('div', 'section-head');
+  head.appendChild(mk('div', 'section-title', 'Mis clases'));
+  card.appendChild(head);
+  const stats = mk('div');
+  stats.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 10px';
+  function stat(n, lbl, color){
+    const b = mk('div');
+    b.style.cssText = 'flex:1;min-width:80px;background:var(--sand);border-radius:var(--r);padding:10px;text-align:center';
+    const v = mk('div', null, String(n));
+    v.style.cssText = 'font-size:22px;font-weight:800;line-height:1;color:' + (color || 'var(--ink)');
+    const l = mk('div', null, lbl);
+    l.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px';
+    b.appendChild(v); b.appendChild(l); return b;
+  }
+  const rest = clsRestantes();
+  stats.appendChild(stat(rest, 'Restantes', rest <= 0 ? 'var(--red)' : 'var(--coral)'));
+  stats.appendChild(stat(clsCreditsTotal(), 'Pagadas'));
+  stats.appendChild(stat(clsDadas().length, 'Dadas'));
+  card.appendChild(stats);
+  const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
+  const pas = clsDadas().slice().sort(function(a, b){ return String(b.class_date).localeCompare(String(a.class_date)); });
+  card.appendChild(_clsCollapsible('Proximas', prox));
+  card.appendChild(_clsCollapsible('Pasadas', pas));
+  return card;
+}
+
 function renderProfile(){
   const mount = $('profile-mount');
   if (!currentProfile) { mount.replaceChildren(LegoEmpty({ text: 'No se pudo cargar el perfil.' })); return; }
@@ -743,6 +889,7 @@ function renderProfile(){
   bodyEl.appendChild(row('Miembro desde', currentUser && currentUser.created_at ? fmtDate(currentUser.created_at) : '—'));
 
   card.appendChild(head); card.appendChild(bodyEl);
+  if (allCredits.length || allSessions.length) card.appendChild(renderClasesCard());
   mount.replaceChildren(card);
 }
 

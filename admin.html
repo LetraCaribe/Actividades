@@ -294,6 +294,7 @@ body{font-family:var(--sans);background:var(--sand);color:var(--ink);min-height:
     <div class="sb-section">Estudiantes</div>
     <button class="sb-item active" id="sb-overview" onclick="showPanel('overview')"><span class="si">📊</span> Resumen</button>
     <button class="sb-item" id="sb-students" onclick="showPanel('students')"><span class="si">👥</span> Estudiantes <span class="sb-badge" id="badge-students">0</span></button>
+    <button class="sb-item" id="sb-classes" onclick="showPanel('classes')"><span class="si">🗓️</span> Clases</button>
     <button class="sb-item" id="sb-assign" onclick="showPanel('assign')"><span class="si">📤</span> Asignar tarea</button>
 
     <div class="sb-section">Contenido</div>
@@ -334,6 +335,9 @@ body{font-family:var(--sans);background:var(--sand);color:var(--ink);min-height:
 
             <!-- STUDENTS -->
       <div class="panel" id="panel-students"><div id="students-hub-mount"></div></div>
+
+      <!-- CLASSES -->
+      <div class="panel" id="panel-classes"><div id="classes-hub-mount"></div></div>
 
       <!-- ASSIGN -->
       <div class="panel" id="panel-assign"><div id="assign-hub-mount"></div><div id="assign-wizard" style="display:none;max-width:860px"><div style="max-width:860px">
@@ -447,6 +451,19 @@ body{font-family:var(--sans);background:var(--sand);color:var(--ink);min-height:
           </div>
           <div class="form-group"><label class="form-label">Fecha límite (opcional)</label>
             <input type="date" class="form-input" id="asgn-due" style="max-width:200px">
+          </div>
+          <div class="form-group"><label class="form-label">Tipo de evaluación</label>
+            <div id="asgn-eval-mode-mount"></div>
+          </div>
+          <div id="asgn-calif-opts" style="display:none">
+            <div style="display:flex;gap:12px">
+              <div class="form-group" style="flex:1"><label class="form-label">Umbral para aprobar (%)</label>
+                <input type="number" class="form-input" id="asgn-pass-pct" value="70" min="1" max="100">
+              </div>
+              <div class="form-group" style="flex:1"><label class="form-label">Intentos</label>
+                <input type="number" class="form-input" id="asgn-max-attempts" value="2" min="1" max="5">
+              </div>
+            </div>
           </div>
           <div style="display:flex;gap:8px;justify-content:space-between;margin-top:8px">
             <button class="btn btn-outline" onclick="asgnGoStep(2)">← Volver</button>
@@ -824,7 +841,7 @@ const db     = createClient(SUPABASE_URL, SUPABASE_ANON);
 const dbAuth = db;
 
 var creatorHub = null;
-let allStudents=[], allActivities=[], allAssignments=[], allResponses=[];
+let allStudents=[], allActivities=[], allAssignments=[], allResponses=[], allCredits=[], allSessions=[], allEventCategories=[];
 let currentActivityType='mc', qCount=0;
 
 function showErr(el,msg){el.textContent=msg;el.style.display='block';}
@@ -884,15 +901,21 @@ async function doAdminLogout(){
 // ══ LOAD DATA ══
 async function loadAll(){
   try{
-    const[{data:s},{data:ac},{data:as},{data:r}]=await Promise.all([
+    const[{data:s},{data:ac},{data:as},{data:r},{data:cr},{data:cs},{data:ecs}]=await Promise.all([
       db.from('profiles').select('*').order('full_name'),
       db.from('activities').select('*').order('level'),
       db.from('assignments').select('*,profiles(full_name,level),activities(title,slug,level)').order('assigned_at',{ascending:false}),
-      db.from('responses').select('*').order('submitted_at',{ascending:false})
+      db.from('responses').select('*').order('submitted_at',{ascending:false}),
+      db.from('class_credits').select().order('paid_at',{ascending:false}),
+      db.from('class_sessions').select().order('class_date',{ascending:false}),
+      db.from('event_categories').select().order('name')
     ]);
     allStudents=s||[];
 allActivities = ac || [];
 allAssignments = as || [];
+allCredits = cr || [];
+allSessions = cs || [];
+allEventCategories = ecs || [];
 
 allResponses = (r || []).map(resp => {
   return {
@@ -909,6 +932,7 @@ allResponses = (r || []).map(resp => {
     await loadGrammarCategories();
     await loadLibraryItems();
     renderActivitiesGrid();
+    if (document.getElementById('panel-classes') && document.getElementById('panel-classes').classList.contains('active')) renderClasses();
     document.getElementById('badge-students').textContent=allStudents.length;
   }catch(e){console.error(e);showToast('Error al cargar datos.');}
 }
@@ -1224,6 +1248,7 @@ function showStudentDetail(s) {
     empty.style.cssText = 'color:var(--muted);font-size:14px;padding:20px;text-align:center';
     empty.textContent = 'Sin actividades asignadas.';
     wrap.appendChild(empty);
+    appendClassBalance(wrap, s);
     appendStudentDangerZone(wrap, s);
     grid.appendChild(wrap);
     return;
@@ -1285,8 +1310,1177 @@ function showStudentDetail(s) {
     wrap.appendChild(box);
   }
 
+  appendClassBalance(wrap, s);
   appendStudentDangerZone(wrap, s);
   grid.appendChild(wrap);
+}
+
+function _hoyISO(){
+  var d = new Date();
+  var m = d.getMonth() + 1;
+  var day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
+function _fmtFecha(iso){
+  if (!iso) return '';
+  var p = String(iso).slice(0, 10).split('-');
+  if (p.length !== 3) return String(iso);
+  return p[2] + '-' + p[1] + '-' + p[0];
+}
+
+function classCreditsTotal(studentId){
+  return allCredits.filter(function(c){ return String(c.student_id) === String(studentId); })
+    .reduce(function(sum, c){ return sum + (Number(c.credits) || 0); }, 0);
+}
+
+function classSessionsFor(studentId){
+  return allSessions.filter(function(x){ return String(x.student_id) === String(studentId); });
+}
+
+function classesDadas(studentId){
+  var hoy = _hoyISO();
+  return classSessionsFor(studentId).filter(function(x){ return !x.cancelled && x.class_date && String(x.class_date).slice(0, 10) <= hoy; }).length;
+}
+
+function classesProgramadas(studentId){
+  var hoy = _hoyISO();
+  return classSessionsFor(studentId).filter(function(x){ return !x.cancelled && x.class_date && String(x.class_date).slice(0, 10) > hoy; }).length;
+}
+
+function classesRestantes(studentId){
+  return classCreditsTotal(studentId) - classesDadas(studentId);
+}
+
+function _statBox(numero, etiqueta, color){
+  var box = document.createElement('div');
+  box.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:74px;padding:8px 12px;background:var(--white);border:1px solid var(--border);border-radius:var(--r)';
+  var n = document.createElement('div');
+  n.style.cssText = 'font-size:22px;font-weight:700;line-height:1;color:' + (color || 'var(--ink)');
+  n.textContent = String(numero);
+  var l = document.createElement('div');
+  l.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px';
+  l.textContent = etiqueta;
+  box.appendChild(n);
+  box.appendChild(l);
+  return box;
+}
+
+function _campo(labelTxt, input){
+  var lab = document.createElement('label');
+  lab.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-soft)';
+  var sp = document.createElement('span');
+  sp.textContent = labelTxt;
+  lab.appendChild(sp);
+  lab.appendChild(input);
+  return lab;
+}
+
+async function addClassCredit(studentId, credits, paidAt, reason){
+  try {
+    var r = await db.from('class_credits').insert({ student_id: studentId, credits: credits, paid_at: paidAt || null, reason: reason || null }).select();
+    if (r.error) throw r.error;
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    showToast('Clases agregadas.');
+    await loadAll();
+  } catch(e) {
+    console.error(e);
+    showToast('Error al agregar clases: ' + (e.message || e));
+  }
+}
+
+async function addClassSession(studentId, classDate, classTime, classEndTime, note, categoryId){
+  try {
+    var r = await db.from('class_sessions').insert({ student_id: studentId || null, class_date: classDate, class_time: classTime || null, class_end_time: classEndTime || null, cancelled: false, note: note || null, category_id: categoryId || null }).select();
+    if (r.error) throw r.error;
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    showToast('Clase registrada.');
+    await loadAll();
+  } catch(e) {
+    console.error(e);
+    showToast('Error al registrar clase: ' + (e.message || e));
+  }
+}
+
+async function toggleClassSessionCancel(sess){
+  try {
+    var r = await db.from('class_sessions').update({ cancelled: !sess.cancelled }).eq('id', sess.id).select();
+    if (r.error) throw r.error;
+    if (!r.data || !r.data.length) { showToast('No se pudo cambiar (falta politica RLS o la fila no existe).'); return; }
+    showToast(!sess.cancelled ? 'Clase cancelada.' : 'Clase reactivada.');
+    await loadAll();
+  } catch(e) {
+    console.error(e);
+    showToast('Error: ' + (e.message || e));
+  }
+}
+
+async function deleteClassSession(sess){
+  try {
+    var r = await db.from('class_sessions').delete().eq('id', sess.id).select();
+    if (r.error) throw r.error;
+    if (!r.data || !r.data.length) { showToast('No se elimino (falta politica RLS o la fila no existe).'); return; }
+    showToast('Clase eliminada.');
+    await loadAll();
+  } catch(e) {
+    console.error(e);
+    showToast('Error: ' + (e.message || e));
+  }
+}
+
+function classCreditsFor(studentId){
+  return allCredits.filter(function(c){ return String(c.student_id) === String(studentId); });
+}
+async function deleteClassCredit(credit){
+  try {
+    var r = await db.from('class_credits').delete().eq('id', credit.id).select();
+    if (r.error) throw r.error;
+    if (!r.data || !r.data.length) { showToast('No se elimino el pago (falta politica RLS o la fila no existe).'); return; }
+    showToast('Pago eliminado.');
+    await loadAll();
+  } catch(e) {
+    console.error(e);
+    showToast('Error al eliminar pago: ' + (e.message || e));
+  }
+}
+function confirmDeleteClassCredit(credit){
+  var cant = Number(credit.credits) || 0;
+  var body = document.createElement('div');
+  body.style.cssText = 'font-size:14px;color:var(--ink-soft);line-height:1.6';
+  body.textContent = 'Esto elimina el pago de ' + cant + ' clases (' + _fmtFecha(credit.paid_at) + '). El saldo baja en ' + cant + '. Las clases ya agendadas no se tocan.';
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn btn-sm btn-outline';
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.onclick = function(){ LegoModal.close(); };
+  var btnConfirm = document.createElement('button');
+  btnConfirm.className = 'btn btn-sm';
+  btnConfirm.style.cssText = 'background:var(--red);color:white';
+  btnConfirm.textContent = 'Eliminar pago';
+  btnConfirm.onclick = function(){ LegoModal.close(); deleteClassCredit(credit); };
+  LegoModal({ M1: 'Eliminar pago', M3: body, M5: btnCancel, M7: btnConfirm });
+}
+function _creditCard(credit){
+  var iconEl = document.createElement('div');
+  iconEl.style.cssText = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#E6F4EA';
+  iconEl.replaceChildren(LegoIcon('ti-cash', { color: '#2E7D32', size: 15 }));
+  var cant = Number(credit.credits) || 0;
+  var titulo = (cant >= 0 ? '+' : '') + cant + ' clase' + (Math.abs(cant) === 1 ? '' : 's');
+  var motivo = (credit.reason || '').trim();
+  var btnDel = document.createElement('button');
+  btnDel.className = 'btn btn-sm';
+  btnDel.setAttribute('aria-label', 'Eliminar pago');
+  btnDel.style.cssText = 'background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer';
+  btnDel.replaceChildren(LegoIcon('ti-trash', { size: 15 }));
+  btnDel.onclick = function(){ confirmDeleteClassCredit(credit); };
+  return LegoCard({ L1: iconEl, L2: titulo, L3: motivo, L4: LegoChip(_fmtFecha(credit.paid_at), { bg: 'var(--sand)', color: 'var(--muted)' }), L9: btnDel });
+}
+function openAddCreditsModal(s){
+
+  var inCant = document.createElement('input');
+  inCant.type = 'number';
+  inCant.min = '1';
+  inCant.value = '1';
+  inCant.className = 'form-input';
+  var inFecha = document.createElement('input');
+  inFecha.type = 'date';
+  inFecha.value = _hoyISO();
+  inFecha.className = 'form-input';
+  var inMotivo = document.createElement('input');
+  inMotivo.type = 'text';
+  inMotivo.placeholder = 'Opcional (ej. pago septiembre)';
+  inMotivo.className = 'form-input';
+  var body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+  body.appendChild(_campo('Cuantas clases', inCant));
+  body.appendChild(_campo('Fecha del pago', inFecha));
+  body.appendChild(_campo('Motivo', inMotivo));
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn btn-sm btn-outline';
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.onclick = function(){ LegoModal.close(); };
+  var btnSave = document.createElement('button');
+  btnSave.className = 'btn btn-coral btn-sm';
+  btnSave.textContent = 'Agregar';
+  btnSave.onclick = function(){
+    var num = parseInt(inCant.value, 10);
+    if (!num || num < 1) { showToast('Escribe cuantas clases.'); return; }
+    if (!inFecha.value) { showToast('Elige la fecha del pago.'); return; }
+    addClassCredit(s.id, num, inFecha.value, inMotivo.value.trim());
+  };
+  LegoModal({ M1: '+ Clases', M2: s.full_name, M3: body, M5: btnCancel, M7: btnSave });
+}
+
+function openAddSessionModal(s){
+  var inFecha = document.createElement('input');
+  inFecha.type = 'date';
+  inFecha.value = _hoyISO();
+  inFecha.className = 'form-input';
+  var inHora = _combo({ options: startTimeOptions(), value: '08:00', placeholder: 'Inicio', editable: true, parse: parseTimeStr, format: hhmmToAmPm, onChange: function(v){ inFin._setOptions(endTimeOptions(v), inFin._getValue()); } });
+  var inFin = _combo({ options: endTimeOptions(inHora._getValue()), value: _minToHHMM((_hhmmToMin(inHora._getValue()) || 0) + 60), placeholder: 'Fin' });
+  var inNota = document.createElement('input');
+  inNota.type = 'text';
+  inNota.placeholder = 'Opcional';
+  inNota.className = 'form-input';
+  var body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+  body.appendChild(_campo('Fecha de la clase', inFecha));
+  body.appendChild(_campo('Hora de inicio', inHora));
+  body.appendChild(_campo('Hora de finalizacion', inFin));
+  body.appendChild(_campo('Titulo', inNota));
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn btn-sm btn-outline';
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.onclick = function(){ LegoModal.close(); };
+  var btnSave = document.createElement('button');
+  btnSave.className = 'btn btn-coral btn-sm';
+  btnSave.textContent = 'Registrar';
+  btnSave.onclick = function(){
+    if (!inFecha.value) { showToast('Elige la fecha.'); return; }
+    if (!inHora._getValue()) { showToast('Elige la hora de inicio.'); return; }
+    if (!inFin._getValue()) { showToast('Elige la hora de finalizacion.'); return; }
+    addClassSession(s.id, inFecha.value, inHora._getValue(), inFin._getValue(), inNota.value.trim(), inCat._getValue());
+  };
+  var inCat = categoryCombo();
+  body.appendChild(_campo('Categoria', inCat));
+  LegoModal({ M1: 'Registrar clase', M2: s.full_name, M3: body, M5: btnCancel, M7: btnSave });
+}
+
+function _sessionCard(sess){
+  var hoy = _hoyISO();
+  var estado, chipOpts, icono, iconColor, iconBg;
+  var fecha = sess.class_date ? String(sess.class_date).slice(0, 10) : '';
+  if (sess.cancelled) {
+    estado = 'Cancelada'; chipOpts = { bg: '#F1EFE8', color: '#888' }; icono = 'ti-x'; iconColor = '#888'; iconBg = '#F1EFE8';
+  } else if (fecha && fecha <= hoy) {
+    estado = 'Dada'; chipOpts = { bg: '#E6F4EA', color: '#2E7D32' }; icono = 'ti-check'; iconColor = '#2E7D32'; iconBg = '#E6F4EA';
+  } else {
+    estado = 'Programada'; chipOpts = { bg: '#E4F2F7', color: '#2B8FB3' }; icono = 'ti-clock'; iconColor = '#2B8FB3'; iconBg = '#E4F2F7';
+  }
+  var iconEl = document.createElement('div');
+  iconEl.style.cssText = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + iconBg;
+  iconEl.replaceChildren(LegoIcon(icono, { color: iconColor, size: 14 }));
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn btn-sm';
+  btnCancel.style.cssText = 'background:none;border:1px solid var(--border);color:var(--ink-soft);cursor:pointer';
+  btnCancel.textContent = sess.cancelled ? 'Reactivar' : 'Cancelar';
+  btnCancel.onclick = function(){ toggleClassSessionCancel(sess); };
+  var btnDel = document.createElement('button');
+  btnDel.className = 'btn btn-sm';
+  btnDel.setAttribute('aria-label', 'Eliminar clase');
+  btnDel.style.cssText = 'background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer';
+  btnDel.replaceChildren(LegoIcon('ti-trash', { size: 15 }));
+  btnDel.onclick = function(){ deleteClassSession(sess); };
+  return LegoCard({ L1: iconEl, L2: _fmtFecha(sess.class_date), L3: classTimeRangeLabel(sess), L4: LegoChip(estado, chipOpts), L8: btnCancel, L9: btnDel });
+}
+
+function appendClassBalance(wrap, s){
+  var box = document.createElement('div');
+  box.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:6px;background:var(--sand)';
+  var stats = document.createElement('div');
+  stats.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+  var restantes = classesRestantes(s.id);
+  stats.appendChild(_statBox(restantes, 'Restantes', restantes <= 0 ? 'var(--red)' : 'var(--coral)'));
+  stats.appendChild(_statBox(classCreditsTotal(s.id), 'Pagadas'));
+  stats.appendChild(_statBox(classesDadas(s.id), 'Dadas'));
+  var prog = classesProgramadas(s.id);
+  if (prog) stats.appendChild(_statBox(prog, 'Programadas', 'var(--muted)'));
+  box.appendChild(stats);
+  var actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px';
+  var bAdd = document.createElement('button');
+  bAdd.className = 'btn btn-coral btn-sm';
+  bAdd.replaceChildren(LegoIcon('ti-plus', { size: 15 }), document.createTextNode(' Clases'));
+  bAdd.onclick = function(){ openAddCreditsModal(s); };
+  var bReg = document.createElement('button');
+  bReg.className = 'btn btn-outline btn-sm';
+  bReg.replaceChildren(LegoIcon('ti-calendar-plus', { size: 15 }), document.createTextNode(' Registrar clase'));
+  bReg.onclick = function(){ openAddSessionModal(s); };
+  actions.appendChild(bAdd);
+  actions.appendChild(bReg);
+  box.appendChild(actions);
+  var pagos = classCreditsFor(s.id).slice().sort(function(a, b){ return String(b.paid_at || b.created_at || '').localeCompare(String(a.paid_at || a.created_at || '')); });
+  if (pagos.length) {
+    var pagosBox = document.createElement('div');
+    pagosBox.style.cssText = 'margin-top:10px';
+    var pagosList = legoGrid(pagos.map(_creditCard));
+    pagosList.style.display = 'none';
+    pagosList.style.marginTop = '8px';
+    var pagosHead = document.createElement('button');
+    pagosHead.type = 'button';
+    pagosHead.style.cssText = 'background:none;border:none;padding:0;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit';
+    var setPagosHead = function(open){ pagosHead.replaceChildren(LegoIcon(open ? 'ti-folder-open' : 'ti-cash'), document.createTextNode(' Pagos (' + pagos.length + ')')); };
+    setPagosHead(false);
+    pagosHead.onclick = function(){ var open = pagosList.style.display === 'none'; pagosList.style.display = open ? 'grid' : 'none'; setPagosHead(open); };
+    pagosBox.appendChild(pagosHead);
+    pagosBox.appendChild(pagosList);
+    box.appendChild(pagosBox);
+  }
+  var sesiones = classSessionsFor(s.id).slice().sort(function(a, b){ return String(b.class_date).localeCompare(String(a.class_date)); });
+
+  if (sesiones.length) {
+    var listBox = document.createElement('div');
+    listBox.style.cssText = 'margin-top:10px';
+    var list = legoGrid(sesiones.map(_sessionCard));
+    list.style.display = 'none';
+    list.style.marginTop = '8px';
+    var head = document.createElement('button');
+    head.type = 'button';
+    head.style.cssText = 'background:none;border:none;padding:0;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit';
+    var setHead = function(open){ head.replaceChildren(LegoIcon(open ? 'ti-folder-open' : 'ti-list'), document.createTextNode(' Clases (' + sesiones.length + ')')); };
+    setHead(false);
+    head.onclick = function(){
+      var open = list.style.display === 'none';
+      list.style.display = open ? 'grid' : 'none';
+      setHead(open);
+    };
+    listBox.appendChild(head);
+    listBox.appendChild(list);
+    box.appendChild(listBox);
+  }
+  wrap.appendChild(box);
+}
+
+function classStudentName(studentId){
+  var s = allStudents.find(function(st){ return String(st.id) === String(studentId); });
+  return s ? s.full_name : 'Estudiante sin nombre';
+}
+
+function classStudentLevel(studentId){
+  var s = allStudents.find(function(st){ return String(st.id) === String(studentId); });
+  return s ? (s.level || 'A1') : '';
+}
+
+function classSessionState(sess){
+  var fecha = sess.class_date ? String(sess.class_date).slice(0, 10) : '';
+  if (sess.cancelled) return 'cancelada';
+  if (fecha && fecha <= _hoyISO()) return 'dada';
+  return 'programada';
+}
+
+function getEventCategory(id){
+  if (!id) return null;
+  return allEventCategories.find(function(c){ return String(c.id) === String(id); }) || null;
+}
+function categoryColor(id){
+  var c = getEventCategory(id);
+  return c && c.color ? c.color : '#8C8479';
+}
+function categoryName(id){
+  var c = getEventCategory(id);
+  return c ? c.name : '';
+}
+function defaultCategoryId(){
+  var c = allEventCategories.find(function(x){ return x.name === 'Clase'; });
+  return c ? c.id : (allEventCategories[0] ? allEventCategories[0].id : '');
+}
+function categoryCombo(value){
+  return _combo({ options: allEventCategories.map(function(c){ return { value: c.id, label: c.name }; }), value: value || defaultCategoryId(), placeholder: 'Categoria' });
+}
+function classStateChip(state){
+
+
+  if (state === 'cancelada') return LegoChip('Cancelada', { bg: '#F1EFE8', color: '#888' });
+  if (state === 'dada') return LegoChip('Dada', { bg: '#E6F4EA', color: '#2E7D32' });
+  return LegoChip('Programada', { bg: '#E4F2F7', color: '#2B8FB3' });
+}
+
+function classStateIcon(state){
+  var cfg = state === 'cancelada'
+    ? { icon: 'ti-x', bg: '#F1EFE8', color: '#888' }
+    : state === 'dada'
+      ? { icon: 'ti-check', bg: '#E6F4EA', color: '#2E7D32' }
+      : { icon: 'ti-clock', bg: '#E4F2F7', color: '#2B8FB3' };
+  var iconEl = document.createElement('div');
+  iconEl.style.cssText = 'width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + cfg.bg;
+  iconEl.replaceChildren(LegoIcon(cfg.icon, { color: cfg.color, size: 16 }));
+  return iconEl;
+}
+
+function classTimeHHMM(value){
+  if (!value) return '';
+  return String(value).slice(0, 5);
+}
+
+function classTimeLabel(value){
+  return classTimeHHMM(value) || 'Sin hora';
+}
+
+function addOneHour(value){
+  var t = classTimeHHMM(value);
+  if (!t) return '';
+  var p = t.split(':');
+  var h = (parseInt(p[0], 10) + 1) % 24;
+  var m = parseInt(p[1] || '0', 10);
+  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+
+function classTimeRangeLabel(sess){
+  var start = classTimeHHMM(sess && sess.class_time);
+  if (!start) return 'Sin hora';
+  var end = classTimeHHMM(sess && sess.class_end_time) || addOneHour(start);
+  return start + ' - ' + end;
+}
+
+function dateFromISO(iso){
+  var p = String(iso || _hoyISO()).slice(0, 10).split('-').map(function(x){ return parseInt(x, 10); });
+  return new Date(p[0], (p[1] || 1) - 1, p[2] || 1);
+}
+
+function isoFromDate(d){
+  var m = d.getMonth() + 1;
+  var day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
+function addDaysISO(iso, days){
+  var d = dateFromISO(iso);
+  d.setDate(d.getDate() + days);
+  return isoFromDate(d);
+}
+
+function weekStartISO(iso){
+  var d = dateFromISO(iso || _hoyISO());
+  var day = d.getDay();
+  var diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return isoFromDate(d);
+}
+
+var classesWeekStart = weekStartISO(_hoyISO());
+
+function fmtWeekDay(iso){
+  var names = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+  var d = dateFromISO(iso);
+  return names[d.getDay()] + ' ' + d.getDate();
+}
+
+function classWeekDays(){
+  var days = [];
+  for (var i = 0; i < 7; i++) days.push(addDaysISO(classesWeekStart, i));
+  return days;
+}
+
+function renderClasses(){
+  renderClassesWeek();
+  renderClassesViewer();
+}
+
+function openAddGlobalSessionModal(defaultDate, defaultTime, defaultStudent){
+  var studentSel = _combo({ options: [{ value: '', label: '- Sin estudiante -' }].concat(allStudents.filter(function(s){ return s.status !== 'paused'; }).map(function(s){ return { value: s.id, label: s.full_name }; })), value: defaultStudent || '', placeholder: 'Estudiante (opcional)', searchable: true });
+  var inFecha = document.createElement('input');
+  inFecha.type = 'date';
+  inFecha.value = defaultDate || _hoyISO();
+  inFecha.className = 'form-input';
+  var inHora = _combo({ options: startTimeOptions(), value: defaultTime || '08:00', placeholder: 'Inicio', editable: true, parse: parseTimeStr, format: hhmmToAmPm, onChange: function(v){ inFin._setOptions(endTimeOptions(v), inFin._getValue()); } });
+  var inFin = _combo({ options: endTimeOptions(inHora._getValue()), value: _minToHHMM((_hhmmToMin(inHora._getValue()) || 0) + 60), placeholder: 'Fin' });
+  var inNota = document.createElement('input');
+  inNota.type = 'text';
+  inNota.placeholder = 'Opcional';
+  inNota.className = 'form-input';
+  var body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+  body.appendChild(_campo('Estudiante', studentSel));
+  body.appendChild(_campo('Fecha de la clase', inFecha));
+  body.appendChild(_campo('Hora de inicio', inHora));
+  body.appendChild(_campo('Hora de finalizacion', inFin));
+  body.appendChild(_campo('Titulo', inNota));
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn btn-sm btn-outline';
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.onclick = function(){ LegoModal.close(); };
+  var btnSave = document.createElement('button');
+  btnSave.className = 'btn btn-coral btn-sm';
+  btnSave.textContent = 'Registrar';
+  btnSave.onclick = function(){
+    if (!inFecha.value) { showToast('Elige la fecha.'); return; }
+    if (!inHora._getValue()) { showToast('Elige la hora de inicio.'); return; }
+    if (!inFin._getValue()) { showToast('Elige la hora de finalizacion.'); return; }
+    addClassSession(studentSel._getValue(), inFecha.value, inHora._getValue(), inFin._getValue(), inNota.value.trim(), inCat._getValue());
+  };
+  var inCat = categoryCombo();
+  body.appendChild(_campo('Categoria', inCat));
+  LegoModal({ M1: 'Registrar evento', M2: 'Agenda interna', M3: body, M5: btnCancel, M7: btnSave });
+}
+
+function classViewerCard(sess){
+  var state = classSessionState(sess);
+  var note = (sess.note || '').trim();
+  var btnStudent = document.createElement('button');
+  btnStudent.className = 'btn btn-sm btn-outline';
+  btnStudent.textContent = 'Ver estudiante';
+  btnStudent.onclick = function(){
+    var st = allStudents.find(function(s){ return String(s.id) === String(sess.student_id); });
+    if (st) { showPanel('students'); showStudentDetail(st); }
+  };
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn btn-sm';
+  btnCancel.style.cssText = 'background:none;border:1px solid var(--border);color:var(--ink-soft);cursor:pointer';
+  btnCancel.textContent = sess.cancelled ? 'Reactivar' : 'Cancelar';
+  btnCancel.onclick = function(){ toggleClassSessionCancel(sess); };
+  var btnDel = document.createElement('button');
+  btnDel.className = 'btn btn-sm';
+  btnDel.setAttribute('aria-label', 'Eliminar clase');
+  btnDel.style.cssText = 'background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer';
+  btnDel.replaceChildren(LegoIcon('ti-trash', { size: 15 }));
+  btnDel.onclick = function(){ deleteClassSession(sess); };
+  return LegoCard({
+    L1: classStateIcon(state),
+    L2: classStudentName(sess.student_id),
+    L3: note || 'Sin nota',
+    L4: classStateChip(state),
+    L5: classStudentLevel(sess.student_id) ? LegoChip(classStudentLevel(sess.student_id), 'level') : '',
+    L6: _fmtFecha(sess.class_date) + ' · ' + classTimeRangeLabel(sess),
+    L8: btnStudent,
+    L9: btnCancel,
+    L10: btnDel
+  });
+}
+
+function filteredClassSessions(){
+  var q = (document.getElementById('class-filter-q') || {}).value || '';
+  var state = (document.getElementById('class-filter-state') || {}).value || '';
+  var student = (document.getElementById('class-filter-student') || {}).value || '';
+  var from = (document.getElementById('class-filter-from') || {}).value || '';
+  var to = (document.getElementById('class-filter-to') || {}).value || '';
+  q = q.trim().toLowerCase();
+  return allSessions.filter(function(sess){
+    var date = sess.class_date ? String(sess.class_date).slice(0, 10) : '';
+    var time = classTimeHHMM(sess.class_time);
+    var hay = (classStudentName(sess.student_id) + ' ' + (sess.note || '') + ' ' + date + ' ' + time).toLowerCase();
+    if (q && hay.indexOf(q) === -1) return false;
+    if (state && classSessionState(sess) !== state) return false;
+    if (student && String(sess.student_id) !== String(student)) return false;
+    if (from && date && date < from) return false;
+    if (to && date && date > to) return false;
+    return true;
+  }).slice().sort(function(a, b){
+    var ad = String(a.class_date || '') + ' ' + classTimeHHMM(a.class_time);
+    var bd = String(b.class_date || '') + ' ' + classTimeHHMM(b.class_time);
+    return bd.localeCompare(ad);
+  });
+}
+
+function renderClassesViewer(){
+  var grid = document.getElementById('classes-grid');
+  var lbl = document.getElementById('classes-count');
+  if (!grid) return;
+  var rows = filteredClassSessions();
+  grid.replaceChildren();
+  if (lbl) {
+    var dadas = rows.filter(function(x){ return classSessionState(x) === 'dada'; }).length;
+    var prog = rows.filter(function(x){ return classSessionState(x) === 'programada'; }).length;
+    var canc = rows.filter(function(x){ return classSessionState(x) === 'cancelada'; }).length;
+    lbl.textContent = rows.length + ' clase' + (rows.length !== 1 ? 's' : '') + ' · ' + dadas + ' dadas · ' + prog + ' programadas · ' + canc + ' canceladas';
+  }
+  if (!rows.length) {
+    var empty = document.createElement('div');
+    empty.className = 'empty';
+    var txt = document.createElement('div');
+    txt.className = 'empty-text';
+    txt.textContent = 'No hay clases con esos filtros.';
+    empty.appendChild(txt);
+    grid.appendChild(empty);
+    return;
+  }
+  rows.forEach(function(sess){ grid.appendChild(classViewerCard(sess)); });
+}
+
+function weekFilteredSessions(){
+  var days = classWeekDays();
+  var first = days[0];
+  var last = days[6];
+  return filteredClassSessions().filter(function(sess){
+    var date = sess.class_date ? String(sess.class_date).slice(0, 10) : '';
+    return date >= first && date <= last;
+  });
+}
+
+function openClassSessionModal(sess){
+  var body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex-direction:column;gap:10px;color:var(--ink-soft);font-size:14px';
+  var _who = sess.student_id ? classStudentName(sess.student_id) : ((sess.note || '').trim() || categoryName(sess.category_id) || 'Evento');
+  var _rows = sess.student_id
+    ? [['Estudiante', _who], ['Categoria', categoryName(sess.category_id) || 'Sin categoria'], ['Fecha', _fmtFecha(sess.class_date)], ['Hora', classTimeRangeLabel(sess)], ['Nota', (sess.note || '').trim() || 'Sin nota']]
+    : [['Titulo', _who], ['Categoria', categoryName(sess.category_id) || 'Sin categoria'], ['Fecha', _fmtFecha(sess.class_date)], ['Hora', classTimeRangeLabel(sess)]];
+  _rows.forEach(function(row){
+    var line = document.createElement('div');
+    line.style.cssText = 'display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:6px';
+    var k = document.createElement('span');
+    k.style.cssText = 'font-weight:600;color:var(--ink)';
+    k.textContent = row[0];
+    var v = document.createElement('span');
+    v.style.cssText = 'text-align:right';
+    v.textContent = row[1];
+    line.appendChild(k);
+    line.appendChild(v);
+    body.appendChild(line);
+  });
+  var btnClose = document.createElement('button');
+  btnClose.className = 'btn btn-sm btn-outline';
+  btnClose.textContent = 'Cerrar';
+  btnClose.onclick = function(){ LegoModal.close(); };
+  var btnToggle = document.createElement('button');
+  btnToggle.className = 'btn btn-sm btn-outline';
+  btnToggle.textContent = sess.cancelled ? 'Reactivar' : 'Cancelar';
+  btnToggle.onclick = function(){ toggleClassSessionCancel(sess); };
+  var btnDel = document.createElement('button');
+  btnDel.className = 'btn btn-sm';
+  btnDel.style.cssText = 'background:var(--red);color:white';
+  btnDel.textContent = 'Eliminar';
+  btnDel.onclick = function(){ deleteClassSession(sess); };
+  LegoModal({ M1: sess.student_id ? 'Clase' : (categoryName(sess.category_id) || 'Evento'), M2: sess.student_id ? classStudentName(sess.student_id) : ((sess.note || '').trim() || ''), M3: body, M5: btnClose, M7: btnToggle, M9: btnDel });
+}
+
+function _minToHHMM(min){
+  min = ((Math.round(min) % 1440) + 1440) % 1440;
+  var h = Math.floor(min / 60), m = min % 60;
+  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+function _hhmmToMin(v){
+  var t = classTimeHHMM(v);
+  if (!t) return null;
+  var p = t.split(':');
+  return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
+}
+function _durLabel(mins){
+  if (mins < 60) return mins + ' min';
+  var h = Math.floor(mins / 60), m = mins % 60;
+  return (h + (m === 30 ? ',5' : '')) + ' h';
+}
+function endTimeOptions(startValue){
+  var startMin = _hhmmToMin(startValue);
+  var out = [];
+  if (startMin === null) return out;
+  var top = Math.min(1410, startMin + 720);
+  for (var m = startMin + 30; m <= top; m += 30) {
+    out.push({ value: _minToHHMM(m), label: _minToHHMM(m) + ' (' + _durLabel(m - startMin) + ')' });
+  }
+  return out;
+}
+function hhmmToAmPm(v){
+  var m = _hhmmToMin(v);
+  if (m === null) return '';
+  var h = Math.floor(m / 60), mn = m % 60;
+  var mer = h < 12 ? 'am' : 'pm';
+  var h12 = (h % 12) || 12;
+  return h12 + (mn ? ':' + (mn < 10 ? '0' : '') + mn : '') + ' ' + mer;
+}
+function startTimeOptions(){
+  var out = [];
+  for (var m = 0; m < 1440; m += 15) { var v = _minToHHMM(m); out.push({ value: v, label: hhmmToAmPm(v) }); }
+  return out;
+}
+function parseTimeStr(str){
+  if (!str) return null;
+  var s = String(str).trim().toLowerCase();
+  var mer = null;
+  if (s.indexOf('p') !== -1) mer = 'pm';
+  else if (s.indexOf('a') !== -1) mer = 'am';
+  s = s.replace(/[^0-9:]/g, '');
+  if (!s) return null;
+  var h, mn = 0;
+  if (s.indexOf(':') !== -1) { var p = s.split(':'); h = parseInt(p[0], 10); mn = parseInt(p[1] || '0', 10); }
+  else if (s.length <= 2) { h = parseInt(s, 10); }
+  else { h = parseInt(s.slice(0, s.length - 2), 10); mn = parseInt(s.slice(-2), 10); }
+  if (isNaN(h)) return null;
+  if (isNaN(mn)) mn = 0;
+  if (mer === 'pm' && h < 12) h += 12;
+  if (mer === 'am' && h === 12) h = 0;
+  if (h > 23) h = 23;
+  if (h < 0) h = 0;
+  if (mn > 59) mn = 59;
+  if (mn < 0) mn = 0;
+  return (h < 10 ? '0' : '') + h + ':' + (mn < 10 ? '0' : '') + mn;
+}
+function _combo(opts){
+  opts = opts || {};
+  var options = opts.options || [];
+  var editable = !!opts.editable;
+  var curVal = opts.value != null ? String(opts.value) : '';
+  function labelFor(v){
+    var found = '';
+    options.forEach(function(o){ if (String(o.value) === String(v)) found = o.label; });
+    if (!found && typeof opts.format === 'function') found = opts.format(v);
+    return found;
+  }
+  var curLbl = curVal ? labelFor(curVal) : '';
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative';
+  var trigger, lbl = null, inp = null, caret = null;
+  if (editable) {
+    inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'form-input';
+    inp.placeholder = opts.placeholder || '';
+    inp.value = curLbl;
+    trigger = inp;
+  } else {
+    trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'form-input';
+    trigger.style.cssText = 'text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px';
+    lbl = document.createElement('span');
+    lbl.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    caret = document.createElement('span');
+    caret.textContent = '▾';
+    caret.style.cssText = 'color:var(--muted);flex-shrink:0';
+    trigger.appendChild(lbl); trigger.appendChild(caret);
+  }
+  wrap.appendChild(trigger);
+  var panel = document.createElement('div');
+  panel.style.cssText = 'position:fixed;z-index:2000;background:var(--white);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 6px 24px rgba(0,0,0,.16);display:none;flex-direction:column;overflow:hidden';
+  var search = null;
+  if (opts.searchable && !editable) {
+    search = document.createElement('input');
+    search.type = 'text';
+    search.className = 'form-input';
+    search.placeholder = 'Buscar...';
+    search.style.cssText = 'border:none;border-bottom:1px solid var(--border);border-radius:0';
+    panel.appendChild(search);
+  }
+  var list = document.createElement('div');
+  list.style.cssText = 'overflow-y:auto';
+  panel.appendChild(list);
+  wrap.appendChild(panel);
+  var isOpen = false;
+  function paintLabel(){
+    if (editable) { inp.value = curLbl; }
+    else { lbl.textContent = curLbl || (opts.placeholder || 'Elige'); lbl.style.color = curLbl ? 'var(--ink)' : 'var(--muted)'; }
+  }
+  function commit(v){
+    curVal = String(v); curLbl = labelFor(curVal); paintLabel();
+    if (typeof opts.onChange === 'function') opts.onChange(curVal);
+  }
+  function commitTyped(){
+    if (!editable) return;
+    var parsed = (typeof opts.parse === 'function') ? opts.parse(inp.value) : inp.value;
+    if (parsed) commit(parsed);
+    else paintLabel();
+  }
+  function renderList(filter){
+    list.replaceChildren();
+    var f = (filter || '').trim().toLowerCase();
+    var shown = 0;
+    options.forEach(function(o){
+      if (f && String(o.label).toLowerCase().indexOf(f) === -1) return;
+      shown++;
+      var sel = String(o.value) === curVal;
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.style.cssText = 'display:block;width:100%;text-align:left;border:none;background:' + (sel ? 'var(--sand)' : 'none') + ';padding:10px 12px;font-family:inherit;font-size:14px;color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:' + (sel ? '600' : '400');
+      row.textContent = o.label;
+      row.onmouseenter = function(){ row.style.background = 'var(--sand)'; };
+      row.onmouseleave = function(){ row.style.background = (String(o.value) === curVal) ? 'var(--sand)' : 'none'; };
+      row.onmousedown = function(e){ e.preventDefault(); };
+      row.onclick = function(){ commit(o.value); closePanel(); };
+      list.appendChild(row);
+    });
+    if (!shown) {
+      var none = document.createElement('div');
+      none.style.cssText = 'padding:10px 12px;color:var(--muted);font-size:13px';
+      none.textContent = 'Sin resultados.';
+      list.appendChild(none);
+    }
+  }
+  function reposition(){
+    var r = trigger.getBoundingClientRect();
+    panel.style.left = r.left + 'px';
+    panel.style.width = r.width + 'px';
+    panel.style.top = (r.bottom + 4) + 'px';
+    var below = window.innerHeight - r.bottom - 12;
+    list.style.maxHeight = Math.max(90, Math.min(176, below - (search ? 44 : 0))) + 'px';
+  }
+  function onOutside(e){ if (!wrap.contains(e.target)) closePanel(); }
+  function onScroll(e){ if (panel.contains(e.target)) return; closePanel(); }
+  function openPanel(){
+    isOpen = true; panel.style.display = 'flex'; if (caret) caret.textContent = '▴';
+    renderList(''); reposition();
+    if (search) { search.value = ''; setTimeout(function(){ search.focus(); }, 0); }
+    setTimeout(function(){
+      document.addEventListener('mousedown', onOutside);
+      window.addEventListener('scroll', onScroll, true);
+      window.addEventListener('resize', onScroll);
+    }, 0);
+  }
+  function closePanel(){
+    isOpen = false; panel.style.display = 'none'; if (caret) caret.textContent = '▾';
+    document.removeEventListener('mousedown', onOutside);
+    window.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', onScroll);
+  }
+  if (editable) {
+    inp.addEventListener('focus', function(){ openPanel(); });
+    inp.addEventListener('click', function(){ if (!isOpen) openPanel(); });
+    inp.addEventListener('input', function(){ if (!isOpen) openPanel(); renderList(inp.value); });
+    inp.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') { e.preventDefault(); commitTyped(); closePanel(); }
+      else if (e.key === 'Escape') { closePanel(); }
+    });
+    inp.addEventListener('blur', function(){ setTimeout(commitTyped, 120); });
+  } else {
+    trigger.onclick = function(){ if (isOpen) closePanel(); else openPanel(); };
+    if (search) search.addEventListener('input', function(){ renderList(search.value); });
+  }
+  wrap._getValue = function(){ return curVal; };
+  wrap._setOptions = function(newOpts, keep){
+    options = newOpts || [];
+    var val = keep != null ? String(keep) : '';
+    var found = labelFor(val);
+    if (!found && options.length) { val = String(options[0].value); found = options[0].label; }
+    curVal = val; curLbl = found; paintLabel();
+    if (isOpen) renderList('');
+  };
+  paintLabel();
+  return wrap;
+}
+
+function _layoutDay(list){
+  var items = list.map(function(s){
+    var sm = _hhmmToMin(s.class_time);
+    var em = _hhmmToMin(s.class_end_time);
+    if (em === null || em <= sm) em = sm + 60;
+    return { sess: s, start: sm, end: em, lane: 0, lanes: 1 };
+  }).filter(function(x){ return x.start !== null; });
+  items.sort(function(a, b){ return a.start - b.start || a.end - b.end; });
+  var i = 0;
+  while (i < items.length) {
+    var cluster = [items[i]];
+    var clusterEnd = items[i].end;
+    var j = i + 1;
+    while (j < items.length && items[j].start < clusterEnd) {
+      cluster.push(items[j]);
+      if (items[j].end > clusterEnd) clusterEnd = items[j].end;
+      j++;
+    }
+    var lanes = [];
+    cluster.forEach(function(it){
+      var placed = false;
+      for (var k = 0; k < lanes.length; k++) {
+        if (it.start >= lanes[k]) { it.lane = k; lanes[k] = it.end; placed = true; break; }
+      }
+      if (!placed) { it.lane = lanes.length; lanes.push(it.end); }
+    });
+    cluster.forEach(function(it){ it.lanes = lanes.length; });
+    i = j;
+  }
+  return items;
+}
+function _rangeAmPm(sess){
+  var sm = _hhmmToMin(sess.class_time);
+  if (sm === null) return '';
+  var em = _hhmmToMin(sess.class_end_time);
+  if (em === null || em <= sm) em = sm + 60;
+  function part(min, withMer){
+    var hh = Math.floor(min / 60) % 24, mm = min % 60;
+    var mer = hh < 12 ? 'am' : 'pm';
+    var h12 = (hh % 12) || 12;
+    return h12 + (mm ? ':' + (mm < 10 ? '0' : '') + mm : '') + (withMer ? ' ' + mer : '');
+  }
+  var merS = (Math.floor(sm / 60) % 24) < 12 ? 'am' : 'pm';
+  var merE = (Math.floor(em / 60) % 24) < 12 ? 'am' : 'pm';
+  if (merS === merE) return part(sm, false) + ' - ' + part(em, true);
+  return part(sm, true) + ' - ' + part(em, true);
+}
+function _weekBlock(it, HOUR_PX){
+  var s = it.sess;
+  var state = classSessionState(s);
+  var col = categoryColor(s.category_id); var bg = col + '22';
+  var bd = col;
+  var b = document.createElement('button');
+  b.type = 'button';
+  var top = it.start * HOUR_PX / 60;
+  var h = Math.max(20, (it.end - it.start) * HOUR_PX / 60 - 2);
+  var wPct = 100 / it.lanes;
+  var leftPct = it.lane * wPct;
+  b.style.cssText = 'position:absolute;top:' + top + 'px;height:' + h + 'px;left:calc(' + leftPct + '% + 1px);width:calc(' + wPct + '% - 3px);border:1px solid ' + bd + ';border-radius:5px;background:' + bg + ';color:var(--ink);cursor:pointer;font-family:inherit;padding:3px 5px;overflow:hidden;text-align:left;display:flex;flex-direction:column;gap:1px;opacity:' + (s.cancelled ? '0.45' : (state === 'dada' ? '0.7' : '1'));
+  var t1 = document.createElement('span');
+  t1.style.cssText = 'font-size:10px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+  t1.textContent = s.student_id ? classStudentName(s.student_id) : ((s.note || '').trim() || categoryName(s.category_id) || 'Evento');
+  b.appendChild(t1);
+  var lvl = s.student_id ? classStudentLevel(s.student_id) : categoryName(s.category_id);
+  if (lvl) {
+    var t2 = document.createElement('span');
+    t2.style.cssText = 'font-size:9px;color:var(--muted);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    t2.textContent = lvl;
+    b.appendChild(t2);
+  }
+  var t3 = document.createElement('span');
+  t3.style.cssText = 'font-size:9px;color:var(--ink-soft);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+  t3.textContent = s.cancelled ? 'Cancelada' : _rangeAmPm(s);
+  b.appendChild(t3);
+  b.onclick = function(e){ e.stopPropagation(); openClassSessionModal(s); };
+  return b;
+}
+function renderClassesWeek(){
+  var mount = document.getElementById('classes-week-grid');
+  var title = document.getElementById('classes-week-title');
+  if (!mount) return;
+  var days = classWeekDays();
+  var rows = weekFilteredSessions();
+  mount.replaceChildren();
+  if (title) title.textContent = _fmtFecha(days[0]) + ' - ' + _fmtFecha(days[6]);
+  var HOUR_PX = 44;
+  var COLS = 'grid-template-columns:56px repeat(7,minmax(120px,1fr))';
+  var outer = document.createElement('div');
+  outer.style.cssText = 'overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)';
+  var board = document.createElement('div');
+  board.style.cssText = 'min-width:980px';
+  var header = document.createElement('div');
+  header.style.cssText = 'display:grid;' + COLS + ';background:var(--sand);border-bottom:1px solid var(--border)';
+  var corner = document.createElement('div');
+  corner.style.cssText = 'padding:8px;font-size:11px;font-weight:700;color:var(--muted)';
+  corner.textContent = 'Hora';
+  header.appendChild(corner);
+  days.forEach(function(day){
+    var hd = document.createElement('div');
+    hd.style.cssText = 'padding:8px;font-size:12px;font-weight:700;color:var(--ink);text-align:center;border-left:1px solid var(--border)';
+    hd.textContent = fmtWeekDay(day);
+    header.appendChild(hd);
+  });
+  board.appendChild(header);
+  var scroller = document.createElement('div');
+  scroller.style.cssText = 'max-height:560px;overflow-y:auto';
+  var bodyGrid = document.createElement('div');
+  bodyGrid.style.cssText = 'display:grid;' + COLS;
+  var gutter = document.createElement('div');
+  gutter.style.cssText = 'position:relative;height:' + (24 * HOUR_PX) + 'px;border-right:1px solid var(--border)';
+  for (var hr = 0; hr < 24; hr++) {
+    var lab = document.createElement('div');
+    lab.style.cssText = 'position:absolute;top:' + (hr * HOUR_PX) + 'px;right:6px;font-size:10px;color:var(--muted);font-weight:600;transform:translateY(-1px)';
+    lab.textContent = (hr < 10 ? '0' : '') + hr + ':00';
+    gutter.appendChild(lab);
+  }
+  bodyGrid.appendChild(gutter);
+  days.forEach(function(day){
+    var col = document.createElement('div');
+    col.style.cssText = 'position:relative;height:' + (24 * HOUR_PX) + 'px;border-left:1px solid var(--border);background:repeating-linear-gradient(var(--border) 0 1px, transparent 1px ' + HOUR_PX + 'px)';
+    col.onclick = function(e){
+      var rect = col.getBoundingClientRect();
+      var y = e.clientY - rect.top;
+      var min = Math.max(0, Math.min(1410, Math.round(y / HOUR_PX * 60 / 30) * 30));
+      openAddGlobalSessionModal(day, _minToHHMM(min));
+    };
+    var daySessions = rows.filter(function(sess){
+      return String(sess.class_date || '').slice(0, 10) === day && classTimeHHMM(sess.class_time);
+    });
+    _layoutDay(daySessions).forEach(function(it){ col.appendChild(_weekBlock(it, HOUR_PX)); });
+    bodyGrid.appendChild(col);
+  });
+  scroller.appendChild(bodyGrid);
+  board.appendChild(scroller);
+  outer.appendChild(board);
+  mount.appendChild(outer);
+  scroller.scrollTop = 7 * HOUR_PX;
+  var noTime = rows.filter(function(sess){ return !classTimeHHMM(sess.class_time); });
+  if (noTime.length) {
+    var box = document.createElement('div');
+    box.style.cssText = 'margin-top:10px;border:1px dashed var(--border);border-radius:var(--r);padding:10px;background:var(--sand)';
+    var h2 = document.createElement('div');
+    h2.style.cssText = 'font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px';
+    h2.textContent = 'Clases de esta semana sin hora';
+    box.appendChild(h2);
+    box.appendChild(legoGrid(noTime.map(classViewerCard)));
+    mount.appendChild(box);
+  }
+}
+
+function openCategoriesModal(){
+  var body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  function catRow(cat){
+    var r = document.createElement('div');
+    r.style.cssText = 'display:flex;align-items:center;gap:8px';
+    var color = document.createElement('input');
+    color.type = 'color';
+    color.value = cat && cat.color ? cat.color : '#8C8479';
+    color.style.cssText = 'width:38px;height:34px;border:1px solid var(--border);border-radius:8px;background:none;cursor:pointer;flex-shrink:0';
+    var name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'form-input';
+    name.value = cat ? cat.name : '';
+    name.placeholder = 'Nombre';
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    if (cat) {
+      btn.textContent = 'Guardar';
+      btn.style.cssText = 'background:none;border:1px solid var(--coral);color:var(--coral);cursor:pointer;flex-shrink:0';
+      btn.onclick = function(){ saveCategory(cat.id, name.value.trim(), color.value); };
+      var del = document.createElement('button');
+      del.className = 'btn btn-sm';
+      del.setAttribute('aria-label', 'Eliminar categoria');
+      del.style.cssText = 'background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;flex-shrink:0';
+      del.replaceChildren(LegoIcon('ti-trash', { size: 15 }));
+      del.onclick = function(){ deleteCategory(cat.id); };
+      r.append(color, name, btn, del);
+    } else {
+      btn.textContent = 'Agregar';
+      btn.style.cssText = 'background:var(--coral);color:white;cursor:pointer;flex-shrink:0';
+      btn.onclick = function(){ if (!name.value.trim()) { showToast('Escribe un nombre.'); return; } addCategory(name.value.trim(), color.value); };
+      r.append(color, name, btn);
+    }
+    return r;
+  }
+  allEventCategories.forEach(function(c){ body.appendChild(catRow(c)); });
+  var sep = document.createElement('div');
+  sep.style.cssText = 'border-top:1px dashed var(--border);margin-top:6px;padding-top:8px';
+  var addLbl = document.createElement('div');
+  addLbl.style.cssText = 'font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px';
+  addLbl.textContent = 'Nueva categoria';
+  sep.appendChild(addLbl);
+  sep.appendChild(catRow(null));
+  body.appendChild(sep);
+  var btnClose = document.createElement('button');
+  btnClose.className = 'btn btn-sm btn-outline';
+  btnClose.textContent = 'Cerrar';
+  btnClose.onclick = function(){ LegoModal.close(); };
+  LegoModal({ M1: 'Categorias', M3: body, M7: btnClose });
+}
+async function saveCategory(id, name, color){
+  if (!name) { showToast('Escribe un nombre.'); return; }
+  try {
+    var r = await db.from('event_categories').update({ name: name, color: color }).eq('id', id).select();
+    if (r.error) throw r.error;
+    if (!r.data || !r.data.length) { showToast('No se guardo (falta politica RLS).'); return; }
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    showToast('Categoria guardada.');
+    await loadAll();
+    openCategoriesModal();
+  } catch(e){ console.error(e); showToast('Error: ' + (e.message || e)); }
+}
+async function addCategory(name, color){
+  try {
+    var r = await db.from('event_categories').insert({ name: name, color: color }).select();
+    if (r.error) throw r.error;
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    showToast('Categoria agregada.');
+    await loadAll();
+    openCategoriesModal();
+  } catch(e){ console.error(e); showToast('Error: ' + (e.message || e)); }
+}
+async function deleteCategory(id){
+  try {
+    var r = await db.from('event_categories').delete().eq('id', id).select();
+    if (r.error) throw r.error;
+    if (!r.data || !r.data.length) { showToast('No se elimino (falta politica RLS).'); return; }
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    showToast('Categoria eliminada.');
+    await loadAll();
+    openCategoriesModal();
+  } catch(e){ console.error(e); showToast('Error: ' + (e.message || e)); }
+}
+function initClassesHub(){
+
+  var mt = document.getElementById('classes-hub-mount');
+  if (!mt || mt.children.length) { renderClasses(); return; }
+  var btnNew = document.createElement('button');
+  btnNew.className = 'btn btn-coral btn-sm';
+  btnNew.replaceChildren(LegoIcon('ti-calendar-plus', { size: 15 }), document.createTextNode(' Registrar clase'));
+  btnNew.onclick = function(){ openAddGlobalSessionModal(); };
+  var btnCats = document.createElement('button');
+  btnCats.className = 'btn btn-outline btn-sm';
+  btnCats.replaceChildren(LegoIcon('ti-palette', { size: 15 }), document.createTextNode(' Categorias'));
+  btnCats.onclick = function(){ openCategoriesModal(); };
+  var hubActions = document.createElement('div');
+  hubActions.style.cssText = 'display:flex;gap:8px';
+  hubActions.appendChild(btnNew);
+  hubActions.appendChild(btnCats);
+  var controls = document.createElement('div');
+  controls.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px';
+  var prev = document.createElement('button');
+  prev.className = 'btn btn-outline btn-sm';
+  prev.replaceChildren(LegoIcon('ti-chevron-left', { size: 15 }));
+  prev.onclick = function(){ classesWeekStart = addDaysISO(classesWeekStart, -7); renderClassesWeek(); };
+  var next = document.createElement('button');
+  next.className = 'btn btn-outline btn-sm';
+  next.replaceChildren(LegoIcon('ti-chevron-right', { size: 15 }));
+  next.onclick = function(){ classesWeekStart = addDaysISO(classesWeekStart, 7); renderClassesWeek(); };
+  var today = document.createElement('button');
+  today.className = 'btn btn-outline btn-sm';
+  today.textContent = 'Hoy';
+  today.onclick = function(){ classesWeekStart = weekStartISO(_hoyISO()); renderClassesWeek(); };
+  var weekTitle = document.createElement('div');
+  weekTitle.id = 'classes-week-title';
+  weekTitle.style.cssText = 'font-size:13px;font-weight:700;color:var(--ink);margin-right:auto';
+  controls.appendChild(prev);
+  controls.appendChild(today);
+  controls.appendChild(next);
+  controls.appendChild(weekTitle);
+  var filters = document.createElement('div');
+  filters.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px';
+  var q = document.createElement('input');
+  q.id = 'class-filter-q';
+  q.className = 'filter-input';
+  q.placeholder = 'Buscar por estudiante, nota, fecha u hora...';
+  q.style.cssText = 'flex:1;min-width:220px';
+  q.addEventListener('input', renderClasses);
+  var state = document.createElement('select');
+  state.id = 'class-filter-state';
+  state.className = 'filter-select';
+  [['','Todos los estados'],['programada','Programadas'],['dada','Dadas'],['cancelada','Canceladas']].forEach(function(pair){
+    var opt = document.createElement('option');
+    opt.value = pair[0];
+    opt.textContent = pair[1];
+    state.appendChild(opt);
+  });
+  state.addEventListener('change', renderClasses);
+  var student = document.createElement('select');
+  student.id = 'class-filter-student';
+  student.className = 'filter-select';
+  var allOpt = document.createElement('option');
+  allOpt.value = '';
+  allOpt.textContent = 'Todos los estudiantes';
+  student.appendChild(allOpt);
+  allStudents.slice().sort(function(a, b){ return String(a.full_name).localeCompare(String(b.full_name)); }).forEach(function(s){
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.full_name;
+    student.appendChild(opt);
+  });
+  student.addEventListener('change', renderClasses);
+  var from = document.createElement('input');
+  from.id = 'class-filter-from';
+  from.type = 'date';
+  from.className = 'filter-input';
+  from.style.cssText = 'flex:0 0 150px;min-width:150px';
+  from.addEventListener('change', renderClasses);
+  var to = document.createElement('input');
+  to.id = 'class-filter-to';
+  to.type = 'date';
+  to.className = 'filter-input';
+  to.style.cssText = 'flex:0 0 150px;min-width:150px';
+  to.addEventListener('change', renderClasses);
+  filters.appendChild(q);
+  filters.appendChild(state);
+  filters.appendChild(student);
+  filters.appendChild(from);
+  filters.appendChild(to);
+  var weekPanel = document.createElement('div');
+  var weekGrid = document.createElement('div');
+  weekGrid.id = 'classes-week-grid';
+  weekPanel.appendChild(controls);
+  weekPanel.appendChild(filters);
+  weekPanel.appendChild(weekGrid);
+  var listPanel = document.createElement('div');
+  var label = document.createElement('div');
+  label.id = 'classes-count';
+  label.style.cssText = 'font-size:13px;color:var(--muted);margin-bottom:8px';
+  var grid = document.createElement('div');
+  grid.id = 'classes-grid';
+  grid.className = 'act-grid';
+  listPanel.appendChild(label);
+  listPanel.appendChild(grid);
+  var hub = LegoHub({
+    H1: 'Clases',
+    H2: 'Agenda interna sin Google Calendar',
+    H4: hubActions,
+    pills: [
+      { id: 'semana', label: 'Semana', content: weekPanel },
+      { id: 'lista', label: 'Lista', content: listPanel }
+    ],
+    default: 'semana'
+  });
+  mt.appendChild(hub);
+  renderClasses();
 }
 
 function appendStudentDangerZone(wrap, s){
@@ -1913,6 +3107,7 @@ async function saveActivity(){
 const PANEL_META={
   overview:{title:'Resumen general',sub:'Letra Caribe Language School'},
   students:{title:'Mis estudiantes',sub:'Gestiona y asigna actividades'},
+  classes:{title:'Clases',sub:'Agenda interna sin Google Calendar'},
   assign:{title:'Asignar tarea',sub:'Selecciona estudiante y actividad'},
   grading:{title:'Calificar respuestas',sub:'Respuestas abiertas pendientes'},
   activities:{title:'Actividades',sub:'Navega por nivel y tema'},
@@ -1940,6 +3135,7 @@ function showPanel(name){
   if (name === 'activities') { setTimeout(resetActivitiesFilters, 50); }
   if (name === 'overview') { initOverviewHub(); renderStats(); }
   if (name === 'students') { initStudentsHub(); renderStudentsGrid(); }
+  if (name === 'classes') { initClassesHub(); }
   if (name === 'grammar') { initGrammarHub(); loadGrammarCategories(); }
   if (name === 'library') { initLibraryHub(); loadLibraryItems(); }
   if (name === 'creator-hub') { initCreatorHub(); }
@@ -2926,6 +4122,7 @@ function asgnGoStep(step) {
   }
   if (step === 3) {
     asgnBuildConfirmSummary();
+    asgnInitEvalMode();
   }
 }
 
@@ -3142,11 +4339,38 @@ function asgnBuildConfirmSummary() {
     + '<span style="font-size:12px;color:var(--muted)">' + asgnSelectedStudents.map(s=>s.name).join(', ') + '</span></div>';
 }
 
+function asgnInitEvalMode() {
+  const mount = document.getElementById('asgn-eval-mode-mount');
+  if (!mount || mount.children.length) return;
+  const sel = LegoSelect({
+    options: [
+      { value:'practica', label:'Práctica (con feedback, como ahora)' },
+      { value:'calificado', label:'Calificado (sin feedback, intentos)' }
+    ],
+    value: 'practica',
+    id: 'asgn-eval-mode',
+    onChange: asgnToggleCalif
+  });
+  mount.appendChild(sel);
+  asgnToggleCalif('practica');
+}
+function asgnToggleCalif(mode) {
+  if (mode === undefined) {
+    const el = document.getElementById('asgn-eval-mode');
+    mode = el ? el.value : 'practica';
+  }
+  const opts = document.getElementById('asgn-calif-opts');
+  if (opts) opts.style.display = mode === 'calificado' ? 'block' : 'none';
+}
+
 async function asgnConfirm() {
   const btn = document.getElementById('asgn-confirm-btn');
   btn.disabled = true; btn.textContent = 'Asignando…';
   const note = document.getElementById('asgn-note').value.trim();
   const due  = document.getElementById('asgn-due').value;
+  const evalMode    = (document.getElementById('asgn-eval-mode') || {}).value || 'practica';
+  const passPct     = parseInt((document.getElementById('asgn-pass-pct') || {}).value, 10) || 70;
+  const maxAttempts = parseInt((document.getElementById('asgn-max-attempts') || {}).value, 10) || 2;
 
   try {
     // Build all rows: activity × student, skip already assigned
@@ -3160,7 +4384,11 @@ async function asgnConfirm() {
           student_id:   s.id,
           activity_id:  act.id,
           teacher_note: note || null,
-          due_date:     due || null
+          due_date:     due || null,
+          eval_mode:    evalMode,
+          pass_pct:     evalMode === 'calificado' ? passPct : 70,
+          max_attempts: evalMode === 'calificado' ? maxAttempts : 1,
+          attempts:     0
         });
       });
     });
@@ -3191,6 +4419,10 @@ function asgnReset() {
   asgnLvlActive = '';
   document.getElementById('asgn-note').value = '';
   document.getElementById('asgn-due').value = '';
+  var _em = document.getElementById('asgn-eval-mode'); if (_em) _em.value = 'practica';
+  var _pp = document.getElementById('asgn-pass-pct'); if (_pp) _pp.value = '70';
+  var _ma = document.getElementById('asgn-max-attempts'); if (_ma) _ma.value = '2';
+  asgnToggleCalif('practica');
   document.getElementById('asgn-confirm-btn').disabled = false;
   document.getElementById('asgn-confirm-btn').textContent = '✓ Asignar ahora';
   asgnGoStep(1);
@@ -3579,6 +4811,10 @@ function libNewSection(type) {
   if (type === 'table') return { type:'table', title:'', rows:[['',''],['','']] };
   if (type === 'exercise') return { type:'exercise', title:'', text:'' };
   if (type === 'image') return { type:'image', url:'', caption:'' };
+  if (type === 'conjugation') return { type:'conjugation', title:'', rows:[['yo',''],['tú',''],['él / ella',''],['nosotros/as',''],['vosotros/as',''],['ellos / ellas','']] };
+  if (type === 'verb-cards') return { type:'verb-cards', title:'', rows:[['',''],['','']] };
+  if (type === 'formula') return { type:'formula', title:'', formula:'', tokens:[''] };
+  if (type === 'examples') return { type:'examples', title:'', cards:[{ heading:'', items:[''] }] };
   return { type:'text', title:'', body:'' };
 }
 
@@ -3645,12 +4881,129 @@ function libTableEditor(sec, inputCss) {
   return wrap;
 }
 
+function libExamplesEditor(sec, inputCss) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  if (!Array.isArray(sec.cards) || !sec.cards.length) sec.cards = [{ heading:'', items:[''] }];
+  const list = document.createElement('div');
+  list.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  wrap.appendChild(list);
+  function render() {
+    list.replaceChildren();
+    sec.cards.forEach(function(card, ci) {
+      const cbox = document.createElement('div');
+      cbox.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);padding:10px;background:var(--white);display:flex;flex-direction:column;gap:6px';
+      const top = document.createElement('div');
+      top.style.cssText = 'display:grid;grid-template-columns:1fr 34px;gap:6px;align-items:center';
+      const h = document.createElement('input');
+      h.type = 'text'; h.placeholder = 'Titulo de la tarjeta'; h.value = card.heading || '';
+      h.style.cssText = inputCss; h.oninput = function() { card.heading = h.value; };
+      const del = document.createElement('button');
+      del.className = 'btn btn-ghost btn-sm'; del.textContent = 'x'; del.style.color = 'var(--red)';
+      del.disabled = sec.cards.length <= 1;
+      del.onclick = function() { sec.cards.splice(ci, 1); render(); };
+      top.appendChild(h); top.appendChild(del);
+      cbox.appendChild(top);
+      const ta = document.createElement('textarea');
+      ta.placeholder = 'Un ejemplo por linea';
+      ta.value = (card.items || []).join('\n');
+      ta.style.cssText = inputCss + ';resize:vertical;min-height:60px';
+      ta.oninput = function() { card.items = ta.value.split('\n'); };
+      cbox.appendChild(ta);
+      list.appendChild(cbox);
+    });
+  }
+  render();
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-outline btn-sm';
+  addBtn.textContent = '+ Tarjeta';
+  addBtn.onclick = function() { sec.cards.push({ heading:'', items:[''] }); render(); };
+  wrap.appendChild(addBtn);
+  return wrap;
+}
+
+function libFormulaEditor(sec, inputCss) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  const f = document.createElement('input');
+  f.type = 'text';
+  f.placeholder = 'Formula (usa *palabra* para resaltar en rojo)';
+  f.value = sec.formula || '';
+  f.style.cssText = inputCss;
+  f.oninput = function() { sec.formula = f.value; };
+  wrap.appendChild(f);
+  const lbl = document.createElement('div');
+  lbl.textContent = 'Tokens (pildoras de color)';
+  lbl.style.cssText = 'font-size:11px;color:var(--muted);margin-top:2px';
+  wrap.appendChild(lbl);
+  if (!Array.isArray(sec.tokens)) sec.tokens = [''];
+  const grid = document.createElement('div');
+  wrap.appendChild(grid);
+  function render() {
+    grid.replaceChildren();
+    sec.tokens.forEach(function(val, i) {
+      const rowEl = document.createElement('div');
+      rowEl.style.cssText = 'display:grid;grid-template-columns:1fr 34px;gap:6px;margin-bottom:6px;align-items:center';
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.placeholder = 'Token (ej. TAN)'; inp.value = val || '';
+      inp.style.cssText = inputCss; inp.oninput = function() { sec.tokens[i] = inp.value; };
+      const del = document.createElement('button');
+      del.className = 'btn btn-ghost btn-sm'; del.textContent = 'x'; del.style.color = 'var(--red)';
+      del.disabled = sec.tokens.length <= 1;
+      del.onclick = function() { sec.tokens.splice(i, 1); render(); };
+      rowEl.appendChild(inp); rowEl.appendChild(del);
+      grid.appendChild(rowEl);
+    });
+  }
+  render();
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-outline btn-sm';
+  addBtn.textContent = '+ Token';
+  addBtn.onclick = function() { sec.tokens.push(''); render(); };
+  wrap.appendChild(addBtn);
+  return wrap;
+}
+
+function libRowsEditor(sec, inputCss, ph1, ph2) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+  if (!Array.isArray(sec.rows) || !sec.rows.length) sec.rows = [['', '']];
+  const grid = document.createElement('div');
+  wrap.appendChild(grid);
+  function render() {
+    grid.replaceChildren();
+    sec.rows.forEach(function(pair, r) {
+      const rowEl = document.createElement('div');
+      rowEl.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 34px;gap:6px;margin-bottom:6px;align-items:center';
+      const a = document.createElement('input');
+      a.type = 'text'; a.placeholder = ph1 || ''; a.value = (pair && pair[0]) || '';
+      a.style.cssText = inputCss; a.oninput = function() { sec.rows[r][0] = a.value; };
+      const b = document.createElement('input');
+      b.type = 'text'; b.placeholder = ph2 || ''; b.value = (pair && pair[1]) || '';
+      b.style.cssText = inputCss; b.oninput = function() { sec.rows[r][1] = b.value; };
+      const del = document.createElement('button');
+      del.className = 'btn btn-ghost btn-sm'; del.textContent = 'x'; del.style.color = 'var(--red)';
+      del.disabled = sec.rows.length <= 1;
+      del.onclick = function() { sec.rows.splice(r, 1); render(); };
+      rowEl.appendChild(a); rowEl.appendChild(b); rowEl.appendChild(del);
+      grid.appendChild(rowEl);
+    });
+  }
+  render();
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-outline btn-sm';
+  addBtn.textContent = '+ Fila';
+  addBtn.onclick = function() { sec.rows.push(['', '']); render(); };
+  wrap.appendChild(addBtn);
+  return wrap;
+}
+
 function libSectionBlock(sec, idx, sections, rerender, inputCss) {
   const box = document.createElement('div');
   box.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--sand);display:flex;flex-direction:column;gap:8px';
   const head = document.createElement('div');
   head.style.cssText = 'display:flex;align-items:center;justify-content:space-between';
-  const typeLabels = { text:'Texto', table:'Tabla', exercise:'Ejercicio', image:'Imagen' };
+  const typeLabels = { text:'Texto', table:'Tabla', exercise:'Ejercicio', image:'Imagen', conjugation:'Conjugación', 'verb-cards':'Verb-cards', formula:'Fórmula', examples:'Example-cards' };
   const tag = document.createElement('span');
   tag.textContent = typeLabels[sec.type] || sec.type;
   tag.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--coral)';
@@ -3715,6 +5068,14 @@ function libSectionBlock(sec, idx, sections, rerender, inputCss) {
     box.appendChild(cap);
   } else if (sec.type === 'table') {
     box.appendChild(libTableEditor(sec, inputCss));
+  } else if (sec.type === 'conjugation') {
+    box.appendChild(libRowsEditor(sec, inputCss, 'Pronombre (yo)', 'Forma (soy)'));
+  } else if (sec.type === 'verb-cards') {
+    box.appendChild(libRowsEditor(sec, inputCss, 'Verbo (Gustar)', 'Ejemplo (Me gustan los perros)'));
+  } else if (sec.type === 'formula') {
+    box.appendChild(libFormulaEditor(sec, inputCss));
+  } else if (sec.type === 'examples') {
+    box.appendChild(libExamplesEditor(sec, inputCss));
   }
   return box;
 }
@@ -3913,7 +5274,7 @@ function openLibraryItemModal(item) {
   renderSections();
   const addRow = document.createElement('div');
   addRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
-  [['Texto','text'],['Tabla','table'],['Ejercicio','exercise'],['Imagen','image']].forEach(function(pair) {
+  [['Texto','text'],['Tabla','table'],['Ejercicio','exercise'],['Imagen','image'],['Conjugación','conjugation'],['Verb-cards','verb-cards'],['Fórmula','formula'],['Example-cards','examples']].forEach(function(pair) {
     const b = document.createElement('button');
     b.className = 'btn btn-outline btn-sm';
     b.textContent = '+ ' + pair[0];
