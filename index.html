@@ -701,7 +701,7 @@ async function loadWordOfDay(){
 async function loadLeaderboard(){
   const mount = $('lb-mount');
   const level = (currentProfile && currentProfile.level) || null;
-  let q = db.from('profiles').select('full_name,score,level').order('score', { ascending: false }).limit(10);
+  let q = db.from('leaderboard').select('id,display_name,score,level').order('score', { ascending: false }).limit(10);
   if (level) q = q.eq('level', level);
   const { data } = await q;
   const rows = data || [];
@@ -712,11 +712,11 @@ async function loadLeaderboard(){
   frag.appendChild(head);
   if (!rows.length) { frag.appendChild(LegoEmpty({ text: 'Sin puntajes todavía.' })); }
   else {
-    const myName = (currentProfile && currentProfile.full_name) || '';
+    const myId = (currentUser && currentUser.id) || null;
     rows.forEach(function(p, i){
       const rank = mk('span', null, (i + 1) + '.'); rank.style.cssText = 'font-weight:700;color:var(--muted);min-width:24px';
-      const isMe = p.full_name === myName;
-      const card = LegoCard({ L1: rank, L2: (p.full_name || 'Anónimo') + (isMe ? ' (tú)' : ''), L4: LegoChip(p.level || 'A1', 'level'), L8: mk('strong', null, (p.score || 0) + ' pts') });
+      const isMe = myId && p.id === myId;
+      const card = LegoCard({ L1: rank, L2: (p.display_name || 'Anónimo') + (isMe ? ' (tú)' : ''), L4: LegoChip(p.level || 'A1', 'level'), L8: mk('strong', null, (p.score || 0) + ' pts') });
       frag.appendChild(card);
     });
   }
