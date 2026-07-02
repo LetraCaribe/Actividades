@@ -585,7 +585,6 @@ async function submitActivity(asgn, res){
   closePlayer();
   showResults(asgn, res, scorePct, mode, passPct);
   try {
-    await db.from('responses').delete().eq('student_id', currentUser.id).eq('activity_slug', act.slug);
     if (rows.length) await db.from('responses').insert(rows);
     await db.from('assignments').update({ completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo }).eq('id', asgn.id);
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
