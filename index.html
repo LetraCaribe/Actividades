@@ -574,7 +574,6 @@ async function submitActivity(asgn, res){
   const rows = (res.answers || []).map(function(a, i){
     return {
       student_id: currentUser.id,
-      student_name: (currentProfile && currentProfile.full_name) || '',
       activity_slug: act.slug,
       question_num: i + 1,
       question_text: a.questionText || '',
@@ -817,12 +816,12 @@ function _clsSessionCard(sess){
 }
 function _clsCollapsible(titulo, lista){
   const box = mk('div');
-  box.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);margin-top:8px;overflow:hidden';
+  box.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);margin-top:12px;overflow:hidden';
   const head = mk('button');
   head.type = 'button';
-  head.style.cssText = 'width:100%;background:var(--sand);border:none;padding:10px 12px;text-align:left;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px';
+  head.style.cssText = 'width:100%;background:var(--sand);border:none;padding:13px 15px;text-align:left;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px';
   const list = mk('div');
-  list.style.cssText = 'padding:10px;display:none;flex-direction:column;gap:8px';
+  list.style.cssText = 'padding:14px;display:none;flex-direction:column;gap:10px';
   const caret = mk('span', null, '▸');
   const label = mk('span', null, titulo + ' (' + lista.length + ')');
   head.appendChild(caret); head.appendChild(label);
@@ -834,19 +833,19 @@ function _clsCollapsible(titulo, lista){
 }
 function renderClasesCard(){
   const card = mk('div');
-  card.style.cssText = 'margin-top:16px;padding-top:16px;border-top:1px solid var(--border)';
+  card.style.cssText = 'margin-top:22px;padding:18px 20px;border-top:1px solid var(--border)';
   const head = mk('div', 'section-head');
   head.appendChild(mk('div', 'section-title', 'Mis clases'));
   card.appendChild(head);
   const stats = mk('div');
-  stats.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 10px';
+  stats.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px';
   function stat(n, lbl, color){
     const b = mk('div');
-    b.style.cssText = 'flex:1;min-width:80px;background:var(--sand);border-radius:var(--r);padding:10px;text-align:center';
+    b.style.cssText = 'flex:1;min-width:92px;background:var(--sand);border-radius:var(--r);padding:16px 12px;text-align:center';
     const v = mk('div', null, String(n));
-    v.style.cssText = 'font-size:22px;font-weight:800;line-height:1;color:' + (color || 'var(--ink)');
+    v.style.cssText = 'font-size:27px;font-weight:800;line-height:1;color:' + (color || 'var(--ink)');
     const l = mk('div', null, lbl);
-    l.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px';
+    l.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:6px';
     b.appendChild(v); b.appendChild(l); return b;
   }
   const rest = clsRestantes();
