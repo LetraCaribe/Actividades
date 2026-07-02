@@ -1934,9 +1934,194 @@ function _lpReviewList(saved){
   });
   return wrap;
 }
+function _lpReviewMixed(content, activity, saved){
+  // Reusa los estilos .lp-mixed-* que _lpMixed inyecta (LegoPlayer construye el body de juego antes de sustituirlo por review).
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  if (content.instructions) { var gi = document.createElement('div'); gi.className = 'lp-instr'; gi.textContent = content.instructions; wrap.appendChild(gi); }
+  var offset = 0;
+  (content.sections||[]).forEach(function(sec, si){
+    var secWrap = document.createElement('div'); secWrap.className = 'lp-mixed-section';
+    if (sec.title) {
+      var t = document.createElement('div'); t.className = 'lp-mixed-title';
+      var n = document.createElement('span'); n.className = 'lp-mixed-num'; n.textContent = String(si+1);
+      var tt = document.createElement('span'); tt.textContent = sec.title;
+      t.appendChild(n); t.appendChild(tt); secWrap.appendChild(t);
+    }
+    var node, count = 0;
+    if (sec.type === 'fill-blank' || sec.type === 'drag-drop') {
+      (sec.sentences||[]).forEach(function(s){ if (s.hasBlank && s.blanks) count += s.blanks.length; });
+      node = _lpReviewFillBlank(sec, saved.slice(offset, offset + count));
+    } else if (sec.type === 'mc' || sec.type === 'truefalse') {
+      count = (sec.questions||[]).length;
+      node = _lpReviewMC(sec, activity, saved.slice(offset, offset + count));
+    } else {
+      node = LegoEmpty({ text: 'Seccion "' + sec.type + '" no soportada.' });
+    }
+    offset += count;
+    secWrap.appendChild(node);
+    wrap.appendChild(secWrap);
+  });
+  return wrap;
+}
+function _lpReviewDragDrop(content, saved){
+  // Reusa los estilos .lp-dnd-* que _lpDragDrop inyecta (LegoPlayer construye el body de juego antes de sustituirlo por review).
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  var instr = document.createElement('div'); instr.className = 'lp-instr';
+  instr.textContent = content.instructions || 'Revision de tus respuestas.';
+  wrap.appendChild(instr);
+  var idx = 0;
+  (content.sentences||[]).forEach(function(s){
+    if (!s.hasBlank || !s.parts) {
+      var pr = document.createElement('p'); pr.className = 'lp-sentence'; pr.textContent = s.text || ''; wrap.appendChild(pr); return;
+    }
+    var line = document.createElement('div'); line.className = 'lp-sentence';
+    s.parts.forEach(function(part, pi){
+      var seg = document.createElement('span'); seg.textContent = part; line.appendChild(seg);
+      if (pi < s.blanks.length) {
+        var blank = s.blanks[pi] || {};
+        var sv = saved[idx] || {}; idx++;
+        var box = document.createElement('span');
+        box.className = 'lp-dnd-blank ' + (sv.isCorrect ? 'filled-correct' : 'filled-wrong');
+        box.style.cursor = 'default';
+        box.textContent = sv.answer || '(vacio)';
+        line.appendChild(box);
+        if (!sv.isCorrect && blank.answer) {
+          var corr = document.createElement('span');
+          corr.style.cssText = 'font-size:11px;color:var(--green);margin:0 5px';
+          corr.textContent = blank.answer;
+          line.appendChild(corr);
+        }
+      }
+    });
+    wrap.appendChild(line);
+  });
+  return wrap;
+}
+function _lpReviewMatch(content, saved){
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  var instr = document.createElement('div'); instr.className = 'lp-instr';
+  instr.textContent = content.instructions || 'Revision de tus respuestas.';
+  wrap.appendChild(instr);
+  (content.pairs||[]).forEach(function(p, i){
+    var sv = saved[i] || {};
+    var row = document.createElement('div'); row.className = 'lp-sentence';
+    row.style.cssText = 'display:flex;gap:8px;align-items:baseline;flex-wrap:wrap';
+    var l = document.createElement('span'); l.style.fontWeight = '600'; l.textContent = p.left || '';
+    var ar = document.createElement('span'); ar.style.color = 'var(--muted)'; ar.textContent = '->';
+    var a = document.createElement('span');
+    a.style.cssText = 'font-weight:600;color:' + (sv.isCorrect ? 'var(--green)' : 'var(--red)');
+    a.textContent = sv.answer || '(vacio)';
+    row.appendChild(l); row.appendChild(ar); row.appendChild(a);
+    if (!sv.isCorrect && p.right) {
+      var corr = document.createElement('span');
+      corr.style.cssText = 'font-size:11px;color:var(--green)';
+      corr.textContent = p.right;
+      row.appendChild(corr);
+    }
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+function _lpReviewTrueFalse(content, saved){
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  (content.statements||[]).forEach(function(s, si){
+    var sv = saved[si] || {};
+    var block = document.createElement('div'); block.className = 'lp-mc-block';
+    var qrow = document.createElement('div'); qrow.className = 'lp-mc-q';
+    var num = document.createElement('span'); num.className = 'lp-mc-num'; num.textContent = String(si+1);
+    var txt = document.createElement('span'); txt.style.flex = '1'; txt.textContent = s.text || '';
+    qrow.appendChild(num); qrow.appendChild(txt); block.appendChild(qrow);
+    var a = document.createElement('div');
+    a.style.cssText = 'font-size:14px;font-weight:600;color:' + (sv.isCorrect ? 'var(--green)' : 'var(--red)');
+    a.textContent = sv.answer || '(vacio)';
+    block.appendChild(a);
+    if (!sv.isCorrect) {
+      var corr = document.createElement('div');
+      corr.style.cssText = 'font-size:11px;color:var(--green)';
+      corr.textContent = s.correct ? 'Verdadero' : 'Falso';
+      block.appendChild(corr);
+    }
+    wrap.appendChild(block);
+  });
+  return wrap;
+}
+function _lpReviewOrder(content, saved){
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  (content.events||[]).forEach(function(ev, i){
+    var sv = saved[i] || {};
+    var line = document.createElement('div'); line.className = 'lp-sentence';
+    var a = document.createElement('span');
+    a.style.cssText = 'font-weight:600;color:' + (sv.isCorrect ? 'var(--green)' : 'var(--red)');
+    a.textContent = (i+1) + '. ' + (sv.answer || '(vacio)');
+    line.appendChild(a);
+    if (!sv.isCorrect && ev) {
+      var corr = document.createElement('span');
+      corr.style.cssText = 'font-size:11px;color:var(--green);margin:0 6px';
+      corr.textContent = ev;
+      line.appendChild(corr);
+    }
+    wrap.appendChild(line);
+  });
+  return wrap;
+}
+function _lpReviewVocab(content, saved){
+  var wrap = document.createElement('div');
+  var sv = saved[0] || {};
+  var lbl = document.createElement('div'); lbl.className = 'lp-instr'; lbl.textContent = 'Vocabulario identificado';
+  wrap.appendChild(lbl);
+  var a = document.createElement('div');
+  a.style.cssText = 'font-size:14px;font-weight:600;margin-bottom:10px';
+  a.textContent = sv.answer || '(nada seleccionado)';
+  wrap.appendChild(a);
+  var heard = content.wordsHeard || [];
+  if (heard.length) {
+    var lbl2 = document.createElement('div'); lbl2.className = 'lp-instr'; lbl2.textContent = 'Palabras del audio';
+    wrap.appendChild(lbl2);
+    var h = document.createElement('div');
+    h.style.cssText = 'font-size:13px;color:var(--green)';
+    h.textContent = heard.join(', ');
+    wrap.appendChild(h);
+  }
+  return wrap;
+}
+function _lpReviewAudio(content, activity, saved){
+  var stim = _lpAudioControls(content);
+  var qs = document.createElement('div');
+  var instr = document.createElement('div'); instr.className = 'lp-instr';
+  instr.textContent = content.instructions || 'Revision de tus respuestas.';
+  qs.appendChild(instr);
+  var subtype = content.audioType || content.subtype || 'comprehension';
+  if (subtype === 'comprehension' || subtype === 'mc') qs.appendChild(_lpReviewMC(content, activity, saved));
+  else if (subtype === 'fillblank') qs.appendChild(_lpReviewFillBlank(content, saved));
+  else if (subtype === 'truefalse') qs.appendChild(_lpReviewTrueFalse(content, saved));
+  else if (subtype === 'order') qs.appendChild(_lpReviewOrder(content, saved));
+  else if (subtype === 'vocab') qs.appendChild(_lpReviewVocab(content, saved));
+  else qs.appendChild(_lpReviewList(saved));
+  var isVideoLayout = !!(content.youtubeUrl || content.youtube_url) || !!content.isVideo;
+  if (isVideoLayout) {
+    var vc = document.createElement('div'); vc.className = 'lp-vsplit-c';
+    var vbox = document.createElement('div'); vbox.className = 'lp-vsplit';
+    var va = document.createElement('div'); va.className = 'lp-vsplit-stim'; va.appendChild(stim);
+    var vb = document.createElement('div'); vb.className = 'lp-vsplit-qs'; vb.appendChild(qs);
+    vbox.appendChild(va); vbox.appendChild(vb);
+    vc.appendChild(vbox);
+    return vc;
+  }
+  return _lpSplit(stim, qs);
+}
+
 function _lpReview(content, activity, type, saved){
   if (type === 'fill-blank' || type === 'dropdown') return _lpReviewFillBlank(content, saved);
   if (type === 'mc' || type === 'reading') return _lpReviewMC(content, activity, saved);
+  if (type === 'audio') return _lpReviewAudio(content, activity, saved);
+  if (type === 'match') return _lpReviewMatch(content, saved);
+  if (type === 'drag-drop') return _lpReviewDragDrop(content, saved);
+  if (type === 'mixed') return _lpReviewMixed(content, activity, saved);
   return _lpReviewList(saved);
 }
 
