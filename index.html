@@ -63,6 +63,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .btn-orange:disabled{opacity:.5;cursor:default}
 .form-err{font-size:12px;color:var(--red);padding:7px 11px;background:var(--red-lt);border-radius:var(--r);margin-bottom:12px;display:none}
 .form-err.show{display:block}
+.auth-link{width:100%;border:none;background:none;color:var(--orange-dk);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;margin-top:12px;padding:6px;text-align:center}
+.auth-link:hover{text-decoration:underline}
+.auth-actions{display:flex;gap:8px;align-items:center;margin-top:12px}
+.auth-actions .auth-link{margin-top:0}
 
 /* PLATFORM */
 #screen-platform{background:var(--bg)}
@@ -191,6 +195,27 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
       <div class="fg"><label>Correo</label><input class="fi" id="login-email" type="email" autocomplete="email"></div>
       <div class="fg"><label>Contraseña</label><input class="fi" id="login-pass" type="password" autocomplete="current-password"></div>
       <button class="btn-orange" id="login-btn" type="button" onclick="doLogin()">Ingresar</button>
+      <button class="auth-link" type="button" onclick="showForgotPasswordForm()">Olvide mi contrasena</button>
+    </div>
+
+    <!-- form recuperacion -->
+    <div id="form-forgot" class="hidden">
+      <div class="login-title">Recuperar contrasena</div>
+      <div class="login-sub">Escribe tu correo y te enviaremos un enlace seguro para crear una nueva contrasena.</div>
+      <div class="form-err" id="reset-err"></div>
+      <div class="fg"><label>Correo</label><input class="fi" id="reset-email" type="email" autocomplete="email"></div>
+      <button class="btn-orange" id="reset-btn" type="button" onclick="sendPasswordReset()">Enviar enlace</button>
+      <button class="auth-link" type="button" onclick="switchAuthTab('login')">Volver al ingreso</button>
+    </div>
+
+    <!-- form nueva contrasena -->
+    <div id="form-reset" class="hidden">
+      <div class="login-title">Nueva contrasena</div>
+      <div class="login-sub">Crea una nueva contrasena para volver a entrar a tus actividades.</div>
+      <div class="form-err" id="new-pass-err"></div>
+      <div class="fg"><label>Nueva contrasena</label><input class="fi" id="new-pass" type="password" autocomplete="new-password"></div>
+      <div class="fg"><label>Confirmar contrasena</label><input class="fi" id="new-pass2" type="password" autocomplete="new-password"></div>
+      <button class="btn-orange" id="new-pass-btn" type="button" onclick="saveNewPassword()">Guardar contrasena</button>
     </div>
 
     <!-- form registro -->
@@ -324,6 +349,7 @@ let currentProfile = null;
 let allAssignments = [];
 let allCredits = [], allSessions = [];
 let resultsAsgnId = null;
+let authRecoveryMode = false;
 
 // ── mapa de iconos por tipo (reusado de admin: ti-* + colores) ──
 const ACTIVITY_ICONS = {
@@ -389,12 +415,45 @@ function showScreen(id){
   screens.forEach(function(s){ s.classList.remove('active'); });
   $(id).classList.add('active');
 }
-function switchAuthTab(which){
+function showAuthForm(which){
   const isLogin = which === 'login';
+  const isRegister = which === 'register';
+  const isForgot = which === 'forgot';
+  const isReset = which === 'reset';
   $('ltab-login').classList.toggle('active', isLogin);
-  $('ltab-register').classList.toggle('active', !isLogin);
+  $('ltab-register').classList.toggle('active', isRegister);
   $('form-login').classList.toggle('hidden', !isLogin);
-  $('form-register').classList.toggle('hidden', isLogin);
+  $('form-register').classList.toggle('hidden', !isRegister);
+  $('form-forgot').classList.toggle('hidden', !isForgot);
+  $('form-reset').classList.toggle('hidden', !isReset);
+}
+function switchAuthTab(which){
+  showAuthForm(which);
+}
+function showForgotPasswordForm(){
+  const email = $('login-email').value.trim();
+  if (email) $('reset-email').value = email;
+  showAuthForm('forgot');
+}
+function showResetPasswordForm(){
+  showScreen('screen-login');
+  showAuthForm('reset');
+}
+function passwordRecoveryRedirectUrl(){
+  return 'https://app.letracaribe.com/?reset=1';
+}
+function isPasswordRecoveryUrl(){
+  return window.location.search.indexOf('reset=1') !== -1 || window.location.search.indexOf('type=recovery') !== -1 || window.location.hash.indexOf('type=recovery') !== -1;
+}
+function authErr(id, msg){
+  const err = $(id);
+  if (!err) return;
+  err.textContent = msg;
+  err.classList.add('show');
+}
+function clearAuthErr(id){
+  const err = $(id);
+  if (err) err.classList.remove('show');
 }
 function showTab(name){
   document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
@@ -416,6 +475,38 @@ async function doLogin(){
   currentUser = data.user;
   await loadProfile();
   await showPlatform();
+}
+async function sendPasswordReset(){
+  const email = $('reset-email').value.trim();
+  clearAuthErr('reset-err');
+  if (!email) { authErr('reset-err', 'Escribe tu correo.'); return; }
+  const btn = $('reset-btn');
+  btn.disabled = true;
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: passwordRecoveryRedirectUrl() });
+  btn.disabled = false;
+  if (error) { authErr('reset-err', 'No se pudo enviar el enlace: ' + error.message); return; }
+  showToast('Revisa tu correo para crear una nueva contrasena.');
+  switchAuthTab('login');
+}
+async function saveNewPassword(){
+  const p1 = $('new-pass').value;
+  const p2 = $('new-pass2').value;
+  clearAuthErr('new-pass-err');
+  if (p1.length < 6) { authErr('new-pass-err', 'La contrasena debe tener minimo 6 caracteres.'); return; }
+  if (p1 !== p2) { authErr('new-pass-err', 'Las contrasenas no coinciden.'); return; }
+  const btn = $('new-pass-btn');
+  btn.disabled = true;
+  const { error } = await db.auth.updateUser({ password: p1 });
+  btn.disabled = false;
+  if (error) { authErr('new-pass-err', 'No se pudo guardar: ' + error.message); return; }
+  await db.auth.signOut();
+  currentUser = null; currentProfile = null; authRecoveryMode = false;
+  if (window.history && window.history.replaceState) window.history.replaceState({}, document.title, window.location.pathname);
+  $('new-pass').value = '';
+  $('new-pass2').value = '';
+  switchAuthTab('login');
+  showScreen('screen-login');
+  showToast('Contrasena actualizada. Ingresa de nuevo.');
 }
 async function doRegister(){
   const name = $('reg-name').value.trim();
@@ -902,10 +993,26 @@ function renderProfile(){
     const el = $(id);
     if (el) el.addEventListener('keydown', function(e){ if (e.key === 'Enter') doRegister(); });
   });
+  const resetEmail = $('reset-email');
+  if (resetEmail) resetEmail.addEventListener('keydown', function(e){ if (e.key === 'Enter') sendPasswordReset(); });
+  ['new-pass', 'new-pass2'].forEach(function(id){
+    const el = $(id);
+    if (el) el.addEventListener('keydown', function(e){ if (e.key === 'Enter') saveNewPassword(); });
+  });
 
-  ['login-pass', 'reg-pass'].forEach(function(id){ var el = $(id); if (el) LegoPassToggle(el); });
+  ['login-pass', 'reg-pass', 'new-pass', 'new-pass2'].forEach(function(id){ var el = $(id); if (el) LegoPassToggle(el); });
+  authRecoveryMode = isPasswordRecoveryUrl();
+  db.auth.onAuthStateChange(function(event, session){
+    if (event === 'PASSWORD_RECOVERY') {
+      authRecoveryMode = true;
+      currentUser = session && session.user ? session.user : null;
+      showResetPasswordForm();
+    }
+  });
   const { data } = await db.auth.getSession();
-  if (data && data.session && data.session.user) {
+  if (authRecoveryMode) {
+    showResetPasswordForm();
+  } else if (data && data.session && data.session.user) {
     currentUser = data.session.user;
     await loadProfile();
     await showPlatform();
