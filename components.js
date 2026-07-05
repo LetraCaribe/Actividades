@@ -721,6 +721,7 @@ function LegoLibraryViewer(item) {
       '.llp-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}',
       '.llp-chip{background:rgba(255,255,255,.92);color:#A83E1E;border-radius:999px;font-size:11px;font-weight:800;padding:5px 11px}',
       '.llp-body{padding:22px 28px 26px}',
+      '.llp-secs{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:flex-start}.llp-sec-full{flex:1 1 100%;min-width:0}.llp-sec-half{flex:1 1 calc(50% - 7px);min-width:0}@media(max-width:640px){.llp-sec-half{flex:1 1 100%}}',
       '.llp-h{font-family:Georgia,"Times New Roman",serif;font-size:18px;color:#1C1A17;margin:18px 0 8px}',
       '.llp-body>.llp-h:first-child{margin-top:0}',
       '.llp-p{font-size:14px;line-height:1.65;color:#4A4540;margin:0 0 12px;white-space:pre-wrap;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;border-radius:12px;padding:12px 14px;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
@@ -729,10 +730,12 @@ function LegoLibraryViewer(item) {
       '.llp-table td{padding:9px 12px;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
       '.llp-table tr:first-child td{background:#A83E1E;color:#fff;font-weight:700}',
       '.llp-table tr:not(:first-child) td.llp-c0{background:linear-gradient(180deg,#fff,#E4F5E8)}.llp-table tr:not(:first-child) td.llp-c1{background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-table tr:not(:first-child) td.llp-c2{background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-table tr:not(:first-child) td.llp-c3{background:linear-gradient(180deg,#fff,#E6F5FB)}.llp-table tr:not(:first-child) td.llp-c4{background:linear-gradient(180deg,#fff,#FBE8FA)}',
+      '.llp-tbl-rayada tr:not(:first-child):nth-child(odd) td{background:#fff}.llp-tbl-rayada tr:not(:first-child):nth-child(even) td{background:#F5F0E8}',
       '.llp-conj{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}.llp-conj-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.llp-conj-p{border-radius:11px;padding:9px 12px;text-align:center;font-weight:700;font-size:14px;background:linear-gradient(180deg,#fff,#E4F5E8);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-conj-f{border-radius:11px;padding:9px 12px;text-align:center;font-weight:800;font-size:15px;color:#C41E1E;background:linear-gradient(180deg,#fff,#FDF0E4);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
       '.llp-vcards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 14px}.llp-vcard{border-radius:16px;padding:14px;text-align:center;border:2px solid #E0DAD2;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-vc0{border-color:#E8670A;background:linear-gradient(180deg,#fff,#FDF0E4)}.llp-vc1{border-color:#1E6B72;background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-vc2{border-color:#7AB010;background:linear-gradient(180deg,#fff,#F0F7DC)}.llp-vc3{border-color:#C49A2A;background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-vcard-name{font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.02em;color:#1C1A17;margin-bottom:6px}.llp-vcard-ex{font-size:13px;color:#4A4540;line-height:1.35}',
       '.llp-formula{background:linear-gradient(180deg,#fff,#FBE8FA);border:2px solid #EFA7E9;border-radius:16px;padding:14px 16px;text-align:center;font-size:18px;font-weight:800;line-height:1.4;color:#1C1A17;box-shadow:0 8px 18px rgba(28,26,23,.05);margin:0 0 10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-formula .hi{color:#C41E1E}.llp-tokens{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:0 0 14px}.llp-token{border-radius:10px;padding:6px 11px;font-size:13px;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-tk0{background:linear-gradient(180deg,#fff,#FEECEC);color:#C41E1E;border:1px solid rgba(196,30,30,.18)}.llp-tk1{background:linear-gradient(180deg,#fff,#F8EBC5);color:#854F0B;border:1px solid rgba(196,154,42,.22)}.llp-tk2{background:linear-gradient(180deg,#fff,#E6F5FB);color:#185FA5;border:1px solid rgba(145,211,240,.45)}.llp-tk3{background:linear-gradient(180deg,#fff,#E4F5E8);color:#1A7A2A;border:1px solid rgba(26,122,42,.2)}.llp-tk4{background:linear-gradient(180deg,#fff,#E4F2F4);color:#0F6E56;border:1px solid rgba(30,107,114,.2)}',
       '.llp-excards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 14px}.llp-excard{border:2px solid #E0DAD2;border-radius:14px;overflow:hidden;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-excard-h{padding:11px 14px;font-family:Georgia,"Times New Roman",serif;font-size:15px;font-weight:700;border-bottom:1px solid rgba(28,26,23,.08);color:#1C1A17}.llp-exc0{border-color:#E8670A;background:linear-gradient(180deg,#fff,#FDF0E4)}.llp-exc1{border-color:#1E6B72;background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-exc2{border-color:#7AB010;background:linear-gradient(180deg,#fff,#F0F7DC)}.llp-exc3{border-color:#C49A2A;background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-excard-list{margin:0;padding:12px 14px 14px 30px}.llp-excard-list li{font-size:13px;line-height:1.45;color:#4A4540;margin:0 0 8px}.llp-excard-list li:last-child{margin-bottom:0}',
+      '.llp-doctor{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px}.llp-dbox{border-radius:14px;padding:12px 14px;border:2px solid #E0DAD2;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-db0{border-color:#E8670A;background:linear-gradient(180deg,#fff,#FDF0E4)}.llp-db1{border-color:#1E6B72;background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-db2{border-color:#7AB010;background:linear-gradient(180deg,#fff,#F0F7DC)}.llp-db3{border-color:#C49A2A;background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-db-letter{font-family:Georgia,"Times New Roman",serif;font-size:28px;font-weight:700;color:#1C1A17;line-height:1}.llp-db-word{font-size:13px;font-weight:700;color:#1C1A17;margin:4px 0 6px}.llp-db-ex{font-size:12px;color:#4A4540;line-height:1.35}',
       '.llp-table td:first-child{border-radius:10px 0 0 10px}',
       '.llp-table td:last-child{border-radius:0 10px 10px 0}',
       '.llp-img{max-width:100%;border-radius:12px;margin:6px 0;display:block}',
@@ -783,6 +786,8 @@ function LegoLibraryViewer(item) {
   // body
   var body = document.createElement('div');
   body.className = 'llp-body';
+  var secsBox = document.createElement('div');
+  secsBox.className = 'llp-secs';
 
   function heading(txt) {
     var h = document.createElement('div');
@@ -796,6 +801,9 @@ function LegoLibraryViewer(item) {
   }
 
   sections.forEach(function(section) {
+    var secEl = document.createElement('div');
+    secEl.className = 'llp-sec ' + (section.col === 'half' ? 'llp-sec-half' : 'llp-sec-full');
+    var body = secEl;
     if (section.type === 'text') {
       if (section.title) body.appendChild(heading(section.title));
       var p = document.createElement('p');
@@ -805,13 +813,14 @@ function LegoLibraryViewer(item) {
     } else if (section.type === 'table') {
       if (section.title) body.appendChild(heading(section.title));
       var table = document.createElement('table');
-      table.className = 'llp-table';
+      var tblModel = section.model || 'colorida';
+      table.className = 'llp-table llp-tbl-' + tblModel;
       (section.rows || []).forEach(function(rowArr, rIdx) {
         var tr = document.createElement('tr');
         (Array.isArray(rowArr) ? rowArr : Object.values(rowArr || {})).forEach(function(val, cIdx) {
           var td = document.createElement('td');
           td.textContent = (val === null || val === undefined) ? '' : val;
-          if (rIdx > 0) td.className = 'llp-c' + (cIdx % 5);
+          if (rIdx > 0 && tblModel === 'colorida') td.className = 'llp-c' + (cIdx % 5);
           tr.appendChild(td);
         });
         table.appendChild(tr);
@@ -910,6 +919,32 @@ function LegoLibraryViewer(item) {
         eg.appendChild(c);
       });
       body.appendChild(eg);
+    } else if (section.type === 'doctor') {
+      if (section.title) body.appendChild(heading(section.title));
+      var dg = document.createElement('div');
+      dg.className = 'llp-doctor';
+      (section.rows || []).forEach(function(row, i) {
+        var b = document.createElement('div');
+        b.className = 'llp-dbox llp-db' + (i % 4);
+        var l = document.createElement('div');
+        l.className = 'llp-db-letter';
+        l.textContent = (row && row[0]) || '';
+        b.appendChild(l);
+        if (row && row[1]) {
+          var w = document.createElement('div');
+          w.className = 'llp-db-word';
+          w.textContent = row[1];
+          b.appendChild(w);
+        }
+        if (row && row[2]) {
+          var e = document.createElement('div');
+          e.className = 'llp-db-ex';
+          e.textContent = row[2];
+          b.appendChild(e);
+        }
+        dg.appendChild(b);
+      });
+      body.appendChild(dg);
     } else if (section.type === 'image') {
       if (section.url) {
         var img = document.createElement('img');
@@ -925,8 +960,10 @@ function LegoLibraryViewer(item) {
         body.appendChild(cap);
       }
     }
+    secsBox.appendChild(secEl);
   });
 
+  body.appendChild(secsBox);
   var foot = document.createElement('div');
   foot.className = 'llp-foot';
   var fb = document.createElement('b');
@@ -1166,53 +1203,8 @@ function LegoPlayer(activity, opts) {
   var content = {};
   try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) {}
   var type = activity.type || content.type || 'mc';
-  var state = { answers: {}, score: function(){ return { correct:0, total:0 }; }, detail: function(){ return []; } };
-  state.feedback = feedback;
-  var root = document.createElement('div');
-  root.className = 'lego-player';
-  if (!feedback) root.classList.add('lp-nofeedback');
-  var scoreEl = document.createElement('div');
-  scoreEl.className = 'lp-score';
-  function refreshScore(){ var sc = state.score(); scoreEl.textContent = sc.correct + '/' + (sc.total || '?'); }
-
-  var body, supported = true;
-  if (type === 'fill-blank' || type === 'dropdown') {
-    body = _lpFillBlank(content, type === 'dropdown', state, refreshScore);
-  } else if (type === 'mc' || type === 'reading') {
-    body = _lpMC(content, activity, state, refreshScore);
-  } else if (type === 'audio') {
-    body = _lpAudio(content, activity, state, refreshScore);
-  } else if (type === 'match') {
-    body = _lpMatch(content, state, refreshScore);
-  } else if (type === 'mixed') {
-    body = _lpMixed(content, activity, state, refreshScore);
-  } else if (type === 'drag-drop') {
-    body = _lpDragDrop(content, state, refreshScore);
-  } else {
-    supported = false;
-    body = LegoEmpty({ icon: 'i', text: 'Tipo "' + type + '" aun no soportado por LegoPlayer.' });
-  }
-
-  if (mode === 'review' && supported) { body = _lpReview(content, activity, type, opts.saved || []); scoreEl.style.display = 'none'; }
-  if (mode === 'edit' && supported) { body = _lpEdit(content, activity, type); scoreEl.style.display = 'none'; }
-  if (supported) root.appendChild(scoreEl);
-  if (!feedback) scoreEl.style.display = 'none';
-  var lpBody = document.createElement('div'); lpBody.className = 'lp-body'; lpBody.appendChild(body); root.appendChild(lpBody);
-  if (supported) refreshScore();
-
-  if (mode === 'play' && supported) {
-    var submit = document.createElement('button');
-    submit.className = 'btn btn-coral';
-    submit.style.marginTop = '16px'; submit.style.flexShrink = '0';
-    submit.textContent = 'Enviar respuestas';
-    submit.onclick = function(){
-      var sc = state.score();
-      submit.disabled = true;
-      if (onResult) onResult({ type: type, score: sc.correct, total: sc.total, answers: state.detail() });
-    };
-    root.appendChild(submit);
-  }
-  return root;
+  if (content.version === 2) return _lpCompose(activity, content, opts);
+  return _lpCompose(activity, _lpAdapt(activity), opts);
 }
 
 function _lpFillBlank(content, isDropdown, state, refreshScore) {
@@ -1488,51 +1480,6 @@ function _lpTrueFalse(content, state, refreshScore) {
   return wrap;
 }
 
-function _lpAudio(content, activity, state, refreshScore) {
-  var stim = _lpAudioControls(content);
-  var qs = document.createElement('div');
-  var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions || 'Escucha el audio y responde.';
-  qs.appendChild(instr);
-  var subtype = content.audioType || content.subtype || 'comprehension';
-  if (subtype === 'comprehension' || subtype === 'mc') {
-    qs.appendChild(_lpMC(content, activity, state, refreshScore));
-  } else if (subtype === 'fillblank') {
-    qs.appendChild(_lpFillBlank(content, false, state, refreshScore));
-  } else if (subtype === 'dictation') {
-    var ta = document.createElement('textarea'); ta.className = 'lp-open'; ta.rows = 6; ta.placeholder = 'Escribe lo que escuchas...';
-    ta.addEventListener('input', function(){ state.answers['open-0'] = { open: true, answer: ta.value.trim() }; });
-    qs.appendChild(ta);
-    state.score = function(){ return { correct: 0, total: 0 }; };
-    state.detail = function(){ var a = state.answers['open-0'] || {}; return [{ key:'dictation', questionText: 'Dictado', answer: a.answer || '', isCorrect: null }]; };
-  } else if (subtype === 'truefalse') {
-    qs.appendChild(_lpTrueFalse(content, state, refreshScore));
-  } else if (subtype === 'order') {
-    qs.appendChild(_lpOrder(content, state, refreshScore));
-  } else if (subtype === 'vocab') {
-    qs.appendChild(_lpVocab(content, state, refreshScore));
-  } else {
-    qs.appendChild(LegoEmpty({ text: 'Subtipo de audio no soportado.' }));
-    state.score = function(){ return { correct: 0, total: 0 }; };
-    state.detail = function(){ return []; };
-  }
-  var isVideoLayout = !!(content.youtubeUrl || content.youtube_url) || !!content.isVideo;
-  if (isVideoLayout) {
-    if (!document.getElementById('lego-vsplit-styles')) {
-      var vsp = document.createElement('style'); vsp.id = 'lego-vsplit-styles';
-      vsp.textContent = '.lp-vsplit-c{container-type:inline-size;height:100%;min-height:0}.lp-vsplit{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}.lp-vsplit-stim{flex:0 0 auto}.lp-vsplit-qs{flex:1 1 auto;min-height:0;overflow:auto}@container (min-width:600px){.lp-vsplit{flex-direction:row;align-items:stretch}.lp-vsplit-stim{flex:0 0 55%;align-self:flex-start}.lp-vsplit-qs{height:100%}}';
-      document.head.appendChild(vsp);
-    }
-    var vc = document.createElement('div'); vc.className = 'lp-vsplit-c';
-    var vbox = document.createElement('div'); vbox.className = 'lp-vsplit';
-    var va = document.createElement('div'); va.className = 'lp-vsplit-stim'; va.appendChild(stim);
-    var vb = document.createElement('div'); vb.className = 'lp-vsplit-qs'; vb.appendChild(qs);
-    vbox.appendChild(va); vbox.appendChild(vb);
-    vc.appendChild(vbox);
-    return vc;
-  }
-  return _lpSplit(stim, qs);
-}
-
 function _lpOrderVocabStyles() {
   if (document.getElementById('lego-orderv-styles')) return;
   var st = document.createElement('style');
@@ -1669,40 +1616,6 @@ function _lpMatch(content, state, refreshScore) {
   wrap.appendChild(grid);
   state.score = function(){ var t = pairs.length, c = 0; for (var i = 0; i < pairs.length; i++) { var a = answers['match-'+i]; if (a && a.correct) c++; } return { correct: c, total: t }; };
   state.detail = function(){ return pairs.map(function(p, i){ var a = answers['match-'+i] || {}; return { key:'match-'+i, questionText: p.left, answer: a.answer || '', isCorrect: a.correct === undefined ? false : a.correct }; }); };
-  return wrap;
-}
-
-function _lpMixed(content, activity, state, refreshScore) {
-  if (!document.getElementById('lego-mixed-styles')) {
-    var mst = document.createElement('style');
-    mst.id = 'lego-mixed-styles';
-    mst.textContent = '.lp-mixed-section{margin-bottom:24px;padding-bottom:24px;border-bottom:1.5px solid var(--border)}.lp-mixed-section:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}.lp-mixed-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:8px}.lp-mixed-num{background:var(--orange);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}';
-    document.head.appendChild(mst);
-  }
-  var wrap = document.createElement('div');
-  var sections = content.sections || [];
-  if (content.instructions) { var gi = document.createElement('div'); gi.className = 'lp-instr'; gi.textContent = content.instructions; wrap.appendChild(gi); }
-  if (!sections.length) { wrap.appendChild(LegoEmpty({ text: 'Sin secciones.' })); state.score = function(){ return { correct:0, total:0 }; }; state.detail = function(){ return []; }; return wrap; }
-  var subStates = [];
-  sections.forEach(function(sec, si){
-    var secWrap = document.createElement('div'); secWrap.className = 'lp-mixed-section';
-    if (sec.title) {
-      var t = document.createElement('div'); t.className = 'lp-mixed-title';
-      var n = document.createElement('span'); n.className = 'lp-mixed-num'; n.textContent = String(si+1);
-      var tt = document.createElement('span'); tt.textContent = sec.title;
-      t.appendChild(n); t.appendChild(tt); secWrap.appendChild(t);
-    }
-    var subState = { answers: {}, score: function(){ return { correct:0, total:0 }; }, detail: function(){ return []; } };
-    var node;
-    if (sec.type === 'fill-blank' || sec.type === 'drag-drop') node = _lpFillBlank(sec, false, subState, refreshScore);
-    else if (sec.type === 'mc' || sec.type === 'truefalse') node = _lpMC(sec, activity, subState, refreshScore);
-    else node = LegoEmpty({ text: 'Seccion "' + sec.type + '" no soportada.' });
-    secWrap.appendChild(node);
-    subStates.push(subState);
-    wrap.appendChild(secWrap);
-  });
-  state.score = function(){ var c = 0, t = 0; subStates.forEach(function(ss){ var s = ss.score(); c += s.correct; t += s.total; }); return { correct: c, total: t }; };
-  state.detail = function(){ var d = []; subStates.forEach(function(ss, si){ ss.detail().forEach(function(x){ d.push({ key: 's'+si+'_'+x.key, questionText: x.questionText, answer: x.answer, isCorrect: x.isCorrect }); }); }); return d; };
   return wrap;
 }
 
@@ -1918,52 +1831,6 @@ function _lpReviewMC(content, activity, saved){
   });
   return wrap;
 }
-function _lpReviewList(saved){
-  var wrap = document.createElement('div');
-  wrap.appendChild(_lpReviewScoreHeader(saved));
-  (saved||[]).forEach(function(sv){
-    var row = document.createElement('div'); row.className = 'lp-mc-block';
-    var q = document.createElement('div'); q.className = 'lp-mc-q'; q.textContent = sv.questionText || '';
-    var ok = sv.isCorrect;
-    var col = ok ? 'var(--green)' : ((ok === null || ok === undefined) ? 'var(--muted)' : 'var(--red)');
-    var a = document.createElement('div');
-    a.style.cssText = 'font-size:14px;font-weight:600;color:' + col;
-    a.textContent = sv.answer || '(vacio)';
-    row.appendChild(q); row.appendChild(a);
-    wrap.appendChild(row);
-  });
-  return wrap;
-}
-function _lpReviewMixed(content, activity, saved){
-  // Reusa los estilos .lp-mixed-* que _lpMixed inyecta (LegoPlayer construye el body de juego antes de sustituirlo por review).
-  var wrap = document.createElement('div');
-  wrap.appendChild(_lpReviewScoreHeader(saved));
-  if (content.instructions) { var gi = document.createElement('div'); gi.className = 'lp-instr'; gi.textContent = content.instructions; wrap.appendChild(gi); }
-  var offset = 0;
-  (content.sections||[]).forEach(function(sec, si){
-    var secWrap = document.createElement('div'); secWrap.className = 'lp-mixed-section';
-    if (sec.title) {
-      var t = document.createElement('div'); t.className = 'lp-mixed-title';
-      var n = document.createElement('span'); n.className = 'lp-mixed-num'; n.textContent = String(si+1);
-      var tt = document.createElement('span'); tt.textContent = sec.title;
-      t.appendChild(n); t.appendChild(tt); secWrap.appendChild(t);
-    }
-    var node, count = 0;
-    if (sec.type === 'fill-blank' || sec.type === 'drag-drop') {
-      (sec.sentences||[]).forEach(function(s){ if (s.hasBlank && s.blanks) count += s.blanks.length; });
-      node = _lpReviewFillBlank(sec, saved.slice(offset, offset + count));
-    } else if (sec.type === 'mc' || sec.type === 'truefalse') {
-      count = (sec.questions||[]).length;
-      node = _lpReviewMC(sec, activity, saved.slice(offset, offset + count));
-    } else {
-      node = LegoEmpty({ text: 'Seccion "' + sec.type + '" no soportada.' });
-    }
-    offset += count;
-    secWrap.appendChild(node);
-    wrap.appendChild(secWrap);
-  });
-  return wrap;
-}
 function _lpReviewDragDrop(content, saved){
   // Reusa los estilos .lp-dnd-* que _lpDragDrop inyecta (LegoPlayer construye el body de juego antes de sustituirlo por review).
   var wrap = document.createElement('div');
@@ -2089,42 +1956,6 @@ function _lpReviewVocab(content, saved){
   }
   return wrap;
 }
-function _lpReviewAudio(content, activity, saved){
-  var stim = _lpAudioControls(content);
-  var qs = document.createElement('div');
-  var instr = document.createElement('div'); instr.className = 'lp-instr';
-  instr.textContent = content.instructions || 'Revision de tus respuestas.';
-  qs.appendChild(instr);
-  var subtype = content.audioType || content.subtype || 'comprehension';
-  if (subtype === 'comprehension' || subtype === 'mc') qs.appendChild(_lpReviewMC(content, activity, saved));
-  else if (subtype === 'fillblank') qs.appendChild(_lpReviewFillBlank(content, saved));
-  else if (subtype === 'truefalse') qs.appendChild(_lpReviewTrueFalse(content, saved));
-  else if (subtype === 'order') qs.appendChild(_lpReviewOrder(content, saved));
-  else if (subtype === 'vocab') qs.appendChild(_lpReviewVocab(content, saved));
-  else qs.appendChild(_lpReviewList(saved));
-  var isVideoLayout = !!(content.youtubeUrl || content.youtube_url) || !!content.isVideo;
-  if (isVideoLayout) {
-    var vc = document.createElement('div'); vc.className = 'lp-vsplit-c';
-    var vbox = document.createElement('div'); vbox.className = 'lp-vsplit';
-    var va = document.createElement('div'); va.className = 'lp-vsplit-stim'; va.appendChild(stim);
-    var vb = document.createElement('div'); vb.className = 'lp-vsplit-qs'; vb.appendChild(qs);
-    vbox.appendChild(va); vbox.appendChild(vb);
-    vc.appendChild(vbox);
-    return vc;
-  }
-  return _lpSplit(stim, qs);
-}
-
-function _lpReview(content, activity, type, saved){
-  if (type === 'fill-blank' || type === 'dropdown') return _lpReviewFillBlank(content, saved);
-  if (type === 'mc' || type === 'reading') return _lpReviewMC(content, activity, saved);
-  if (type === 'audio') return _lpReviewAudio(content, activity, saved);
-  if (type === 'match') return _lpReviewMatch(content, saved);
-  if (type === 'drag-drop') return _lpReviewDragDrop(content, saved);
-  if (type === 'mixed') return _lpReviewMixed(content, activity, saved);
-  return _lpReviewList(saved);
-}
-
 function _lpEditable(value, onSave){
   if (!document.getElementById('lego-edit-styles')) {
     var est = document.createElement('style');
@@ -2259,37 +2090,633 @@ function _lpEditVocab(content){
   wrap.appendChild(grid);
   return wrap;
 }
-function _lpEditAudio(content, activity){
-  var wrap = document.createElement('div');
-  _lpEditInstr(content, wrap);
-  var sub = content.audioType || content.subtype || 'comprehension';
-  if (sub === 'comprehension' || sub === 'mc') wrap.appendChild(_lpEditMC(content, activity));
-  else if (sub === 'fillblank') wrap.appendChild(_lpEditFillBlank(content));
-  else if (sub === 'truefalse') wrap.appendChild(_lpEditTrueFalse(content));
-  else if (sub === 'order') wrap.appendChild(_lpEditOrder(content));
-  else if (sub === 'vocab') wrap.appendChild(_lpEditVocab(content));
-  else { var n = document.createElement('div'); n.className = 'lp-instr'; n.textContent = 'Subtipo de audio sin edicion inline.'; wrap.appendChild(n); }
+// -- _lpAdapt ----------------------------------------------
+// F1+F4 del motor unificado (blueprint-motor-unificado.md, seccion 3).
+// activity -> content v2 { version:2, stimulus, questions:[...] } o { version:2, task, ... }.
+// No toca DOM ni DB. El content viejo NO se migra en la base: se traduce en memoria al rendir.
+// F4 (write-through de edit): los bloques SON los objetos originales del content viejo
+// (el adaptador les anota id/type encima; idempotente) o llevan referencia _srcObj/_srcField.
+// Asi editar por el motor escribe sobre el objeto que admin guarda. Los campos id/type
+// que puedan persistirse al guardar son inofensivos para los lectores legacy.
+// qids: secuenciales deterministas en el orden de iteracion actual (solo compatibilidad;
+// la identidad estable real nace con el creador v2 - decision D1).
+// Sello de compatibilidad: el orden de bloques respeta el orden de detail() del motor viejo.
+function _lpAdapt(activity) {
+  activity = activity || {};
+  var content = {};
+  try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) {}
+  if (content.version === 2) return content;
+  var type = activity.type || content.type || 'mc';
+  var n = 0;
+  function qid() { n++; return 'q' + n; }
+
+  function stimText(text) { return { type: 'text', text: text }; }
+  function stimNone() { return { type: 'none' }; }
+  function stimAudio(c) {
+    var audioUrl = c.audioUrl || c.audio_url || '';
+    var youtubeUrl = c.youtubeUrl || c.youtube_url || '';
+    var title = c.audioTitle || c.title || 'Audio';
+    if (youtubeUrl) return { type: 'video', youtubeUrl: youtubeUrl, title: title };
+    if (c.isVideo) return { type: 'video', driveUrl: audioUrl, title: title };
+    return { type: 'audio', url: audioUrl, title: title };
+  }
+
+  function mapFillSentences(sentences, out) {
+    (sentences || []).forEach(function(s) {
+      s.id = qid();
+      s.type = (!s.hasBlank || !s.parts) ? 'text' : 'fillblank';
+      out.push(s);
+    });
+  }
+  function mapQuestions(questions, out) {
+    (questions || []).forEach(function(q) {
+      q.id = qid();
+      q.type = (q.type === 'open') ? 'open' : 'mc';
+      out.push(q);
+    });
+  }
+  function mapStatements(statements, out) {
+    (statements || []).forEach(function(s) {
+      s.id = qid();
+      s.type = 'truefalse';
+      out.push(s);
+    });
+  }
+
+  var v2 = { version: 2, _srcObj: content };
+  if (content.instructions) v2.instructions = content.instructions;
+
+  if (type === 'drag-drop') {
+    v2.task = 'drag-drop';
+    v2.sentences = content.sentences || [];
+    v2.distractors = content.distractors || [];
+    return v2;
+  }
+  if (type === 'match') {
+    v2.task = 'match';
+    v2.pairs = content.pairs || [];
+    return v2;
+  }
+
+  var qs = [];
+  if (type === 'fill-blank' || type === 'dropdown') {
+    v2.stimulus = stimNone();
+    mapFillSentences(content.sentences, qs);
+  } else if (type === 'mc' || type === 'reading') {
+    var readingText = content.readingText || activity.reading_text || '';
+    v2.stimulus = readingText ? stimText(readingText) : stimNone();
+    mapQuestions(content.questions, qs);
+  } else if (type === 'mixed') {
+    v2.stimulus = stimNone();
+    (content.sections || []).forEach(function(sec) {
+      if (sec.title) qs.push({ id: qid(), type: 'heading', text: sec.title, _srcObj: sec, _srcField: 'title' });
+      if (sec.instructions) qs.push({ id: qid(), type: 'text', text: sec.instructions, _srcObj: sec, _srcField: 'instructions' });
+      if (sec.type === 'fill-blank' || sec.type === 'drag-drop') mapFillSentences(sec.sentences, qs);
+      else if (sec.type === 'mc' || sec.type === 'truefalse') mapQuestions(sec.questions, qs);
+    });
+  } else if (type === 'audio') {
+    v2.stimulus = stimAudio(content);
+    var subtype = content.audioType || content.subtype || 'comprehension';
+    if (subtype === 'comprehension' || subtype === 'mc') mapQuestions(content.questions, qs);
+    else if (subtype === 'fillblank') mapFillSentences(content.sentences, qs);
+    else if (subtype === 'dictation') qs.push({ id: qid(), type: 'open', text: 'Dictado', rows: 6, placeholder: 'Escribe lo que escuchas...' });
+    else if (subtype === 'truefalse') mapStatements(content.statements, qs);
+    else if (subtype === 'order') qs.push({ id: qid(), type: 'order', events: content.events || [] });
+    else if (subtype === 'vocab') qs.push({ id: qid(), type: 'vocab', wordList: content.wordList || [], wordsHeard: content.wordsHeard || [] });
+  } else {
+    v2.stimulus = stimNone();
+  }
+  v2.questions = qs;
+  return v2;
+}
+
+// -- Motor unificado F2: registros + compositor -------------
+// (blueprint-motor-unificado.md, secciones 1 y 4)
+// LegoQ / LegoStimulus / LegoTask son REGISTROS: agregar un tipo = registrar una entrada.
+// NUNCA reintroducir if(type === ...) en el core - tipo desconocido degrada a LegoEmpty.
+// Las piezas nacen como WRAPPERS de los trios actuales (_lpX / _lpReviewX / _lpEditX) - snap-in:
+// cero logica de juego reescrita. La fusion interna de cada trio es F4.
+// _lpCompose solo se activa desde LegoPlayer cuando content.version === 2.
+// Contrato de pieza: maker(data, ctx) -> { el, score(), detail() }
+//   ctx: { mode:'play'|'review'|'edit', config:{feedback}, onChange, saved, num }
+//   score() -> objeto extensible { correct, total, ... }
+//   detail() -> [ { qid, part, key, questionText, answer, isCorrect } ]
+
+function _lpZero(){ return { correct: 0, total: 0 }; }
+function _lpNone(){ return []; }
+function _lpStrip(node, selector){
+  var el = node.querySelector(selector);
+  if (el && el.parentNode) el.parentNode.removeChild(el);
+  return node;
+}
+function _lpSetNum(node, num){
+  if (!num) return node;
+  var el = node.querySelector('.lp-mc-num');
+  if (el) el.textContent = String(num);
+  return node;
+}
+function _lpSubState(ctx){
+  var st = { answers: {}, score: _lpZero, detail: _lpNone };
+  st.feedback = !(ctx && ctx.config && ctx.config.feedback === false);
+  return st;
+}
+function _lpTagQid(rows, qid){
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    out.push({ qid: qid, part: i, key: rows.length > 1 ? qid + '-' + i : qid, questionText: r.questionText, answer: r.answer, isCorrect: r.isCorrect });
+  }
+  return out;
+}
+function _lpRowCount(b){
+  if (b.type === 'fillblank') return (b.blanks || []).length;
+  if (b.type === 'order') return (b.events || []).length;
+  if (b.type === 'text' || b.type === 'heading') return 0;
+  return 1;
+}
+
+var LegoQ = {};
+LegoQ.mc = function(b, ctx){
+  var mini = { questions: [b] };
+  if (ctx.mode === 'review') return { el: _lpSetNum(_lpStrip(_lpReviewMC(mini, null, ctx.saved || []), '.lp-score'), ctx.num), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpSetNum(_lpStrip(_lpEditMC(mini, null), '.lp-instr'), ctx.num), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpSetNum(_lpMC(mini, null, st, ctx.onChange), ctx.num);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
+};
+LegoQ.open = function(b, ctx){
+  var piece = LegoQ.mc(b, ctx);
+  var ta = piece.el.querySelector('textarea');
+  if (ta) {
+    if (b.rows) ta.rows = b.rows;
+    if (b.placeholder) ta.placeholder = b.placeholder;
+  }
+  return piece;
+};
+LegoQ.truefalse = function(b, ctx){
+  var mini = { statements: [b] };
+  if (ctx.mode === 'review') return { el: _lpSetNum(_lpStrip(_lpReviewTrueFalse(mini, ctx.saved || []), '.lp-score'), ctx.num), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpStrip(_lpEditTrueFalse(mini), '.lp-instr'), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpSetNum(_lpTrueFalse(mini, st, ctx.onChange), ctx.num);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
+};
+LegoQ.fillblank = function(b, ctx){
+  var mini = { sentences: [ { parts: b.parts, blanks: b.blanks, hasBlank: true } ] };
+  var isDropdown = false;
+  (b.blanks || []).forEach(function(bl){ if ((bl.options || []).length) isDropdown = true; });
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpStrip(_lpReviewFillBlank(mini, ctx.saved || []), '.lp-score'), '.lp-instr'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpStrip(_lpEditFillBlank(mini), '.lp-instr'), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpStrip(_lpStrip(_lpFillBlank(mini, isDropdown, st, ctx.onChange), '.lp-instr'), '.lp-legend');
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
+};
+LegoQ.order = function(b, ctx){
+  var mini = { events: b.events || [] };
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewOrder(mini, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpStrip(_lpEditOrder(mini), '.lp-instr'), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpStrip(_lpOrder(mini, st, ctx.onChange), '.lp-instr');
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
+};
+LegoQ.vocab = function(b, ctx){
+  var mini = { wordList: b.wordList || [], wordsHeard: b.wordsHeard || [] };
+  if (ctx.mode === 'review') return { el: _lpReviewVocab(mini, ctx.saved || []), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpStrip(_lpEditVocab(mini), '.lp-instr'), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpStrip(_lpVocab(mini, st, ctx.onChange), '.lp-instr');
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
+};
+LegoQ.text = function(b, ctx){
+  var p = document.createElement('p');
+  p.className = 'lp-sentence';
+  if (ctx.mode === 'edit') p.appendChild(_lpEditable(b.text || '', function(v){ b.text = v; if (b._srcObj && b._srcField) b._srcObj[b._srcField] = v; }));
+  else p.textContent = b.text || '';
+  return { el: p, score: _lpZero, detail: _lpNone };
+};
+LegoQ.heading = function(b, ctx){
+  var t = document.createElement('div');
+  t.style.cssText = 'font-size:13px;font-weight:700;color:var(--ink);margin:18px 0 12px;display:flex;align-items:center;gap:8px';
+  var n = document.createElement('span');
+  n.style.cssText = 'background:var(--orange);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0';
+  n.textContent = String(ctx.num || '');
+  var tt = document.createElement('span');
+  if (ctx.mode === 'edit') tt.appendChild(_lpEditable(b.text || '', function(v){ b.text = v; if (b._srcObj && b._srcField) b._srcObj[b._srcField] = v; }));
+  else tt.textContent = b.text || '';
+  t.appendChild(n); t.appendChild(tt);
+  return { el: t, score: _lpZero, detail: _lpNone };
+};
+
+var LegoStimulus = {};
+LegoStimulus.none = function(){ return null; };
+LegoStimulus.text = function(d){
+  var t = document.createElement('div');
+  t.className = 'lp-text';
+  t.textContent = d.text || '';
+  return t;
+};
+LegoStimulus.audio = function(d){
+  return _lpAudioControls({ audioUrl: d.url || '', audioTitle: d.title || 'Audio' });
+};
+LegoStimulus.video = function(d){
+  if (d.youtubeUrl) return _lpAudioControls({ youtubeUrl: d.youtubeUrl });
+  return _lpAudioControls({ audioUrl: d.driveUrl || '', isVideo: true, audioTitle: d.title || 'Video' });
+};
+
+var LegoTask = {};
+LegoTask['drag-drop'] = function(c, ctx){
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewDragDrop(c, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpEditFillBlank(c._srcObj || c), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpDragDrop(c, st, ctx.onChange);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
+};
+LegoTask.match = function(c, ctx){
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewMatch(c, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpEditMatch(c._srcObj || c), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpMatch(c, st, ctx.onChange);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
+};
+
+function _lpCompose(activity, content, opts){
+  opts = opts || {};
+  var rawMode = opts.mode || 'play';
+  var mode = (rawMode === 'review' || rawMode === 'edit') ? rawMode : 'play';
+  var feedback = opts.feedback !== false;
+  var onResult = typeof opts.onResult === 'function' ? opts.onResult : null;
+  var saved = opts.saved || [];
+  var root = document.createElement('div');
+  root.className = 'lego-player';
+  if (!feedback) root.classList.add('lp-nofeedback');
+  var pieces = [];
+  var scoreEl = document.createElement('div');
+  scoreEl.className = 'lp-score';
+  function refreshScore(){
+    var c = 0, t = 0;
+    pieces.forEach(function(p){ var s = p.score(); c += s.correct; t += s.total; });
+    scoreEl.textContent = c + '/' + (t || '?');
+    if (typeof opts.onProgress === 'function') { try { opts.onProgress(); } catch(e){} }
+  }
+  var cfg = { feedback: feedback };
+  var inner = document.createElement('div');
+
+  if (content.task) {
+    var makerT = LegoTask[content.task];
+    var pieceT = makerT
+      ? makerT(content, { mode: mode, config: cfg, onChange: refreshScore, saved: saved })
+      : { el: LegoEmpty({ text: 'Tarea "' + content.task + '" no registrada.' }), score: _lpZero, detail: _lpNone };
+    pieces.push(pieceT);
+    inner.appendChild(pieceT.el);
+    if (mode === 'play' && saved.length) _lpRestorePiece(pieceT.el, saved, content.task);
+  } else {
+    if (mode === 'edit') {
+      var ei = document.createElement('div');
+      ei.className = 'lp-instr';
+      ei.appendChild(_lpEditable(content.instructions || '', function(v){ content.instructions = v; if (content._srcObj) content._srcObj.instructions = v; }));
+      inner.appendChild(ei);
+    } else if (content.instructions) {
+      var gi = document.createElement('div');
+      gi.className = 'lp-instr';
+      gi.textContent = content.instructions;
+      inner.appendChild(gi);
+    }
+    var hasTypedBlank = false;
+    (content.questions || []).forEach(function(b){
+      if (b.type !== 'fillblank') return;
+      var opt = false;
+      (b.blanks || []).forEach(function(bl){ if ((bl.options || []).length) opt = true; });
+      if (!opt) hasTypedBlank = true;
+    });
+    if (mode === 'play' && feedback && hasTypedBlank) {
+      var legend = document.createElement('div');
+      legend.className = 'lp-legend';
+      [ ['var(--green)', 'Correcto'], ['#DAA520', 'Falta tilde'], ['var(--red)', 'Incorrecto'] ].forEach(function(p2){
+        var sp = document.createElement('span');
+        sp.style.color = p2[0];
+        sp.textContent = p2[1];
+        legend.appendChild(sp);
+      });
+      inner.appendChild(legend);
+    }
+    var cursor = 0, qNum = 0, hNum = 0;
+    (content.questions || []).forEach(function(b){
+      var maker = LegoQ[b.type];
+      var count = _lpRowCount(b);
+      var mySaved = [];
+      if (mode === 'review' || mode === 'play') {
+        for (var i = 0; i < saved.length; i++) { if (saved[i] && saved[i].qid && saved[i].qid === b.id) mySaved.push(saved[i]); }
+        if (!mySaved.length && count) mySaved = saved.slice(cursor, cursor + count);
+      }
+      cursor += count;
+      var num = null;
+      if (b.type === 'heading') { hNum++; num = hNum; }
+      else if (b.type === 'mc' || b.type === 'open' || b.type === 'truefalse') { qNum++; num = qNum; }
+      var piece = maker
+        ? maker(b, { mode: mode, config: cfg, onChange: refreshScore, saved: mySaved, num: num })
+        : { el: LegoEmpty({ text: 'Tipo "' + b.type + '" no registrado.' }), score: _lpZero, detail: _lpNone };
+      pieces.push(piece);
+      inner.appendChild(piece.el);
+      if (mode === 'play' && mySaved.length) _lpRestorePiece(piece.el, mySaved, b.type);
+    });
+  }
+
+  if (!content.task && pieces.length === 0) inner.appendChild(LegoEmpty({ text: 'Actividad sin contenido compatible con el motor.' }));
+  var bodyContent = inner;
+  if (!content.task) {
+    var stimD = content.stimulus || { type: 'none' };
+    var sMaker = LegoStimulus[stimD.type] || LegoStimulus.none;
+    var stimEl = sMaker(stimD);
+    if (stimEl) bodyContent = (stimD.type === 'video') ? _lpVSplit(stimEl, inner) : _lpSplit(stimEl, inner);
+  }
+
+  if (mode === 'review') {
+    root.appendChild(_lpReviewScoreHeader(saved));
+  } else if (mode === 'play' && feedback) {
+    root.appendChild(scoreEl);
+  }
+  var lpBody = document.createElement('div');
+  lpBody.className = 'lp-body';
+  lpBody.appendChild(bodyContent);
+  root.appendChild(lpBody);
+  refreshScore();
+
+  root.getProgress = function(){ var all = []; pieces.forEach(function(p){ (p.detail() || []).forEach(function(r){ all.push(r); }); }); return all; };
+  if (rawMode === 'play') {
+    var submit = document.createElement('button');
+    submit.className = 'btn btn-coral';
+    submit.style.marginTop = '16px';
+    submit.style.flexShrink = '0';
+    submit.textContent = 'Enviar respuestas';
+    submit.onclick = function(){
+      var c = 0, t = 0, all = [];
+      pieces.forEach(function(p){
+        var s = p.score();
+        c += s.correct; t += s.total;
+        p.detail().forEach(function(r){ all.push(r); });
+      });
+      submit.disabled = true;
+      if (onResult) onResult({ type: activity.type || 'v2', score: c, total: t, answers: all });
+    };
+    root.appendChild(submit);
+  }
+  return root;
+}
+
+
+// -- _lpVSplit ---------------------------------------------
+// Layout estimulo+preguntas para VIDEO (55% pantalla), extraido del que _lpAudio inyecta.
+// Mismo id de estilos 'lego-vsplit-styles': se inyecta una vez, gane quien gane la carrera.
+function _lpVSplit(stim, qs){
+  if (!document.getElementById('lego-vsplit-styles')) {
+    var vsp = document.createElement('style'); vsp.id = 'lego-vsplit-styles';
+    vsp.textContent = '.lp-vsplit-c{container-type:inline-size;height:100%;min-height:0}.lp-vsplit{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}.lp-vsplit-stim{flex:0 0 auto}.lp-vsplit-qs{flex:1 1 auto;min-height:0;overflow:auto}@container (min-width:600px){.lp-vsplit{flex-direction:row;align-items:stretch}.lp-vsplit-stim{flex:0 0 55%;align-self:flex-start}.lp-vsplit-qs{height:100%}}';
+    document.head.appendChild(vsp);
+  }
+  var vc = document.createElement('div'); vc.className = 'lp-vsplit-c';
+  var vbox = document.createElement('div'); vbox.className = 'lp-vsplit';
+  var va = document.createElement('div'); va.className = 'lp-vsplit-stim'; va.appendChild(stim);
+  var vb = document.createElement('div'); vb.className = 'lp-vsplit-qs'; vb.appendChild(qs);
+  vbox.appendChild(va); vbox.appendChild(vb);
+  vc.appendChild(vbox);
+  return vc;
+}
+
+
+// -- reanudar (restore) -------------------------------------
+// Re-aplica respuestas guardadas sobre el DOM YA construido, por replay de eventos:
+// mismo code-path que el usuario, sin tocar los _lp*. NUNCA lanza (try/catch por tipo);
+// si una pieza no restaura, queda sin responder y el estudiante la re-hace. Agnostico al
+// almacenamiento (sirve localStorage o DB). Las respuestas van por qid estable (motor F1-F6).
+function _lpFire(el, type){ var ev = document.createEvent('Event'); ev.initEvent(type, true, false); el.dispatchEvent(ev); }
+function _lpRestorePiece(el, saved, type){
+  if (!el || !saved || !saved.length) return;
+  try {
+    if (type === 'mc' || type === 'open' || type === 'truefalse') {
+      var ta = el.querySelector('textarea.lp-open');
+      if (ta) { ta.value = saved[0].answer || ''; _lpFire(ta, 'input'); return; }
+      var ans = saved[0].answer;
+      var opts = el.querySelectorAll('.lp-mc-opt');
+      for (var i = 0; i < opts.length; i++) {
+        if (opts[i].textContent === ans && !opts[i].disabled) { opts[i].click(); break; }
+      }
+      return;
+    }
+    if (type === 'fillblank' || type === 'dropdown') {
+      var inputs = el.querySelectorAll('.lp-input');
+      saved.forEach(function(row, k){
+        var idx = (row.part != null) ? row.part : k;
+        var inp = inputs[idx];
+        if (!inp) return;
+        inp.value = row.answer || '';
+        _lpFire(inp, inp.tagName === 'SELECT' ? 'change' : 'input');
+      });
+      return;
+    }
+    if (type === 'order') {
+      saved.slice().sort(function(a, b){ return (a.part || 0) - (b.part || 0); }).forEach(function(row){
+        var items = el.querySelectorAll('.lp-order-item');
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].textContent === row.answer && !items[i].classList.contains('placed')) { items[i].click(); break; }
+        }
+      });
+      return;
+    }
+    if (type === 'vocab') {
+      var words = (saved[0].answer || '').split(',').map(function(w){ return w.trim(); }).filter(Boolean);
+      var vb = el.querySelectorAll('.lp-vocab-word');
+      words.forEach(function(w){
+        for (var i = 0; i < vb.length; i++) {
+          if (vb[i].textContent === w && !vb[i].classList.contains('selected')) { vb[i].click(); break; }
+        }
+      });
+      return;
+    }
+    if (type === 'match') {
+      var lefts = el.querySelectorAll('.lp-match-grid > div:first-child .lp-match-item');
+      saved.forEach(function(row, k){
+        var li = (row.part != null) ? row.part : k;
+        var leftEl = lefts[li];
+        if (!leftEl || leftEl.dataset.matched) return;
+        leftEl.click();
+        var rights = el.querySelectorAll('.lp-match-grid > div:last-child .lp-match-item');
+        for (var i = 0; i < rights.length; i++) {
+          if (rights[i].textContent === row.answer && !rights[i].dataset.matched) { rights[i].click(); break; }
+        }
+      });
+      return;
+    }
+    if (type === 'drag-drop') {
+      var blanks = el.querySelectorAll('.lp-dnd-blank');
+      saved.forEach(function(row, k){
+        var idx = (row.part != null) ? row.part : k;
+        var blank = blanks[idx];
+        if (!blank || !blank._lpPlace) return;
+        var bankEls = el.querySelectorAll('.lp-dnd-word');
+        var src = null;
+        for (var i = 0; i < bankEls.length; i++) {
+          if (bankEls[i].textContent === row.answer && !bankEls[i].classList.contains('used')) { src = bankEls[i]; break; }
+        }
+        blank._lpPlace(row.answer, src);
+      });
+      return;
+    }
+  } catch(e) {}
+}
+
+
+// -- LegoTask: flashcard + memory ---------------------------
+// Piezas auto-contenidas (la mecanica ES la tarea), mismo contrato {el,score,detail} que
+// drag-drop/match. Formato unificado: pairs:[{left,right}] (izq=frente/termino, der=reverso/significado)
+// -> una lista de vocabulario alimenta match, memory y flashcard sin transformar.
+// Sellado: createElement + textContent, cero HTML crudo. CSS inyectado una vez.
+function _lpPairFront(p){ return (p && (p.left != null ? p.left : p.front)) || ''; }
+function _lpPairBack(p){ return (p && (p.right != null ? p.right : p.back)) || ''; }
+
+function _lpFlashcardStyles(){
+  if (document.getElementById('lego-fc-styles')) return;
+  var st = document.createElement('style'); st.id = 'lego-fc-styles';
+  st.textContent = '.lp-fc{display:flex;flex-direction:column;align-items:center;gap:14px}.lp-fc-prog{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.lp-fc-card{width:100%;max-width:340px;min-height:150px;border:1.5px solid var(--border);border-radius:14px;background:var(--white);display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:20px;cursor:pointer;user-select:none;box-shadow:0 4px 14px rgba(0,0,0,.06)}.lp-fc-card.back{background:var(--sand);font-size:18px}.lp-fc-hint{font-size:11px;color:var(--muted);min-height:14px}.lp-fc-rate{display:flex;gap:10px}.lp-fc-btn{padding:9px 18px;border-radius:10px;border:1px solid var(--border);background:var(--white);font:inherit;font-size:14px;cursor:pointer}.lp-fc-btn.know{border-color:var(--green);color:var(--green)}.lp-fc-btn.dunno{border-color:var(--red);color:var(--red)}.lp-fc-done{font-size:16px;color:var(--ink);text-align:center}';
+  document.head.appendChild(st);
+}
+function _lpFlashcard(content, state, refreshScore){
+  _lpFlashcardStyles();
+  var answers = state.answers;
+  var pairs = content.pairs || content.cards || [];
+  var wrap = document.createElement('div'); wrap.className = 'lp-fc';
+  if (content.instructions){ var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions; wrap.appendChild(instr); }
+  var prog = document.createElement('div'); prog.className = 'lp-fc-prog';
+  var card = document.createElement('div'); card.className = 'lp-fc-card';
+  var hint = document.createElement('div'); hint.className = 'lp-fc-hint';
+  var rate = document.createElement('div'); rate.className = 'lp-fc-rate';
+  var bKnow = document.createElement('button'); bKnow.type = 'button'; bKnow.className = 'lp-fc-btn know'; bKnow.textContent = 'Lo sé';
+  var bDunno = document.createElement('button'); bDunno.type = 'button'; bDunno.className = 'lp-fc-btn dunno'; bDunno.textContent = 'No lo sé';
+  rate.appendChild(bKnow); rate.appendChild(bDunno);
+  var idx = 0, flipped = false;
+  function draw(){
+    if (idx >= pairs.length){
+      prog.textContent = pairs.length + ' / ' + pairs.length;
+      card.className = 'lp-fc-card'; card.textContent = '';
+      var done = document.createElement('div'); done.className = 'lp-fc-done'; done.textContent = 'Terminaste las ' + pairs.length + ' tarjetas.';
+      card.appendChild(done);
+      hint.textContent = ''; rate.style.display = 'none'; card.style.cursor = 'default';
+      return;
+    }
+    flipped = false;
+    prog.textContent = (idx + 1) + ' / ' + pairs.length;
+    card.className = 'lp-fc-card'; card.textContent = _lpPairFront(pairs[idx]);
+    hint.textContent = 'Toca la tarjeta para ver el significado';
+    rate.style.display = 'none';
+  }
+  card.addEventListener('click', function(){
+    if (idx >= pairs.length || flipped) return;
+    flipped = true;
+    card.className = 'lp-fc-card back'; card.textContent = _lpPairBack(pairs[idx]);
+    hint.textContent = 'La sabías?';
+    rate.style.display = 'flex';
+  });
+  function rateCard(known){
+    if (idx >= pairs.length) return;
+    answers['fc-' + idx] = { known: known, answer: known ? 'Lo sé' : 'No lo sé' };
+    idx++; refreshScore(); draw();
+  }
+  bKnow.onclick = function(){ rateCard(true); };
+  bDunno.onclick = function(){ rateCard(false); };
+  wrap.appendChild(prog); wrap.appendChild(card); wrap.appendChild(hint); wrap.appendChild(rate);
+  draw();
+  state.score = function(){ var c = 0, t = pairs.length; for (var i = 0; i < pairs.length; i++){ var a = answers['fc-' + i]; if (a && a.known) c++; } return { correct: c, total: t }; };
+  state.detail = function(){ return pairs.map(function(p, i){ var a = answers['fc-' + i] || {}; return { key: 'fc-' + i, questionText: _lpPairFront(p), answer: a.answer || '(sin ver)', isCorrect: a.known === undefined ? null : !!a.known }; }); };
   return wrap;
 }
-function _lpEditMixed(content, activity){
+
+function _lpMemoryStyles(){
+  if (document.getElementById('lego-mem-styles')) return;
+  var st = document.createElement('style'); st.id = 'lego-mem-styles';
+  st.textContent = '.lp-mem-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}.lp-mem-card{aspect-ratio:3/2;min-height:54px;border:1.5px solid var(--border);border-radius:10px;background:var(--coral);color:transparent;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;font-size:13px;line-height:1.2;cursor:pointer;user-select:none;overflow:hidden}.lp-mem-card.up{background:var(--white);color:var(--ink)}.lp-mem-card.matched{background:var(--green-lt);border-color:var(--green);color:var(--green);cursor:default}.lp-mem-done{font-size:14px;font-weight:700;color:var(--green);text-align:center;margin-top:12px}';
+  document.head.appendChild(st);
+}
+function _lpMemory(content, state, refreshScore){
+  _lpMemoryStyles();
+  var answers = state.answers;
+  var pairs = content.pairs || [];
   var wrap = document.createElement('div');
-  _lpEditInstr(content, wrap);
-  (content.sections||[]).forEach(function(sec, si){
-    var secWrap = document.createElement('div'); secWrap.style.cssText = 'margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)';
-    var t = document.createElement('div'); t.className = 'lp-instr';
-    t.appendChild(document.createTextNode((si+1) + '. '));
-    t.appendChild(_lpEditable(sec.title || '', function(v){ sec.title = v; }));
-    secWrap.appendChild(t);
-    if (sec.type === 'mc' || sec.type === 'truefalse') secWrap.appendChild(_lpEditMC(sec, activity));
-    else secWrap.appendChild(_lpEditFillBlank(sec));
-    wrap.appendChild(secWrap);
+  if (content.instructions){ var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions; wrap.appendChild(instr); }
+  var cards = [];
+  pairs.forEach(function(p, i){ cards.push({ pair: i, text: _lpPairFront(p) }); cards.push({ pair: i, text: _lpPairBack(p) }); });
+  cards.sort(function(){ return Math.random() - 0.5; });
+  var grid = document.createElement('div'); grid.className = 'lp-mem-grid';
+  var doneEl = document.createElement('div'); doneEl.className = 'lp-mem-done'; doneEl.style.display = 'none'; doneEl.textContent = 'Todas emparejadas.';
+  var upCards = [], matchedCount = 0, lock = false;
+  cards.forEach(function(cd){
+    var el = document.createElement('div'); el.className = 'lp-mem-card'; el.textContent = cd.text;
+    el._cd = cd; el._matched = false; el._up = false;
+    el.addEventListener('click', function(){
+      if (lock || el._up || el._matched) return;
+      el.classList.add('up'); el._up = true; upCards.push(el);
+      if (upCards.length === 2){
+        var a = upCards[0], b = upCards[1];
+        if (a._cd.pair === b._cd.pair){
+          a.classList.add('matched'); b.classList.add('matched'); a._matched = true; b._matched = true; a._up = false; b._up = false;
+          matchedCount++; answers['mem-' + a._cd.pair] = { matched: true };
+          upCards = []; refreshScore();
+          if (matchedCount === pairs.length) doneEl.style.display = 'block';
+        } else {
+          lock = true;
+          setTimeout(function(){ a.classList.remove('up'); b.classList.remove('up'); a._up = false; b._up = false; upCards = []; lock = false; }, 850);
+        }
+      }
+    });
+    grid.appendChild(el);
+  });
+  wrap.appendChild(grid); wrap.appendChild(doneEl);
+  state.score = function(){ return { correct: matchedCount, total: pairs.length }; };
+  state.detail = function(){ return pairs.map(function(p, i){ var a = answers['mem-' + i]; return { key: 'mem-' + i, questionText: _lpPairFront(p), answer: _lpPairBack(p), isCorrect: !!(a && a.matched) }; }); };
+  return wrap;
+}
+
+function _lpReviewFlashcard(content, saved){
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions || 'Revisión de tus respuestas.'; wrap.appendChild(instr);
+  (content.pairs || content.cards || []).forEach(function(p, i){
+    var sv = saved[i] || {};
+    var row = document.createElement('div'); row.className = 'lp-sentence'; row.style.cssText = 'display:flex;gap:8px;align-items:baseline;flex-wrap:wrap';
+    var l = document.createElement('span'); l.style.fontWeight = '600'; l.textContent = _lpPairFront(p);
+    var ar = document.createElement('span'); ar.style.color = 'var(--muted)'; ar.textContent = '->';
+    var r = document.createElement('span'); r.textContent = _lpPairBack(p);
+    var tag = document.createElement('span'); tag.style.cssText = 'font-size:11px;font-weight:600;margin-left:6px;color:' + (sv.isCorrect ? 'var(--green)' : 'var(--muted)'); tag.textContent = sv.isCorrect ? 'Lo sabía' : (sv.isCorrect === false ? 'No lo sabía' : '');
+    row.appendChild(l); row.appendChild(ar); row.appendChild(r); row.appendChild(tag);
+    wrap.appendChild(row);
   });
   return wrap;
 }
-function _lpEdit(content, activity, type){
-  if (type === 'mc' || type === 'reading') return _lpEditMC(content, activity);
-  if (type === 'match') return _lpEditMatch(content);
-  if (type === 'mixed') return _lpEditMixed(content, activity);
-  if (type === 'audio') return _lpEditAudio(content, activity);
-  return _lpEditFillBlank(content);
+function _lpReviewMemory(content, saved){
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions || 'Revisión de tus respuestas.'; wrap.appendChild(instr);
+  (content.pairs || []).forEach(function(p, i){
+    var sv = saved[i] || {};
+    var row = document.createElement('div'); row.className = 'lp-sentence'; row.style.cssText = 'display:flex;gap:8px;align-items:baseline';
+    var l = document.createElement('span'); l.style.fontWeight = '600'; l.textContent = _lpPairFront(p);
+    var ar = document.createElement('span'); ar.style.color = 'var(--muted)'; ar.textContent = '->';
+    var r = document.createElement('span'); r.style.color = sv.isCorrect ? 'var(--green)' : 'var(--red)'; r.textContent = _lpPairBack(p);
+    row.appendChild(l); row.appendChild(ar); row.appendChild(r);
+    wrap.appendChild(row);
+  });
+  return wrap;
 }
+
+LegoTask.flashcard = function(c, ctx){
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewFlashcard(c, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpEditMatch(c._srcObj || c), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpFlashcard(c, st, ctx.onChange);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
+};
+LegoTask.memory = function(c, ctx){
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewMemory(c, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpEditMatch(c._srcObj || c), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpMemory(c, st, ctx.onChange);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
+};
