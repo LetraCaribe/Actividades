@@ -1121,6 +1121,64 @@ function LegoSelect(opts) {
 // Estado vacío sellado: devuelve un nodo .empty. El icono es slot opcional (colapsa si falta).
 //   LegoEmpty({ text: 'No hay nada.' })
 //   LegoEmpty({ icon: '📚', text: 'No hay actividades aún.' })
+function LegoTable(opts) {
+  opts = opts || {};
+  if (!document.getElementById('lego-table-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-table-styles';
+    st.textContent = '.lego-table-wrap{border:1px solid var(--border);border-radius:var(--r);overflow:auto;background:var(--white)}.lego-table{width:100%;border-collapse:collapse}.lego-table th{padding:8px 10px;background:var(--sand);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;white-space:nowrap}.lego-table td{padding:8px 10px;font-size:13px;line-height:1.35;color:var(--ink);vertical-align:top;border-bottom:1px solid var(--border)}.lego-table tr:last-child td{border-bottom:none}.lego-table-empty{text-align:center;color:var(--muted);font-size:13px;padding:18px!important}';
+    document.head.appendChild(st);
+  }
+  var columns = opts.columns || [];
+  var rows = opts.rows || [];
+  var wrap = document.createElement('div');
+  wrap.className = 'lego-table-wrap';
+  if (opts.className) wrap.className += ' ' + opts.className;
+  if (opts.style) wrap.style.cssText = opts.style;
+  var table = document.createElement('table');
+  table.className = 'lego-table';
+  if (opts.minWidth) table.style.minWidth = typeof opts.minWidth === 'number' ? opts.minWidth + 'px' : String(opts.minWidth);
+  var thead = document.createElement('thead');
+  var hr = document.createElement('tr');
+  columns.forEach(function(col) {
+    var th = document.createElement('th');
+    th.textContent = col.label || '';
+    if (col.width) th.style.width = typeof col.width === 'number' ? col.width + 'px' : String(col.width);
+    if (col.headerStyle) th.style.cssText += ';' + col.headerStyle;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+  var tbody = document.createElement('tbody');
+  if (!rows.length) {
+    var emptyTr = document.createElement('tr');
+    var emptyTd = document.createElement('td');
+    emptyTd.className = 'lego-table-empty';
+    emptyTd.colSpan = Math.max(columns.length, 1);
+    emptyTd.textContent = opts.emptyText || 'Sin resultados.';
+    emptyTr.appendChild(emptyTd);
+    tbody.appendChild(emptyTr);
+  } else {
+    rows.forEach(function(row, rowIndex) {
+      var tr = document.createElement('tr');
+      columns.forEach(function(col) {
+        var td = document.createElement('td');
+        if (col.width) td.style.width = typeof col.width === 'number' ? col.width + 'px' : String(col.width);
+        if (col.cellStyle) td.style.cssText += ';' + col.cellStyle;
+        var value = typeof col.render === 'function' ? col.render(row, rowIndex) : row[col.key];
+        if (value instanceof HTMLElement) td.appendChild(value);
+        else if (value !== undefined && value !== null) td.textContent = String(value);
+        if (typeof col.onClick === 'function') td.onclick = function(e){ col.onClick(row, rowIndex, e); };
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
 function LegoEmpty(opts) {
   opts = opts || {};
   if (typeof opts === 'string') opts = { text: opts };
@@ -1533,7 +1591,7 @@ function _lpOrder(content, state, refreshScore) {
   });
   wrap.appendChild(bankLabel); wrap.appendChild(bank); wrap.appendChild(slotsLabel); wrap.appendChild(slotsWrap);
   state.score = function(){ var t = events.length, c = 0; for (var i = 0; i < events.length; i++) { var a = answers['order-'+i]; if (a && a.correct) c++; } return { correct: c, total: t }; };
-  state.detail = function(){ return events.map(function(ev, i){ var a = answers['order-'+i] || {}; return { key:'order-'+i, questionText: 'Posicion ' + (i+1), answer: a.answer || '', isCorrect: a.correct === undefined ? false : a.correct }; }); };
+  state.detail = function(){ return events.map(function(ev, i){ var a = answers['order-'+i] || {}; return { key:'order-'+i, questionText: 'Posición ' + (i+1), answer: a.answer || '', isCorrect: a.correct === undefined ? false : a.correct }; }); };
   return wrap;
 }
 
@@ -2341,6 +2399,7 @@ LegoTask.match = function(c, ctx){
 
 function _lpCompose(activity, content, opts){
   opts = opts || {};
+  if (opts.fcMode && content.task === 'flashcard') content.mode = opts.fcMode;
   var rawMode = opts.mode || 'play';
   var mode = (rawMode === 'review' || rawMode === 'edit') ? rawMode : 'play';
   var feedback = opts.feedback !== false;
@@ -2579,7 +2638,7 @@ function _lpFlashcardStyles(){
   st.textContent = '.lp-fc{display:flex;flex-direction:column;align-items:center;gap:14px}.lp-fc-prog{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.lp-fc-card{width:100%;max-width:340px;min-height:150px;border:1.5px solid var(--border);border-radius:14px;background:var(--white);display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:20px;cursor:pointer;user-select:none;box-shadow:0 4px 14px rgba(0,0,0,.06)}.lp-fc-card.back{background:var(--sand);font-size:18px}.lp-fc-hint{font-size:11px;color:var(--muted);min-height:14px}.lp-fc-rate{display:flex;gap:10px}.lp-fc-btn{padding:9px 18px;border-radius:10px;border:1px solid var(--border);background:var(--white);font:inherit;font-size:14px;cursor:pointer}.lp-fc-btn.know{border-color:var(--green);color:var(--green)}.lp-fc-btn.dunno{border-color:var(--red);color:var(--red)}.lp-fc-done{font-size:16px;color:var(--ink);text-align:center}';
   document.head.appendChild(st);
 }
-function _lpFlashcard(content, state, refreshScore){
+function _lpFlashcard(content, state, refreshScore){ if ((content.mode || 'flip') === 'write') return _lpFlashcardWrite(content, state, refreshScore);
   _lpFlashcardStyles();
   var answers = state.answers;
   var pairs = content.pairs || content.cards || [];
@@ -2612,7 +2671,7 @@ function _lpFlashcard(content, state, refreshScore){
     if (idx >= pairs.length || flipped) return;
     flipped = true;
     card.className = 'lp-fc-card back'; card.textContent = _lpPairBack(pairs[idx]);
-    hint.textContent = 'La sabías?';
+    hint.textContent = '¿La sabías?';
     rate.style.display = 'flex';
   });
   function rateCard(known){
@@ -2632,7 +2691,7 @@ function _lpFlashcard(content, state, refreshScore){
 function _lpMemoryStyles(){
   if (document.getElementById('lego-mem-styles')) return;
   var st = document.createElement('style'); st.id = 'lego-mem-styles';
-  st.textContent = '.lp-mem-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}.lp-mem-card{aspect-ratio:3/2;min-height:54px;border:1.5px solid var(--border);border-radius:10px;background:var(--coral);color:transparent;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;font-size:13px;line-height:1.2;cursor:pointer;user-select:none;overflow:hidden}.lp-mem-card.up{background:var(--white);color:var(--ink)}.lp-mem-card.matched{background:var(--green-lt);border-color:var(--green);color:var(--green);cursor:default}.lp-mem-done{font-size:14px;font-weight:700;color:var(--green);text-align:center;margin-top:12px}';
+  st.textContent = '.lp-mem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:560px;margin:0 auto}.lp-mem-card{aspect-ratio:1;border:1.5px solid var(--border);border-radius:12px;background:var(--coral);display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;font-size:15px;line-height:1.2;cursor:pointer;user-select:none;overflow:hidden;overflow-wrap:anywhere}.lp-mem-back{font-size:28px;font-weight:800;color:rgba(255,255,255,.8)}.lp-mem-face{display:none;color:var(--ink);font-weight:600}.lp-mem-card.up{background:var(--white)}.lp-mem-card.up .lp-mem-face,.lp-mem-card.matched .lp-mem-face{display:block}.lp-mem-card.up .lp-mem-back,.lp-mem-card.matched .lp-mem-back{display:none}.lp-mem-card.matched{background:var(--green-lt);border-color:var(--green);color:var(--green);cursor:default}.lp-mem-card.matched .lp-mem-face{color:var(--green)}.lp-mem-done{font-size:14px;font-weight:700;color:var(--green);text-align:center;margin-top:12px}@media (max-width:520px){.lp-mem-grid{grid-template-columns:repeat(3,1fr)}}';
   document.head.appendChild(st);
 }
 function _lpMemory(content, state, refreshScore){
@@ -2648,7 +2707,7 @@ function _lpMemory(content, state, refreshScore){
   var doneEl = document.createElement('div'); doneEl.className = 'lp-mem-done'; doneEl.style.display = 'none'; doneEl.textContent = 'Todas emparejadas.';
   var upCards = [], matchedCount = 0, lock = false;
   cards.forEach(function(cd){
-    var el = document.createElement('div'); el.className = 'lp-mem-card'; el.textContent = cd.text;
+    var el = document.createElement('div'); el.className = 'lp-mem-card'; var _bk = document.createElement('span'); _bk.className = 'lp-mem-back'; _bk.textContent = '?'; var _fc = document.createElement('span'); _fc.className = 'lp-mem-face'; _fc.textContent = cd.text; el.appendChild(_bk); el.appendChild(_fc);
     el._cd = cd; el._matched = false; el._up = false;
     el.addEventListener('click', function(){
       if (lock || el._up || el._matched) return;
@@ -2684,7 +2743,7 @@ function _lpReviewFlashcard(content, saved){
     var l = document.createElement('span'); l.style.fontWeight = '600'; l.textContent = _lpPairFront(p);
     var ar = document.createElement('span'); ar.style.color = 'var(--muted)'; ar.textContent = '->';
     var r = document.createElement('span'); r.textContent = _lpPairBack(p);
-    var tag = document.createElement('span'); tag.style.cssText = 'font-size:11px;font-weight:600;margin-left:6px;color:' + (sv.isCorrect ? 'var(--green)' : 'var(--muted)'); tag.textContent = sv.isCorrect ? 'Lo sabía' : (sv.isCorrect === false ? 'No lo sabía' : '');
+    var tag = document.createElement('span'); tag.style.cssText = 'font-size:12px;font-weight:600;margin-left:6px;color:' + (sv.isCorrect ? 'var(--green)' : 'var(--red)'); tag.textContent = sv.answer ? ('· ' + sv.answer) : '';
     row.appendChild(l); row.appendChild(ar); row.appendChild(r); row.appendChild(tag);
     wrap.appendChild(row);
   });
@@ -2720,3 +2779,64 @@ LegoTask.memory = function(c, ctx){
   var el = _lpMemory(c, st, ctx.onChange);
   return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
 };
+
+
+// -- flashcard modo ESCRIBIR (recuerdo activo, calificacion real) -----------
+// content.mode === 'write' -> el estudiante teclea el significado; se compara
+// tolerante a tildes/mayusculas (mismo norm que fill-blank). isCorrect objetivo.
+function _lpFlashcardWriteStyles(){
+  if (document.getElementById('lego-fcw-styles')) return;
+  var st = document.createElement('style'); st.id = 'lego-fcw-styles';
+  st.textContent = '.lp-fcw{display:flex;flex-direction:column;align-items:center;gap:14px}.lp-fcw-prog{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.lp-fcw-term{width:100%;max-width:360px;min-height:90px;border:1.5px solid var(--border);border-radius:14px;background:var(--sand);display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;font-size:22px;font-weight:600;color:var(--ink)}.lp-fcw-in{width:100%;max-width:360px;border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font:inherit;font-size:16px;text-align:center;outline:none}.lp-fcw-in.correct{border-color:var(--green);color:var(--green)}.lp-fcw-in.wrong{border-color:var(--red);color:var(--red)}.lp-fcw-fb{font-size:13px;min-height:18px;text-align:center}.lp-fcw-btn{padding:9px 20px;border-radius:10px;border:none;background:var(--coral);color:#fff;font:inherit;font-size:14px;cursor:pointer}';
+  document.head.appendChild(st);
+}
+function _lpFlashcardWrite(content, state, refreshScore){
+  _lpFlashcardWriteStyles();
+  var answers = state.answers;
+  var pairs = content.pairs || content.cards || [];
+  function norm(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
+  var wrap = document.createElement('div'); wrap.className = 'lp-fcw';
+  if (content.instructions){ var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions; wrap.appendChild(instr); }
+  var prog = document.createElement('div'); prog.className = 'lp-fcw-prog';
+  var term = document.createElement('div'); term.className = 'lp-fcw-term';
+  var input = document.createElement('input'); input.className = 'lp-fcw-in';
+  input.setAttribute('autocomplete', 'off'); input.setAttribute('autocorrect', 'off'); input.spellcheck = false;
+  input.placeholder = 'Escribe el significado';
+  var fb = document.createElement('div'); fb.className = 'lp-fcw-fb';
+  var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lp-fcw-btn'; btn.textContent = 'Comprobar';
+  var idx = 0, checked = false;
+  function draw(){
+    if (idx >= pairs.length){
+      prog.textContent = pairs.length + ' / ' + pairs.length;
+      term.textContent = 'Terminaste.'; input.style.display = 'none'; btn.style.display = 'none'; fb.textContent = '';
+      return;
+    }
+    checked = false;
+    prog.textContent = (idx + 1) + ' / ' + pairs.length;
+    term.textContent = _lpPairFront(pairs[idx]);
+    input.value = ''; input.className = 'lp-fcw-in'; input.disabled = false; input.style.display = 'block';
+    fb.textContent = ''; btn.textContent = 'Comprobar'; btn.style.display = 'inline-block';
+    setTimeout(function(){ try { input.focus(); } catch(e){} }, 0);
+  }
+  function check(){
+    if (idx >= pairs.length) return;
+    if (!checked){
+      var correct = _lpPairBack(pairs[idx]);
+      var ok = norm(input.value) !== '' && norm(input.value) === norm(correct);
+      answers['fc-' + idx] = { answer: input.value.trim(), correct: ok };
+      input.className = 'lp-fcw-in ' + (ok ? 'correct' : 'wrong'); input.disabled = true;
+      fb.style.color = ok ? 'var(--green)' : 'var(--red)';
+      fb.textContent = ok ? 'Correcto' : ('Respuesta: ' + correct);
+      checked = true; btn.textContent = 'Siguiente'; refreshScore();
+    } else {
+      idx++; draw();
+    }
+  }
+  btn.onclick = check;
+  input.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); check(); } });
+  wrap.appendChild(prog); wrap.appendChild(term); wrap.appendChild(input); wrap.appendChild(fb); wrap.appendChild(btn);
+  draw();
+  state.score = function(){ var c = 0, t = pairs.length; for (var i = 0; i < pairs.length; i++){ var a = answers['fc-' + i]; if (a && a.correct) c++; } return { correct: c, total: t }; };
+  state.detail = function(){ return pairs.map(function(p, i){ var a = answers['fc-' + i] || {}; return { key: 'fc-' + i, questionText: _lpPairFront(p), answer: a.answer || '(sin responder)', isCorrect: a.correct === undefined ? false : !!a.correct }; }); };
+  return wrap;
+}
