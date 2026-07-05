@@ -252,6 +252,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
       <button class="snav-item active" id="snav-dashboard" type="button" onclick="showTab('dashboard')"><span class="sni">🏠</span> Inicio</button>
       <button class="snav-item" id="snav-actividades" type="button" onclick="showTab('actividades')"><span class="sni">📝</span> Actividades</button>
       <button class="snav-item" id="snav-biblioteca" type="button" onclick="showTab('biblioteca')"><span class="sni">📚</span> Biblioteca</button>
+      <button class="snav-item" id="snav-vocabulario" type="button" onclick="showTab('vocabulario')"><span class="sni">📖</span> Vocabulario</button>
       <button class="snav-item" id="snav-puntajes" type="button" onclick="showTab('puntajes')"><span class="sni">🏆</span> Puntajes</button>
       <button class="snav-item" id="snav-perfil" type="button" onclick="showTab('perfil')"><span class="sni">👤</span> Perfil</button>
     </nav>
@@ -284,6 +285,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
         <div class="section-head"><div class="section-title">Biblioteca</div></div>
         <div id="library-filters"></div>
         <div id="library-mount"></div>
+      </section>
+
+      <!-- VOCABULARIO -->
+      <section class="tab-panel" id="tab-vocabulario">
+        <div class="section-head"><div class="section-title">Vocabulario</div></div>
+        <div id="vocab-mount"></div>
       </section>
 
       <!-- PUNTAJES -->
@@ -348,6 +355,7 @@ let currentUser = null;
 let currentProfile = null;
 let allAssignments = [];
 let allCredits = [], allSessions = [];
+let allVocabulary = [];
 let resultsAsgnId = null;
 let authRecoveryMode = false;
 
@@ -550,8 +558,9 @@ async function showPlatform(){
   $('wb-greeting').textContent = '¡Hola, ' + name.split(/\s+/)[0] + '!';
   $('wb-sub').textContent = g.sub;
   // cargar datos en paralelo
-  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary(), loadClasses() ]);
+  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary(), loadClasses(), loadVocabulary() ]);
   renderDashClasses();
+  renderVocabulary();
   renderProfile();
 }
 
@@ -850,6 +859,295 @@ function openLibraryViewer(item){
   LegoLibraryViewer(item);
 }
 
+// ── vocabulario ──
+function vocabKey(term){
+  return String(term || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s'-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function vocabEntryTypeLabel(type){
+  return type === 'expression' ? 'Expresión' : 'Palabra';
+}
+function vocabSourceLabel(source){
+  if (source === 'teacher') return 'Profesor';
+  if (source === 'selection') return 'Selección';
+  if (source === 'import') return 'Importado';
+  return 'Estudiante';
+}
+async function loadVocabulary(){
+  if (!currentUser) return;
+  try {
+    const { data, error } = await db.from('student_vocabulary').select('*').eq('student_id', currentUser.id).order('created_at', { ascending: false });
+    if (error) throw error;
+    allVocabulary = data || [];
+  } catch(e) {
+    console.error('loadVocabulary', e);
+    allVocabulary = [];
+  }
+}
+function vocabInput(labelTxt, input){
+  const lab = mk('label');
+  lab.style.cssText = 'display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--ink-soft)';
+  lab.appendChild(mk('span', null, labelTxt));
+  lab.appendChild(input);
+  return lab;
+}
+function vocabField(tag, value, placeholder){
+  const el = mk(tag);
+  el.className = tag === 'textarea' ? 'results-note' : 'fi';
+  el.value = value || '';
+  el.placeholder = placeholder || '';
+  if (tag === 'textarea') {
+    el.rows = 2;
+    el.style.minHeight = '70px';
+  }
+  return el;
+}
+async function saveVocabularyEntry(existing, termEl, meaningEl, typeEl){
+  const term = termEl.value.trim();
+  const meaning = meaningEl.value.trim();
+  const entryType = typeEl.value || 'word';
+  const termKey = vocabKey(term);
+  const meaningKey = vocabKey(meaning);
+  if (!term || !meaning) { showToast('Escribe palabra y significado.'); return; }
+  if (!termKey) { showToast('La palabra necesita letras o números.'); return; }
+  const duplicate = allVocabulary.find(function(v){
+    if (String(v.id) === String(existing && existing.id)) return false;
+    const savedTerm = String(v.term_key || vocabKey(v.term));
+    const savedMeaning = vocabKey(v.meaning);
+    return savedTerm === termKey || savedTerm === meaningKey || savedMeaning === termKey || savedMeaning === meaningKey;
+  });
+  if (duplicate) { showToast('Esta palabra ya existe.'); openVocabularyModal(duplicate); return; }
+  const payload = {
+    student_id: currentUser.id,
+    term: term,
+    term_key: termKey,
+    meaning: meaning,
+    entry_type: entryType,
+    source: existing ? (existing.source || 'student') : 'student',
+    updated_at: new Date().toISOString()
+  };
+  try {
+    const q = existing
+      ? db.from('student_vocabulary').update(payload).eq('id', existing.id).eq('student_id', currentUser.id)
+      : db.from('student_vocabulary').insert(payload);
+    const { error } = await q;
+    if (error) throw error;
+    showToast(existing ? 'Vocabulario actualizado.' : 'Entrada añadida.');
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    await loadVocabulary();
+    renderVocabulary();
+  } catch(e) {
+    console.error('saveVocabularyEntry', e);
+    showToast('No se guardó: ' + (e && e.message ? e.message : e));
+  }
+}
+async function deleteVocabularyEntry(entry){
+  if (!entry || !entry.id) return;
+  try {
+    const { error } = await db.from('student_vocabulary').delete().eq('id', entry.id).eq('student_id', currentUser.id);
+    if (error) throw error;
+    showToast('Entrada eliminada.');
+    await loadVocabulary();
+    renderVocabulary();
+  } catch(e) {
+    console.error('deleteVocabularyEntry', e);
+    showToast('No se eliminó: ' + (e && e.message ? e.message : e));
+  }
+}
+function vocabularyForm(existing, onCancel){
+  const box = mk('div');
+  box.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px';
+  const grid = mk('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
+  const term = vocabField('input', existing && existing.term, 'ej. actually');
+  const meaning = vocabField('input', existing && existing.meaning, 'ej. en realidad');
+  const type = mk('select');
+  type.className = 'fs';
+  [['word', 'Palabra'], ['expression', 'Expresión']].forEach(function(pair){
+    const op = mk('option', null, pair[1]);
+    op.value = pair[0];
+    if ((existing && existing.entry_type) === pair[0]) op.selected = true;
+    type.appendChild(op);
+  });
+  grid.appendChild(vocabInput('Palabra o expresión', term));
+  grid.appendChild(vocabInput('Significado', meaning));
+  grid.appendChild(vocabInput('Tipo', type));
+  const actions = mk('div');
+  actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px';
+  const save = mk('button', 'btn btn-coral btn-sm', existing ? 'Guardar cambios' : 'Añadir');
+  save.type = 'button';
+  save.onclick = function(){ saveVocabularyEntry(existing, term, meaning, type); };
+  actions.appendChild(save);
+  if (existing) {
+    const cancel = mk('button', 'btn btn-outline btn-sm', 'Cancelar');
+    cancel.type = 'button';
+    cancel.onclick = onCancel;
+    actions.appendChild(cancel);
+  }
+  box.appendChild(grid);
+  box.appendChild(actions);
+  return box;
+}
+function openVocabularyModal(existing){
+  const cancel = mk('button', 'btn btn-outline btn-sm', 'Cancelar');
+  cancel.type = 'button';
+  cancel.onclick = function(){ LegoModal.close(); };
+  const form = vocabularyForm(existing, function(){ LegoModal.close(); });
+  LegoModal({ M1: existing ? 'Editar vocabulario' : 'Añadir vocabulario', M3: form, M5: cancel });
+}
+function vocabMatchesLetter(entry, letter){
+  if (!letter) return true;
+  const l = String(letter).toLowerCase();
+  return vocabKey(entry.term).indexOf(l) === 0 || vocabKey(entry.meaning).indexOf(l) === 0;
+}
+function vocabMatchesQuery(entry, q){
+  if (!q) return true;
+  const hay = [entry.term, entry.meaning, vocabEntryTypeLabel(entry.entry_type), vocabSourceLabel(entry.source)].join(' ');
+  return vocabKey(hay).indexOf(vocabKey(q)) !== -1;
+}
+function vocabMatchesType(entry, type){
+  if (!type) return true;
+  if (type === 'word') return entry.entry_type !== 'expression';
+  return entry.entry_type === type;
+}
+function appendVocabularyEntryCells(tr, entry){
+  function td(css){
+    const cell = mk('td');
+    cell.style.cssText = 'padding:8px 10px;font-size:13px;line-height:1.35;color:var(--ink);vertical-align:top;' + (css || '');
+    return cell;
+  }
+  if (!entry) {
+    tr.appendChild(td('width:22%;background:var(--bg)'));
+    tr.appendChild(td('width:28%;background:var(--bg)'));
+    return;
+  }
+  const termCell = td('font-weight:700;width:22%;cursor:pointer');
+  termCell.textContent = entry.term || '';
+  termCell.onclick = function(){ openVocabularyModal(entry); };
+  const meaningCell = td('width:28%;cursor:pointer');
+  const meaning = mk('span');
+  meaning.textContent = entry.meaning || '';
+  const del = mk('button', 'btn btn-sm');
+  del.type = 'button';
+  del.setAttribute('aria-label', 'Eliminar entrada');
+  del.style.cssText = 'float:right;margin-left:8px;background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;padding:4px 7px';
+  del.replaceChildren(LegoIcon('ti-trash', { size: 13 }));
+  del.onclick = function(e){ e.stopPropagation(); deleteVocabularyEntry(entry); };
+  meaningCell.onclick = function(){ openVocabularyModal(entry); };
+  meaningCell.replaceChildren(meaning, del);
+  tr.appendChild(termCell);
+  tr.appendChild(meaningCell);
+}
+function vocabularyTableRow(left, right){
+  const tr = mk('tr');
+  tr.style.cssText = 'border-bottom:1px solid var(--border)';
+  appendVocabularyEntryCells(tr, left);
+  appendVocabularyEntryCells(tr, right);
+  return tr;
+}
+function renderVocabulary(){
+  const mount = $('vocab-mount');
+  if (!mount) return;
+  const frag = document.createDocumentFragment();
+  const state = { letter: '', type: '', q: '' };
+  const top = mk('div');
+  top.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px';
+  const count = mk('div');
+  count.style.cssText = 'font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em';
+  const add = mk('button', 'btn btn-coral btn-sm', 'Añadir');
+  add.type = 'button';
+  add.onclick = function(){ openVocabularyModal(null); };
+  top.appendChild(count);
+  top.appendChild(add);
+  frag.appendChild(top);
+
+  const controls = mk('div');
+  controls.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0';
+  const search = mk('input', 'fi');
+  search.placeholder = 'Buscar palabra o significado...';
+  search.style.cssText = 'flex:1;min-width:220px';
+  controls.appendChild(search);
+  const typeSel = mk('select', 'fs');
+  [['', 'Todas'], ['word', 'Palabras'], ['expression', 'Expresiones']].forEach(function(pair){
+    const op = mk('option', null, pair[1]);
+    op.value = pair[0];
+    typeSel.appendChild(op);
+  });
+  controls.appendChild(typeSel);
+  frag.appendChild(controls);
+
+  const letters = mk('div');
+  letters.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px';
+  const letterBtns = [];
+  function letterButton(label, value){
+    const b = mk('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.style.cssText = 'min-width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--white);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit';
+    b.onclick = function(){ state.letter = value; renderList(); };
+    letterBtns.push({ value: value, node: b });
+    letters.appendChild(b);
+  }
+  letterButton('Todos', '');
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch){ letterButton(ch, ch); });
+  frag.appendChild(letters);
+
+  const tableWrap = mk('div');
+  tableWrap.style.cssText = 'border:1.5px solid var(--border);border-radius:var(--r);overflow:auto;background:var(--white)';
+  const table = mk('table');
+  table.style.cssText = 'width:100%;min-width:760px;border-collapse:collapse';
+  const thead = mk('thead');
+  const hr = mk('tr');
+  ['Palabra', 'Significado', 'Palabra', 'Significado'].forEach(function(h){
+    const th = mk('th');
+    th.style.cssText = 'padding:8px 10px;background:var(--sand);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left';
+    th.textContent = h;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  const tbody = mk('tbody');
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  frag.appendChild(tableWrap);
+
+  search.addEventListener('input', function(){ state.q = search.value; renderList(); });
+  typeSel.addEventListener('change', function(){ state.type = typeSel.value; renderList(); });
+
+  function renderList(){
+    letterBtns.forEach(function(item){
+      const on = item.value === state.letter;
+      item.node.style.background = on ? 'var(--coral)' : 'var(--white)';
+      item.node.style.borderColor = on ? 'var(--coral)' : 'var(--border)';
+      item.node.style.color = on ? '#fff' : 'var(--muted)';
+    });
+    const filtered = allVocabulary.filter(function(entry){
+      return vocabMatchesLetter(entry, state.letter) && vocabMatchesType(entry, state.type) && vocabMatchesQuery(entry, state.q);
+    }).sort(function(a, b){
+      return String(a.term || '').localeCompare(String(b.term || ''), 'es', { sensitivity: 'base' });
+    });
+    count.textContent = filtered.length + ' de ' + allVocabulary.length + ' entradas';
+    tbody.replaceChildren();
+    if (!filtered.length) {
+      const tr = mk('tr');
+      const td = mk('td');
+      td.colSpan = 4;
+      td.style.cssText = 'padding:18px;text-align:center;color:var(--muted);font-size:13px';
+      td.textContent = allVocabulary.length ? 'Sin resultados para este filtro.' : 'Aún no tienes vocabulario guardado.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    for (let i = 0; i < filtered.length; i += 2) tbody.appendChild(vocabularyTableRow(filtered[i], filtered[i + 1]));
+  }
+  renderList();
+  mount.replaceChildren(frag);
+}
 // ── profile ──
 async function loadClasses(){
   if (!currentUser) return;
