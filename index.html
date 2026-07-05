@@ -966,13 +966,13 @@ function vocabularyForm(existing, onCancel){
   grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
   const term = vocabField('input', existing && existing.term, 'ej. actually');
   const meaning = vocabField('input', existing && existing.meaning, 'ej. en realidad');
-  const type = mk('select');
-  type.className = 'fs';
-  [['word', 'Palabra'], ['expression', 'Expresión']].forEach(function(pair){
-    const op = mk('option', null, pair[1]);
-    op.value = pair[0];
-    if ((existing && existing.entry_type) === pair[0]) op.selected = true;
-    type.appendChild(op);
+  const type = LegoSelect({
+    className: 'fs',
+    value: (existing && existing.entry_type) || 'word',
+    options: [
+      { value: 'word', label: 'Palabra' },
+      { value: 'expression', label: 'Expresión' }
+    ]
   });
   grid.appendChild(vocabInput('Palabra o expresión', term));
   grid.appendChild(vocabInput('Significado', meaning));
@@ -1002,6 +1002,11 @@ function openVocabularyModal(existing){
 }
 function vocabMatchesLetter(entry, letter){
   if (!letter) return true;
+  if (letter === '#') {
+    const termFirst = String(entry.term || '').trim().charAt(0);
+    const meaningFirst = String(entry.meaning || '').trim().charAt(0);
+    return /\d/.test(termFirst) || /\d/.test(meaningFirst);
+  }
   const l = String(letter).toLowerCase();
   return vocabKey(entry.term).indexOf(l) === 0 || vocabKey(entry.meaning).indexOf(l) === 0;
 }
@@ -1015,21 +1020,23 @@ function vocabMatchesType(entry, type){
   if (type === 'word') return entry.entry_type !== 'expression';
   return entry.entry_type === type;
 }
-function appendVocabularyEntryCells(tr, entry){
-  function td(css){
-    const cell = mk('td');
-    cell.style.cssText = 'padding:8px 10px;font-size:13px;line-height:1.35;color:var(--ink);vertical-align:top;' + (css || '');
-    return cell;
-  }
-  if (!entry) {
-    tr.appendChild(td('width:22%;background:var(--bg)'));
-    tr.appendChild(td('width:28%;background:var(--bg)'));
-    return;
-  }
-  const termCell = td('font-weight:700;width:22%;cursor:pointer');
-  termCell.textContent = entry.term || '';
-  termCell.onclick = function(){ openVocabularyModal(entry); };
-  const meaningCell = td('width:28%;cursor:pointer');
+function vocabularyTablePairs(entries){
+  const pairs = [];
+  for (let i = 0; i < entries.length; i += 2) pairs.push({ left: entries[i], right: entries[i + 1] || null });
+  return pairs;
+}
+function vocabularyTermCell(entry){
+  const wrap = mk('span');
+  if (!entry) return wrap;
+  wrap.style.cssText = 'font-weight:700;cursor:pointer';
+  wrap.textContent = entry.term || '';
+  wrap.onclick = function(){ openVocabularyModal(entry); };
+  return wrap;
+}
+function vocabularyMeaningCell(entry){
+  const wrap = mk('span');
+  if (!entry) return wrap;
+  wrap.style.cssText = 'display:block;cursor:pointer;min-height:18px';
   const meaning = mk('span');
   meaning.textContent = entry.meaning || '';
   const del = mk('button', 'btn btn-sm');
@@ -1038,23 +1045,87 @@ function appendVocabularyEntryCells(tr, entry){
   del.style.cssText = 'float:right;margin-left:8px;background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;padding:4px 7px';
   del.replaceChildren(LegoIcon('ti-trash', { size: 13 }));
   del.onclick = function(e){ e.stopPropagation(); deleteVocabularyEntry(entry); };
-  meaningCell.onclick = function(){ openVocabularyModal(entry); };
-  meaningCell.replaceChildren(meaning, del);
-  tr.appendChild(termCell);
-  tr.appendChild(meaningCell);
+  wrap.onclick = function(){ openVocabularyModal(entry); };
+  wrap.replaceChildren(meaning, del);
+  return wrap;
 }
-function vocabularyTableRow(left, right){
-  const tr = mk('tr');
-  tr.style.cssText = 'border-bottom:1px solid var(--border)';
-  appendVocabularyEntryCells(tr, left);
-  appendVocabularyEntryCells(tr, right);
-  return tr;
+function vocabularyPracticePairs(entries, limit){
+  return entries.filter(function(entry){
+    return (entry.term || '').trim() && (entry.meaning || '').trim();
+  }).sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10).map(function(entry){
+    return { left: entry.term, right: entry.meaning };
+  });
+}
+function vocabularyPracticeType(kind, flashMode){
+  if (kind === 'flashcard') return flashMode === 'write' ? 'flashcard_write' : 'flashcard_flip';
+  return kind;
+}
+async function recordVocabularyPractice(kind, flashMode, entryCount){
+  if (!currentUser) return;
+  try {
+    const { error } = await db.from('student_vocabulary_practice_events').insert({
+      student_id: currentUser.id,
+      practice_type: vocabularyPracticeType(kind, flashMode),
+      entry_count: entryCount || 0
+    });
+    if (error) console.warn('No se pudo contar la práctica de vocabulario:', error.message || error);
+  } catch(e) {
+    console.warn('No se pudo contar la práctica de vocabulario:', e.message || e);
+  }
+}
+function openVocabularyPractice(kind, entries, limit, flashMode){
+  const pairs = vocabularyPracticePairs(entries, limit);
+  if (!pairs.length) { showToast('Necesitas vocabulario para practicar.'); return; }
+  if ((kind === 'match' || kind === 'memory') && pairs.length < 2) { showToast('Necesitas al menos 2 entradas.'); return; }
+  const titles = { flashcard: 'Flashcards', match: 'Emparejar', memory: 'Memory' };
+  const instructions = {
+    flashcard: 'Toca cada tarjeta y marca si la recuerdas.',
+    match: 'Conecta cada palabra con su significado.',
+    memory: 'Encuentra las parejas de palabra y significado.'
+  };
+  const activity = {
+    type: kind,
+    title: titles[kind] || 'Práctica',
+    content: { version: 2, task: kind, instructions: instructions[kind] || '', pairs: pairs }
+  };
+  const mount = mk('div');
+  mount.style.cssText = 'min-height:360px;max-height:70vh;overflow:auto';
+  recordVocabularyPractice(kind, flashMode, pairs.length);
+  const player = LegoPlayer(activity, { mode: 'practice', feedback: true, fcMode: flashMode || 'flip' });
+  mount.appendChild(player);
+  const close = mk('button', 'btn btn-outline btn-sm', 'Cerrar');
+  close.type = 'button';
+  close.onclick = function(){ LegoModal.close(); };
+  LegoModal({ M1: titles[kind] || 'Práctica', M2: pairs.length + ' entradas', M3: mount, M7: close });
+}
+function vocabularyPackageName(entry){
+  const detail = String(entry && entry.source_detail || '');
+  return detail.indexOf('paquete:') === 0 ? detail.replace(/^paquete:\s*/i, '').trim() : '';
+}
+function vocabularyPackages(){
+  const map = {};
+  allVocabulary.forEach(function(entry){
+    const name = vocabularyPackageName(entry);
+    if (!name) return;
+    if (!map[name]) map[name] = [];
+    map[name].push(entry);
+  });
+  return Object.keys(map).sort(function(a, b){ return a.localeCompare(b, 'es', { sensitivity: 'base' }); }).map(function(name){
+    return { name: name, entries: map[name].sort(function(a, b){ return String(a.term || '').localeCompare(String(b.term || ''), 'es', { sensitivity: 'base' }); }) };
+  });
 }
 function renderVocabulary(){
   const mount = $('vocab-mount');
   if (!mount) return;
-  const frag = document.createDocumentFragment();
-  const state = { letter: '', type: '', q: '' };
+  if (!document.getElementById('vocab-package-layout-styles')) {
+    const st = document.createElement('style');
+    st.id = 'vocab-package-layout-styles';
+    st.textContent = '@media(max-width:720px){.vocab-package-layout{grid-template-columns:1fr!important}.vocab-package-list{max-height:220px!important}}';
+    document.head.appendChild(st);
+  }
+  const allPanel = mk('div');
+  const state = { letter: '', type: '', q: '', limit: 10, flashMode: 'flip', practice: '' };
+  let currentFiltered = [];
   const top = mk('div');
   top.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px';
   const count = mk('div');
@@ -1064,7 +1135,7 @@ function renderVocabulary(){
   add.onclick = function(){ openVocabularyModal(null); };
   top.appendChild(count);
   top.appendChild(add);
-  frag.appendChild(top);
+  allPanel.appendChild(top);
 
   const controls = mk('div');
   controls.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0';
@@ -1072,14 +1143,17 @@ function renderVocabulary(){
   search.placeholder = 'Buscar palabra o significado...';
   search.style.cssText = 'flex:1;min-width:220px';
   controls.appendChild(search);
-  const typeSel = mk('select', 'fs');
-  [['', 'Todas'], ['word', 'Palabras'], ['expression', 'Expresiones']].forEach(function(pair){
-    const op = mk('option', null, pair[1]);
-    op.value = pair[0];
-    typeSel.appendChild(op);
+  const typeSel = LegoSelect({
+    className: 'fs',
+    options: [
+      { value: '', label: 'Todas' },
+      { value: 'word', label: 'Palabras' },
+      { value: 'expression', label: 'Expresiones' }
+    ],
+    onChange: function(v){ state.type = v; renderList(); }
   });
   controls.appendChild(typeSel);
-  frag.appendChild(controls);
+  allPanel.appendChild(controls);
 
   const letters = mk('div');
   letters.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px';
@@ -1094,30 +1168,219 @@ function renderVocabulary(){
     letters.appendChild(b);
   }
   letterButton('Todos', '');
+  letterButton('0-9', '#');
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch){ letterButton(ch, ch); });
-  frag.appendChild(letters);
+  allPanel.appendChild(letters);
 
-  const tableWrap = mk('div');
-  tableWrap.style.cssText = 'border:1.5px solid var(--border);border-radius:var(--r);overflow:auto;background:var(--white)';
-  const table = mk('table');
-  table.style.cssText = 'width:100%;min-width:760px;border-collapse:collapse';
-  const thead = mk('thead');
-  const hr = mk('tr');
-  ['Palabra', 'Significado', 'Palabra', 'Significado'].forEach(function(h){
-    const th = mk('th');
-    th.style.cssText = 'padding:8px 10px;background:var(--sand);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left';
-    th.textContent = h;
-    hr.appendChild(th);
+  const practice = mk('div');
+  practice.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:10px';
+  const practiceChoices = mk('div');
+  practiceChoices.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+  const practiceControls = mk('div');
+  practiceControls.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;align-items:center';
+  const practiceButtons = [];
+  function setPracticeButtonState(){
+    practiceButtons.forEach(function(item){
+      const on = item.kind === state.practice;
+      item.node.className = on ? 'btn btn-coral btn-sm' : 'btn btn-outline btn-sm';
+    });
+  }
+  function renderPracticeControls(){
+    practiceControls.replaceChildren();
+    if (!state.practice) {
+      practiceControls.style.display = 'none';
+      setPracticeButtonState();
+      return;
+    }
+    practiceControls.style.display = 'flex';
+    const limitSel = LegoSelect({
+      className: 'fs',
+      value: String(state.limit),
+      options: [
+        { value: 5, label: '5 palabras' },
+        { value: 10, label: '10 palabras' },
+        { value: 15, label: '15 palabras' },
+        { value: 20, label: '20 palabras' }
+      ],
+      onChange: function(v){ state.limit = parseInt(v, 10) || 10; }
+    });
+    limitSel.style.width = 'auto';
+    practiceControls.appendChild(limitSel);
+    if (state.practice === 'flashcard') {
+      const flashModeSel = LegoSelect({
+        className: 'fs',
+        value: state.flashMode,
+        options: [
+          { value: 'flip', label: 'Estudiar' },
+          { value: 'write', label: 'Escribir' }
+        ],
+        onChange: function(v){ state.flashMode = v || 'flip'; }
+      });
+      flashModeSel.style.width = 'auto';
+      practiceControls.appendChild(flashModeSel);
+    }
+    const start = mk('button', 'btn btn-coral btn-sm', 'Empezar');
+    start.type = 'button';
+    start.onclick = function(){ openVocabularyPractice(state.practice, currentFiltered, state.limit, state.flashMode); };
+    practiceControls.appendChild(start);
+    setPracticeButtonState();
+  }
+  [
+    ['flashcard', 'Flashcards'],
+    ['match', 'Emparejar'],
+    ['memory', 'Memory']
+  ].forEach(function(pair){
+    const b = mk('button', 'btn btn-outline btn-sm', pair[1]);
+    b.type = 'button';
+    b.onclick = function(){ state.practice = pair[0]; renderPracticeControls(); };
+    practiceButtons.push({ kind: pair[0], node: b });
+    practiceChoices.appendChild(b);
   });
-  thead.appendChild(hr);
-  const tbody = mk('tbody');
-  table.appendChild(thead);
-  table.appendChild(tbody);
-  tableWrap.appendChild(table);
-  frag.appendChild(tableWrap);
+  practice.appendChild(practiceChoices);
+  practice.appendChild(practiceControls);
+  allPanel.appendChild(practice);
+
+  const tableMount = mk('div');
+  allPanel.appendChild(tableMount);
+
+  const packagesPanel = mk('div');
+  const packages = vocabularyPackages();
+  if (packages.length) {
+    const packageState = { packageName: packages[0].name, practice: '', limit: 10, flashMode: 'flip' };
+    let selectedPackage = packages[0];
+    const packageTop = mk('div');
+    packageTop.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px';
+    const packageCount = mk('div');
+    packageCount.style.cssText = 'font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em';
+    packageTop.appendChild(packageCount);
+    const packageChoices = mk('div');
+    packageChoices.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
+    const packageControls = mk('div');
+    packageControls.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px';
+    const packageLayout = mk('div');
+    packageLayout.className = 'vocab-package-layout';
+    packageLayout.style.cssText = 'display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:10px;align-items:start';
+    const packageGrid = mk('div');
+    packageGrid.className = 'vocab-package-list';
+    packageGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:8px;max-height:360px;overflow:auto;padding-right:2px';
+    const packagePreview = mk('div');
+    const packagePreviewTitle = mk('div');
+    packagePreviewTitle.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:8px';
+    const packagePreviewBody = mk('div');
+    packagePreviewBody.style.cssText = 'max-height:260px;overflow:auto;border-radius:var(--r)';
+    packagePreview.appendChild(packagePreviewTitle);
+    packagePreview.appendChild(packagePreviewBody);
+    const packageButtons = [];
+    function packageSelectCard(pkg){
+      const icon = mk('div');
+      icon.style.cssText = 'width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--orange-lt);color:var(--orange-dk);flex-shrink:0';
+      icon.replaceChildren(LegoIcon('ti-package', { size: 19 }));
+      const active = pkg.name === packageState.packageName;
+      const card = LegoCard({
+        L1: icon,
+        L2: pkg.name,
+        L4: LegoChip(String(pkg.entries.length) + ' entradas', { bg: 'var(--sand)', color: 'var(--ink-soft)' }),
+        onclick: function(){ packageState.packageName = pkg.name; renderPackagePracticeControls(); }
+      });
+      card.style.cursor = 'pointer';
+      card.style.borderColor = active ? 'var(--coral)' : 'var(--border)';
+      card.style.background = active ? 'var(--orange-lt)' : 'var(--white)';
+      return card;
+    }
+    function renderPackageCards(){
+      packageGrid.replaceChildren();
+      packages.forEach(function(pkg){ packageGrid.appendChild(packageSelectCard(pkg)); });
+    }
+    function renderPackagePreview(){
+      packagePreviewTitle.replaceChildren(
+        LegoIcon('ti-list-details'),
+        document.createTextNode(' ' + selectedPackage.name + ' · ' + selectedPackage.entries.length + ' entradas')
+      );
+      packagePreviewBody.replaceChildren(LegoTable({
+        minWidth: 640,
+        emptyText: 'Este paquete no tiene entradas.',
+        columns: [
+          { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.left); } },
+          { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.left); } },
+          { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.right); } },
+          { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.right); } }
+        ],
+        rows: vocabularyTablePairs(selectedPackage.entries)
+      }));
+    }
+    function setPackageButtonState(){
+      packageButtons.forEach(function(item){
+        const on = item.kind === packageState.practice;
+        item.node.className = on ? 'btn btn-coral btn-sm' : 'btn btn-outline btn-sm';
+      });
+    }
+    function renderPackagePracticeControls(){
+      selectedPackage = packages.find(function(pkg){ return pkg.name === packageState.packageName; }) || packages[0];
+      packageCount.textContent = selectedPackage.entries.length + ' entradas';
+      renderPackageCards();
+      renderPackagePreview();
+      packageControls.replaceChildren();
+      if (!packageState.practice) {
+        packageControls.style.display = 'none';
+        setPackageButtonState();
+        return;
+      }
+      packageControls.style.display = 'flex';
+      const limitSel = LegoSelect({
+        className: 'fs',
+        value: String(packageState.limit),
+        options: [
+          { value: 5, label: '5 palabras' },
+          { value: 10, label: '10 palabras' },
+          { value: 15, label: '15 palabras' },
+          { value: 20, label: '20 palabras' }
+        ],
+        onChange: function(v){ packageState.limit = parseInt(v, 10) || 10; }
+      });
+      limitSel.style.width = 'auto';
+      packageControls.appendChild(limitSel);
+      if (packageState.practice === 'flashcard') {
+        const flashModeSel = LegoSelect({
+          className: 'fs',
+          value: packageState.flashMode,
+          options: [
+            { value: 'flip', label: 'Estudiar' },
+            { value: 'write', label: 'Escribir' }
+          ],
+          onChange: function(v){ packageState.flashMode = v || 'flip'; }
+        });
+        flashModeSel.style.width = 'auto';
+        packageControls.appendChild(flashModeSel);
+      }
+      const start = mk('button', 'btn btn-coral btn-sm', 'Empezar');
+      start.type = 'button';
+      start.onclick = function(){ openVocabularyPractice(packageState.practice, selectedPackage.entries, packageState.limit, packageState.flashMode); };
+      packageControls.appendChild(start);
+      setPackageButtonState();
+    }
+    [
+      ['flashcard', 'Flashcards'],
+      ['match', 'Emparejar'],
+      ['memory', 'Memory']
+    ].forEach(function(pair){
+      const b = mk('button', 'btn btn-outline btn-sm', pair[1]);
+      b.type = 'button';
+      b.onclick = function(){ packageState.practice = pair[0]; renderPackagePracticeControls(); };
+      packageButtons.push({ kind: pair[0], node: b });
+      packageChoices.appendChild(b);
+    });
+    packagesPanel.appendChild(packageTop);
+    packagesPanel.appendChild(packageChoices);
+    packagesPanel.appendChild(packageControls);
+    packageLayout.appendChild(packageGrid);
+    packageLayout.appendChild(packagePreview);
+    packagesPanel.appendChild(packageLayout);
+    renderPackagePracticeControls();
+  } else {
+    packagesPanel.appendChild(LegoEmpty({ text: 'Aún no tienes paquetes asignados.' }));
+  }
 
   search.addEventListener('input', function(){ state.q = search.value; renderList(); });
-  typeSel.addEventListener('change', function(){ state.type = typeSel.value; renderList(); });
 
   function renderList(){
     letterBtns.forEach(function(item){
@@ -1131,22 +1394,28 @@ function renderVocabulary(){
     }).sort(function(a, b){
       return String(a.term || '').localeCompare(String(b.term || ''), 'es', { sensitivity: 'base' });
     });
+    currentFiltered = filtered;
     count.textContent = filtered.length + ' de ' + allVocabulary.length + ' entradas';
-    tbody.replaceChildren();
-    if (!filtered.length) {
-      const tr = mk('tr');
-      const td = mk('td');
-      td.colSpan = 4;
-      td.style.cssText = 'padding:18px;text-align:center;color:var(--muted);font-size:13px';
-      td.textContent = allVocabulary.length ? 'Sin resultados para este filtro.' : 'Aún no tienes vocabulario guardado.';
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-      return;
-    }
-    for (let i = 0; i < filtered.length; i += 2) tbody.appendChild(vocabularyTableRow(filtered[i], filtered[i + 1]));
+    tableMount.replaceChildren(LegoTable({
+      minWidth: 760,
+      emptyText: allVocabulary.length ? 'Sin resultados para este filtro.' : 'Aún no tienes vocabulario guardado.',
+      columns: [
+        { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.left); } },
+        { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.left); } },
+        { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.right); } },
+        { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.right); } }
+      ],
+      rows: vocabularyTablePairs(filtered)
+    }));
   }
   renderList();
-  mount.replaceChildren(frag);
+  mount.replaceChildren(LegoInnerHub({
+    tabs: [
+      { id: 'todo', label: 'Todo', content: allPanel, onShow: renderList },
+      { id: 'paquetes', label: 'Paquetes', content: packagesPanel }
+    ],
+    default: 'todo'
+  }));
 }
 // ── profile ──
 async function loadClasses(){
