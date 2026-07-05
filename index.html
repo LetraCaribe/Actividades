@@ -189,33 +189,33 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 
     <!-- form login -->
     <div id="form-login">
-      <div class="login-title">Bienvenido de vuelta</div>
+      <div class="login-title">Bienvenido</div>
       <div class="login-sub">Ingresa para ver tus actividades.</div>
       <div class="form-err" id="login-err"></div>
       <div class="fg"><label>Correo</label><input class="fi" id="login-email" type="email" autocomplete="email"></div>
       <div class="fg"><label>Contraseña</label><input class="fi" id="login-pass" type="password" autocomplete="current-password"></div>
       <button class="btn-orange" id="login-btn" type="button" onclick="doLogin()">Ingresar</button>
-      <button class="auth-link" type="button" onclick="showForgotPasswordForm()">Olvide mi contrasena</button>
+      <button class="auth-link" type="button" onclick="showForgotPasswordForm()">Olvidé mi contraseña</button>
     </div>
 
     <!-- form recuperacion -->
     <div id="form-forgot" class="hidden">
-      <div class="login-title">Recuperar contrasena</div>
-      <div class="login-sub">Escribe tu correo y te enviaremos un enlace seguro para crear una nueva contrasena.</div>
+      <div class="login-title">Recuperar contraseña</div>
+      <div class="login-sub">Escribe tu correo y te enviaremos un enlace seguro para crear una nueva contraseña.</div>
       <div class="form-err" id="reset-err"></div>
       <div class="fg"><label>Correo</label><input class="fi" id="reset-email" type="email" autocomplete="email"></div>
       <button class="btn-orange" id="reset-btn" type="button" onclick="sendPasswordReset()">Enviar enlace</button>
       <button class="auth-link" type="button" onclick="switchAuthTab('login')">Volver al ingreso</button>
     </div>
 
-    <!-- form nueva contrasena -->
+    <!-- form nueva contraseña -->
     <div id="form-reset" class="hidden">
-      <div class="login-title">Nueva contrasena</div>
-      <div class="login-sub">Crea una nueva contrasena para volver a entrar a tus actividades.</div>
+      <div class="login-title">Nueva contraseña</div>
+      <div class="login-sub">Crea una nueva contraseña para volver a entrar a tus actividades.</div>
       <div class="form-err" id="new-pass-err"></div>
-      <div class="fg"><label>Nueva contrasena</label><input class="fi" id="new-pass" type="password" autocomplete="new-password"></div>
-      <div class="fg"><label>Confirmar contrasena</label><input class="fi" id="new-pass2" type="password" autocomplete="new-password"></div>
-      <button class="btn-orange" id="new-pass-btn" type="button" onclick="saveNewPassword()">Guardar contrasena</button>
+      <div class="fg"><label>Nueva contraseña</label><input class="fi" id="new-pass" type="password" autocomplete="new-password"></div>
+      <div class="fg"><label>Confirmar contraseña</label><input class="fi" id="new-pass2" type="password" autocomplete="new-password"></div>
+      <button class="btn-orange" id="new-pass-btn" type="button" onclick="saveNewPassword()">Guardar contraseña</button>
     </div>
 
     <!-- form registro -->
@@ -485,15 +485,15 @@ async function sendPasswordReset(){
   const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: passwordRecoveryRedirectUrl() });
   btn.disabled = false;
   if (error) { authErr('reset-err', 'No se pudo enviar el enlace: ' + error.message); return; }
-  showToast('Revisa tu correo para crear una nueva contrasena.');
+  showToast('Revisa tu correo para crear una nueva contraseña.');
   switchAuthTab('login');
 }
 async function saveNewPassword(){
   const p1 = $('new-pass').value;
   const p2 = $('new-pass2').value;
   clearAuthErr('new-pass-err');
-  if (p1.length < 6) { authErr('new-pass-err', 'La contrasena debe tener minimo 6 caracteres.'); return; }
-  if (p1 !== p2) { authErr('new-pass-err', 'Las contrasenas no coinciden.'); return; }
+  if (p1.length < 6) { authErr('new-pass-err', 'La contraseña debe tener mínimo 6 caracteres.'); return; }
+  if (p1 !== p2) { authErr('new-pass-err', 'Las contraseñas no coinciden.'); return; }
   const btn = $('new-pass-btn');
   btn.disabled = true;
   const { error } = await db.auth.updateUser({ password: p1 });
