@@ -235,20 +235,17 @@ function LegoHub(cfg) {
 
   var hub = mk('div', 'lego-hub');
 
-  var header = mk('div', 'lego-hub-header');
-  var headerLeft = mk('div', 'lego-hub-header-left');
-  appendSlot(headerLeft, cfg.H1, 'lego-hub-h1');
-  appendSlot(headerLeft, cfg.H2, 'lego-hub-h2');
-  if (headerLeft.children.length) header.appendChild(headerLeft);
-
   var actKeys = ['H3', 'H4', 'H5'];
   var activeActs = actKeys.filter(function(k) { return cfg[k] !== undefined && cfg[k] !== null && cfg[k] !== ''; });
-  if (activeActs.length) {
+  var actionsInPills = !!cfg.actionsInPills && activeActs.length;
+  if (cfg.stickyPills) hub.classList.add('lego-hub--sticky-tools');
+  if (activeActs.length && !actionsInPills) {
+    var header = mk('div', 'lego-hub-header');
     var acts = mk('div', 'lego-hub-actions');
     activeActs.forEach(function(k) { appendSlot(acts, cfg[k], 'lego-hub-action'); });
     header.appendChild(acts);
+    hub.appendChild(header);
   }
-  hub.appendChild(header);
 
   if (cfg.B1 !== undefined && cfg.B1 !== null && cfg.B1 !== '') {
     appendSlot(hub, cfg.B1, 'lego-hub-breadcrumb');
@@ -258,7 +255,7 @@ function LegoHub(cfg) {
   var activeId = cfg.default || (pills[0] && pills[0].id);
 
   if (pills.length) {
-    var pillRow = mk('div', 'lego-hub-pills');
+    var pillRow = mk('div', 'lego-hub-pills' + (cfg.stickyPills ? ' lego-hub-pills--sticky' : ''));
     var contentArea = mk('div', 'lego-hub-content');
 
     pills.forEach(function(p) {
@@ -275,6 +272,13 @@ function LegoHub(cfg) {
 
       btn.addEventListener('click', function() { hub.switchTo(p.id); });
     });
+
+    if (actionsInPills) {
+      pillRow.appendChild(mk('div', 'lego-hub-pills-spacer'));
+      var pillActs = mk('div', 'lego-hub-actions');
+      activeActs.forEach(function(k) { appendSlot(pillActs, cfg[k], 'lego-hub-action'); });
+      pillRow.appendChild(pillActs);
+    }
 
     hub.appendChild(pillRow);
     hub.appendChild(contentArea);
@@ -365,6 +369,7 @@ function LegoInnerHub(cfg) {
   s.id = 'lego-hub-styles';
   s.textContent = [
     '.lego-hub{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r);background:var(--white);overflow:hidden;}',
+    '.lego-hub--sticky-tools{overflow:visible;}',
     '.lego-hub-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}',
     '.lego-hub-header-left{display:flex;flex-direction:column;gap:2px;}',
     '.lego-hub-h1{font-size:15px;font-weight:600;color:var(--ink);}',
@@ -372,7 +377,10 @@ function LegoInnerHub(cfg) {
     '.lego-hub-actions{display:flex;align-items:center;gap:8px;}',
     '.lego-hub-action{display:flex;align-items:center;}',
     '.lego-hub-breadcrumb{padding:6px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);}',
-    '.lego-hub-pills{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid var(--border);}',
+    '.lego-hub-pills{display:flex;align-items:center;gap:4px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--white);flex-wrap:wrap;}',
+    '.lego-hub-pills--sticky{position:sticky;top:0;z-index:30;}',
+    '.lego-hub-pills-spacer{flex:1 1 auto;min-width:12px;}',
+    '.lego-hub-pills .lego-hub-actions{margin-left:auto;flex-wrap:wrap;justify-content:flex-end;}',
     '.lego-hub-pill{font-size:12px;padding:4px 14px;border-radius:99px;border:1px solid var(--border);background:var(--sand);color:var(--muted);cursor:pointer;font-weight:500;}',
     '.lego-hub-pill.active{background:#185FA5;color:#E6F1FB;border-color:#185FA5;}',
     '.lego-hub-content{flex:1;}',
@@ -2839,4 +2847,118 @@ function _lpFlashcardWrite(content, state, refreshScore){
   state.score = function(){ var c = 0, t = pairs.length; for (var i = 0; i < pairs.length; i++){ var a = answers['fc-' + i]; if (a && a.correct) c++; } return { correct: c, total: t }; };
   state.detail = function(){ return pairs.map(function(p, i){ var a = answers['fc-' + i] || {}; return { key: 'fc-' + i, questionText: _lpPairFront(p), answer: a.answer || '(sin responder)', isCorrect: a.correct === undefined ? false : !!a.correct }; }); };
   return wrap;
+}
+
+
+// -- LegoLesson (stepper) -----------------------------------
+// Leccion multi-paso ENCIMA del motor (blueprint-legolesson.md). Cada paso es una
+// actividad EXISTENTE rendida por LegoPlayer tal cual — el stepper solo orquesta:
+// cover opcional -> pasos en orden -> resultado agregado. No toca DB: reporta por
+// callbacks (onStepResult por paso, onFinish al final) y el caller guarda.
+//   LegoLesson(lesson, activities, opts) -> nodo DOM
+//     lesson: { title, cover:{title,text,imageUrl,buttonLabel}|null, activity_ids:[...] }
+//     activities: array ORDENADO de actividades ya resueltas por id (mismo orden que activity_ids)
+//     opts: { feedback:true, fcMode, onStepResult(i, activity, result), onFinish(aggregate) }
+//   aggregate: { score, total, pct, steps:[{ title, type, score, total, answers }] }
+// Sellado: createElement + textContent. CSS inyectado una vez.
+function LegoLesson(lesson, activities, opts){
+  lesson = lesson || {}; activities = activities || []; opts = opts || {};
+  if (!document.getElementById('lego-lesson-styles')) {
+    var st = document.createElement('style'); st.id = 'lego-lesson-styles';
+    st.textContent = '.lego-lesson{display:flex;flex-direction:column;height:100%;min-height:0}.ll-head{flex-shrink:0;margin-bottom:12px}.ll-title{font-size:15px;font-weight:700;color:var(--ink)}.ll-prog-row{display:flex;align-items:center;gap:10px;margin-top:6px}.ll-prog-txt{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}.ll-bar{flex:1;height:6px;background:var(--sand);border-radius:3px;overflow:hidden}.ll-bar-fill{height:100%;background:var(--coral);border-radius:3px;transition:width .3s}.ll-body{flex:1 1 auto;min-height:0;overflow:auto}.ll-foot{flex-shrink:0;display:flex;align-items:center;gap:12px;margin-top:14px}.ll-foot-score{font-size:13px;font-weight:700;color:var(--ink-soft)}.ll-next{padding:10px 22px;border:none;border-radius:10px;background:var(--coral);color:#fff;font:inherit;font-size:14px;cursor:pointer}.ll-cover{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:26px 18px}.ll-cover-img{max-width:280px;max-height:180px;border-radius:12px;object-fit:cover}.ll-cover-title{font-size:22px;font-weight:800;color:var(--ink)}.ll-cover-text{font-size:15px;line-height:1.6;color:var(--ink-soft);max-width:460px}.ll-cover-meta{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.ll-end{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px}.ll-end-pct{font-size:40px;font-weight:800;color:var(--coral)}.ll-end-rows{width:100%;max-width:440px}.ll-end-row{display:flex;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px}.ll-end-row-t{color:var(--ink)}.ll-end-row-s{font-weight:700;color:var(--ink-soft);white-space:nowrap}.ll-cover-sub{font-size:14px;color:var(--muted);max-width:460px;margin-top:-6px}.ll-cover-b-a,.ll-cover-b-b,.ll-cover-b-c,.ll-cover-b-d{margin:6px auto;max-width:520px;width:100%}.ll-cover-b-a{border:1px solid var(--border);border-radius:14px}.ll-cover-b-b{border:2px solid var(--ink-soft);border-left:6px solid var(--coral);border-radius:12px}.ll-cover-b-c{border:1px solid var(--border);border-radius:20px;background:var(--sand)}.ll-cover-b-d{border:3px double var(--ink-soft);border-radius:8px}';
+    document.head.appendChild(st);
+  }
+  var feedback = opts.feedback !== false;
+  var results = [];
+  var idx = 0;
+  var root = document.createElement('div'); root.className = 'lego-lesson';
+  var head = document.createElement('div'); head.className = 'll-head';
+  var titleEl = document.createElement('div'); titleEl.className = 'll-title'; titleEl.textContent = lesson.title || 'Lección';
+  var progRow = document.createElement('div'); progRow.className = 'll-prog-row';
+  var progTxt = document.createElement('div'); progTxt.className = 'll-prog-txt';
+  var bar = document.createElement('div'); bar.className = 'll-bar';
+  var fill = document.createElement('div'); fill.className = 'll-bar-fill'; fill.style.width = '0%';
+  bar.appendChild(fill);
+  progRow.appendChild(progTxt); progRow.appendChild(bar);
+  head.appendChild(titleEl); head.appendChild(progRow);
+  var body = document.createElement('div'); body.className = 'll-body';
+  var foot = document.createElement('div'); foot.className = 'll-foot'; foot.style.display = 'none';
+  var footScore = document.createElement('div'); footScore.className = 'll-foot-score';
+  var nextBtn = document.createElement('button'); nextBtn.type = 'button'; nextBtn.className = 'll-next';
+  foot.appendChild(footScore); foot.appendChild(nextBtn);
+  root.appendChild(head); root.appendChild(body); root.appendChild(foot);
+
+  function setProg(){
+    var total = activities.length;
+    var n = Math.min(idx + 1, total);
+    progTxt.textContent = 'Paso ' + n + ' de ' + total;
+    fill.style.width = (total ? Math.round((idx / total) * 100) : 0) + '%';
+  }
+
+  function showCover(){
+    var cv = lesson.cover || {};
+    var box = document.createElement('div'); box.className = 'll-cover ll-cover-b-' + (cv.border || 'none');
+    if (cv.imageUrl) { var img = document.createElement('img'); img.className = 'll-cover-img'; img.src = cv.imageUrl; img.alt = ''; box.appendChild(img); }
+    var t = document.createElement('div'); t.className = 'll-cover-title'; t.textContent = cv.title || lesson.title || 'Lección'; box.appendChild(t);
+    if (cv.subtitle) { var _sub = document.createElement('div'); _sub.className = 'll-cover-sub'; _sub.textContent = cv.subtitle; box.appendChild(_sub); }
+    if (cv.text) { var tx = document.createElement('div'); tx.className = 'll-cover-text'; tx.textContent = cv.text; box.appendChild(tx); }
+    var meta = document.createElement('div'); meta.className = 'll-cover-meta'; meta.textContent = (lesson.level ? lesson.level + ' · ' : '') + activities.length + (activities.length === 1 ? ' paso' : ' pasos'); box.appendChild(meta);
+    var go = document.createElement('button'); go.type = 'button'; go.className = 'll-next'; go.textContent = cv.buttonLabel || 'Empezar';
+    go.onclick = function(){ showStep(); };
+    box.appendChild(go);
+    progTxt.textContent = activities.length + ' pasos'; fill.style.width = '0%';
+    body.replaceChildren(box); foot.style.display = 'none';
+  }
+
+  function showStep(){
+    if (idx >= activities.length) { showEnd(); return; }
+    setProg();
+    var act = activities[idx];
+    foot.style.display = 'none';
+    var node = LegoPlayer(act, {
+      mode: 'play',
+      feedback: feedback,
+      fcMode: opts.fcMode,
+      onResult: function(res){
+        results[idx] = { title: act.title || ('Paso ' + (idx + 1)), type: res.type, score: res.score, total: res.total, answers: res.answers };
+        if (typeof opts.onStepResult === 'function') { try { opts.onStepResult(idx, act, res); } catch(e){} }
+        footScore.textContent = feedback ? (res.score + '/' + (res.total || 0)) : '';
+        nextBtn.textContent = (idx + 1 < activities.length) ? 'Siguiente paso →' : 'Ver resultado';
+        foot.style.display = 'flex';
+      }
+    });
+    body.replaceChildren(node);
+  }
+
+  nextBtn.onclick = function(){ idx++; showStep(); };
+
+  function showEnd(){
+    progTxt.textContent = 'Paso ' + activities.length + ' de ' + activities.length;
+    fill.style.width = '100%';
+    var score = 0, total = 0;
+    results.forEach(function(r){ if (r) { score += (r.score || 0); total += (r.total || 0); } });
+    var pct = total ? Math.round((score / total) * 100) : 0;
+    var box = document.createElement('div'); box.className = 'll-end';
+    var big = document.createElement('div'); big.className = 'll-end-pct'; big.textContent = feedback ? (pct + '%') : '✓';
+    box.appendChild(big);
+    var lbl = document.createElement('div'); lbl.className = 'll-cover-meta'; lbl.textContent = 'Lección completada'; box.appendChild(lbl);
+    if (feedback) {
+      var rows = document.createElement('div'); rows.className = 'll-end-rows';
+      results.forEach(function(r, i){
+        var row = document.createElement('div'); row.className = 'll-end-row';
+        var t = document.createElement('span'); t.className = 'll-end-row-t'; t.textContent = (i + 1) + '. ' + ((r && r.title) || 'Paso');
+        var s = document.createElement('span'); s.className = 'll-end-row-s'; s.textContent = r ? (r.score + '/' + (r.total || 0)) : '—';
+        row.appendChild(t); row.appendChild(s);
+        rows.appendChild(row);
+      });
+      box.appendChild(rows);
+    }
+    body.replaceChildren(box); foot.style.display = 'none';
+    if (typeof opts.onFinish === 'function') {
+      try { opts.onFinish({ score: score, total: total, pct: pct, steps: results.slice() }); } catch(e){}
+    }
+  }
+
+  if (lesson.cover) showCover(); else showStep();
+  return root;
 }

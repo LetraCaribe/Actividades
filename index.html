@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Letra Caribe — Portal de Estudiantes (test)</title>
+<title>Letra Caribe — Portal de Estudiantes</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -342,9 +342,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <div class="toast" id="toast"></div>
 
 <script src="components.js"></script>
+<script src="legodata.js"></script>
 <script>
 // ============================================================
-// index-test.html — motor fresco (construido al contrato-datos.md)
+// Portal de estudiantes — motor construido al contrato-datos.md
 // ============================================================
 const SUPABASE_URL = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_7NB3dpFRBnwAnFEk2SC_Jw_Vve-Ay0E';
@@ -528,7 +529,7 @@ async function doRegister(){
   if (error) { $('reg-btn').disabled = false; err.textContent = 'No se pudo registrar: ' + error.message; err.classList.add('show'); return; }
   currentUser = data.user;
   if (currentUser) {
-    await db.from('profiles').upsert({ id: currentUser.id, full_name: name, email: email, level: level, score: 0 }, { onConflict: 'id' });
+    await LegoData.upsertProfile({ id: currentUser.id, full_name: name, email: email, level: level, score: 0 });
   }
   $('reg-btn').disabled = false;
   await loadProfile();
@@ -541,8 +542,7 @@ async function doLogout(){
 }
 async function loadProfile(){
   if (!currentUser) return;
-  const { data } = await db.from('profiles').select('*').eq('id', currentUser.id).single();
-  currentProfile = data || null;
+  try { currentProfile = await LegoData.profileById(currentUser.id); } catch(e){ console.error('loadProfile', e); currentProfile = null; }
 }
 
 async function showPlatform(){
@@ -564,43 +564,47 @@ async function showPlatform(){
   renderProfile();
 }
 
-// ── actividades ──
+// -- actividades --
 async function loadAssignments(){
   if (!currentUser) return;
-  const { data } = await db.from('assignments').select('*, activities(*)').eq('student_id', currentUser.id).order('assigned_at', { ascending: false });
-  allAssignments = data || [];
+  try { allAssignments = await LegoData.assignmentsByStudent(currentUser.id); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
+
   renderActivities();
 }
 function pendingCard(asgn){
+  const les = asgn.lessons || null;
   const act = asgn.activities || {};
   const btn = mk('button', 'btn btn-sm', 'Abrir →');
   btn.style.background = 'var(--orange-lt)'; btn.style.color = 'var(--orange-dk)'; btn.style.fontWeight = '600';
   btn.onclick = function(e){ e.stopPropagation(); openActivity(asgn); };
   return LegoCard({
     layout: 'stack',
-    L1: iconBox(act.type),
-    L2: act.title || 'Actividad',
+    L1: iconBox(les ? 'mixed' : act.type),
+    L2: (les && les.title) || act.title || 'Actividad',
     corner: dueBadge(asgn),
-    L4: LegoChip(act.level || 'A1', 'level'),
+    L4: LegoChip(((les && les.level) || act.level || 'A1'), 'level'),
+    L5: les ? LegoChip('Lección', { bg: 'var(--sand)', color: 'var(--ink-soft)' }) : '',
     L6: LegoChip('Pendiente', { bg: 'var(--orange-lt)', color: 'var(--orange-dk)' }),
     L8: btn,
     onclick: function(){ openActivity(asgn); }
   });
 }
 function completedCard(asgn){
+  const les = asgn.lessons || null;
   const act = asgn.activities || {};
-  const left = (asgn.score_pct != null) ? LegoScore(asgn.score_pct) : iconBox(act.type);
+  const left = (asgn.score_pct != null) ? LegoScore(asgn.score_pct) : iconBox(les ? 'mixed' : act.type);
   const btn = mk('button', 'btn btn-sm', 'Revisar');
   btn.style.background = 'var(--orange-lt)'; btn.style.color = 'var(--orange-dk)'; btn.style.fontWeight = '600';
   btn.onclick = function(e){ e.stopPropagation(); openReview(asgn); };
   const slots = {
     layout: 'stack',
     L1: left,
-    L2: act.title || 'Actividad',
+    L2: (les && les.title) || act.title || 'Actividad',
     corner: asgn.completed_at ? LegoChip(fmtDate(asgn.completed_at), { bg: 'var(--sand)', color: 'var(--muted)' }) : '',
-    L4: LegoChip(act.level || 'A1', 'level'),
+    L4: LegoChip(((les && les.level) || act.level || 'A1'), 'level'),
     L8: btn
   };
+  if (les) slots.L5 = LegoChip('Lección', { bg: 'var(--sand)', color: 'var(--ink-soft)' });
   if (asgn.score_pct == null) slots.L6 = LegoChip('✓ Hecha', { bg: 'var(--green-lt)', color: 'var(--green)' });
   return LegoCard(slots);
 }
@@ -629,8 +633,9 @@ function toggleArchive(){
   $('archive-caret').textContent = hidden ? '▸' : '▾';
 }
 
-// ── player (LegoPlayer) ──
+// -- player (LegoPlayer) --
 function openActivity(asgn){
+  if (asgn.lesson_id) { openLesson(asgn); return; }
   const act = asgn.activities || {};
   $('player-title').textContent = act.title || 'Actividad';
   $('player-level').textContent = act.level || '';
@@ -649,7 +654,7 @@ function closePlayer(){
   $('player-mount').replaceChildren();
 }
 
-// ── submit (contrato del envío) ──
+// -- submit (contrato del envío) --
 async function submitActivity(asgn, res){
   const act = asgn.activities || {};
   const total = res.total || 0;
@@ -663,7 +668,7 @@ async function submitActivity(asgn, res){
   if (mode === 'calificado' && scorePct < passPct && attemptNo < maxAttempts) {
     closePlayer();
     try {
-      await db.from('assignments').update({ attempts: attemptNo }).eq('id', asgn.id);
+      await LegoData.updateAssignment(asgn.id, { attempts: attemptNo });
       await loadAssignments();
     } catch (e) { console.error('retry update', e); }
     showRetry(attemptNo, maxAttempts);
@@ -675,7 +680,9 @@ async function submitActivity(asgn, res){
     return {
       student_id: currentUser.id,
       activity_slug: act.slug,
+      assignment_id: asgn.id,
       question_num: i + 1,
+      question_key: a.key || null,
       question_text: a.questionText || '',
       question_type: (a.isCorrect === null) ? 'open' : 'mc',
       answer: a.answer || '',
@@ -685,10 +692,10 @@ async function submitActivity(asgn, res){
   closePlayer();
   showResults(asgn, res, scorePct, mode, passPct);
   try {
-    if (rows.length) await db.from('responses').insert(rows);
-    await db.from('assignments').update({ completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo }).eq('id', asgn.id);
+    await LegoData.insertResponses(rows);
+    await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo });
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
-    await db.from('profiles').update({ score: newScore }).eq('id', currentUser.id);
+    await LegoData.updateProfile(currentUser.id, { score: newScore });
     if (currentProfile) currentProfile.score = newScore;
     await loadAssignments();
     renderProfile();
@@ -736,7 +743,7 @@ function showRetry(attemptNo, maxAttempts){
 async function saveNoteAndClose(){
   const note = $('results-note').value.trim();
   if (resultsAsgnId) {
-    try { await db.from('assignments').update({ student_note: note }).eq('id', resultsAsgnId); } catch (e) {}
+    try { await LegoData.updateAssignment(resultsAsgnId, { student_note: note }); } catch (e) {}
   }
   $('results-overlay').classList.remove('show');
   resultsAsgnId = null;
@@ -745,17 +752,95 @@ async function saveNoteAndClose(){
 
 // ── review (Camino A: lista read-only desde responses, con Legos) ──
 async function openReview(asgn){
+  if (asgn.lesson_id) { openLessonReview(asgn); return; }
   const act = asgn.activities || {};
   $('player-title').textContent = (act.title || 'Actividad') + ' — Revisión';
   $('player-level').textContent = act.level || '';
   const mount = $('player-mount');
   mount.replaceChildren(LegoEmpty({ text: 'Cargando…' }));
   $('player-overlay').classList.add('open');
-  const { data } = await db.from('responses').select('*').eq('student_id', currentUser.id).eq('activity_slug', act.slug).order('question_num');
+  let data = []; try { data = await LegoData.responsesByStudentSlug(currentUser.id, act.slug); } catch(e){ console.error('review responses', e); }
   const saved = (data || []).map(function(r){ return { answer: r.answer, isCorrect: r.is_correct, questionText: r.question_text }; });
   const node = LegoPlayer(act, { mode: 'review', saved: saved });
   mount.replaceChildren(node);
 }
+// ── lecciones (LegoLesson sobre el motor; datos por LegoData, scope por asignación) ──
+function _lessonFromAsgn(asgn){
+  const les = asgn.lessons || null;
+  if (!les) return null;
+  if (typeof les.activity_ids === 'string') { try { les.activity_ids = JSON.parse(les.activity_ids); } catch(e) { les.activity_ids = []; } }
+  if (!Array.isArray(les.activity_ids)) les.activity_ids = [];
+  return les;
+}
+async function openLesson(asgn){
+  const les = _lessonFromAsgn(asgn);
+  if (!les) { showToast('Lección no encontrada.'); return; }
+  $('player-title').textContent = les.title || 'Lección';
+  $('player-level').textContent = les.level || '';
+  $('player-mount').replaceChildren(LegoEmpty({ text: 'Cargando…' }));
+  $('player-overlay').classList.add('open');
+  let acts = [];
+  try { acts = await LegoData.activitiesByIds(les.activity_ids); }
+  catch(e){ console.error('openLesson', e); $('player-mount').replaceChildren(LegoEmpty({ text: 'Error al cargar la lección.' })); return; }
+  if (!acts.length) { $('player-mount').replaceChildren(LegoEmpty({ text: 'La lección no tiene pasos.' })); return; }
+  const node = LegoLesson(les, acts, {
+    feedback: asgn.eval_mode !== 'calificado',
+    fcMode: asgn.fc_mode || undefined,
+    onStepResult: function(i, act, res){
+      const rows = (res.answers || []).map(function(a, k){
+        return {
+          student_id: currentUser.id,
+          activity_slug: act.slug,
+          assignment_id: asgn.id,
+          question_num: k + 1,
+          question_key: a.key || null,
+          question_text: a.questionText || '',
+          question_type: (a.isCorrect === null) ? 'open' : 'mc',
+          answer: a.answer || '',
+          is_correct: a.isCorrect
+        };
+      });
+      LegoData.insertResponses(rows).catch(function(e){ console.error('paso de lección', e); showToast('No se guardó el paso: ' + (e.message || e)); });
+    },
+    onFinish: async function(agg){
+      closePlayer();
+      showResults(asgn, { score: agg.score, total: agg.total }, agg.pct, asgn.eval_mode || 'practica', asgn.pass_pct || 70);
+      try {
+        await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1 });
+        const newScore = ((currentProfile && currentProfile.score) || 0) + (agg.score || 0) * 10;
+        await LegoData.updateProfile(currentUser.id, { score: newScore });
+        if (currentProfile) currentProfile.score = newScore;
+        await loadAssignments();
+        renderProfile();
+      } catch(e){ console.error('lesson finish', e); showToast('No se guardó: ' + (e.message || e)); }
+    }
+  });
+  $('player-mount').replaceChildren(node);
+}
+async function openLessonReview(asgn){
+  const les = _lessonFromAsgn(asgn);
+  if (!les) { showToast('Lección no encontrada.'); return; }
+  $('player-title').textContent = (les.title || 'Lección') + ' — Revisión';
+  $('player-level').textContent = les.level || '';
+  $('player-mount').replaceChildren(LegoEmpty({ text: 'Cargando…' }));
+  $('player-overlay').classList.add('open');
+  try {
+    const acts = await LegoData.activitiesByIds(les.activity_ids);
+    const rows = await LegoData.responsesByAssignment(asgn.id);
+    const wrap = mk('div');
+    acts.forEach(function(act, i){
+      const head = mk('div', null, (i + 1) + '. ' + (act.title || 'Paso'));
+      head.style.cssText = 'font-size:13px;font-weight:700;color:var(--ink);margin:16px 0 8px';
+      wrap.appendChild(head);
+      const stepRows = rows.filter(function(r){ return r.activity_slug === act.slug; });
+      wrap.appendChild(LegoPlayer(act, { mode: 'review', saved: LegoData.toSavedRows(stepRows) }));
+    });
+    if (!rows.length) wrap.appendChild(LegoEmpty({ text: 'Sin respuestas registradas todavía.' }));
+    $('player-mount').replaceChildren(wrap);
+  } catch(e){ console.error('openLessonReview', e); $('player-mount').replaceChildren(LegoEmpty({ text: 'Error al cargar la revisión.' })); }
+}
+
+
 const WOTD_FALLBACK = [
   { word: 'acogedora', translation: 'welcoming', example: 'Cartagena es una ciudad muy acogedora.' },
   { word: 'madrugada', translation: 'early morning', example: 'Me desperté a las tres de la madrugada.' },
@@ -772,7 +857,7 @@ async function loadWordOfDay(){
   const mount = $('wotd-mount');
   let list = [];
   try {
-    const { data } = await db.from('words_of_day').select('*').order('id');
+    const data = await LegoData.wordsOfDay();
     list = data || [];
   } catch (e) { list = []; }
   const level = currentProfile && currentProfile.level;
@@ -801,9 +886,7 @@ async function loadWordOfDay(){
 async function loadLeaderboard(){
   const mount = $('lb-mount');
   const level = (currentProfile && currentProfile.level) || null;
-  let q = db.from('leaderboard').select('id,display_name,score,level').order('score', { ascending: false }).limit(10);
-  if (level) q = q.eq('level', level);
-  const { data } = await q;
+  let data = []; try { data = await LegoData.leaderboard({ limit: 10, level: level || undefined }); } catch(e){ console.error('loadLeaderboard', e); }
   const rows = data || [];
   const frag = document.createDocumentFragment();
   const head = mk('div', 'lb-header-card');
@@ -826,7 +909,7 @@ async function loadLeaderboard(){
 // ── biblioteca ──
 async function loadLibrary(){
   try {
-    const { data } = await db.from('library').select('*, grammar_categories(name)').order('created_at', { ascending: false });
+    const data = await LegoData.library();
     const items = data || [];
     const fb = $('library-filters');
     if (fb) fb.replaceChildren(LegoLibraryFilters({ items: items, onFilter: renderLibrary }));
@@ -861,6 +944,9 @@ function openLibraryViewer(item){
 
 // ── vocabulario ──
 function vocabKey(term){
+  if (typeof LegoData !== 'undefined' && LegoData.vocabularyKey) {
+    return LegoData.vocabularyKey(term);
+  }
   return String(term || '')
     .toLowerCase()
     .normalize('NFD')
@@ -881,9 +967,7 @@ function vocabSourceLabel(source){
 async function loadVocabulary(){
   if (!currentUser) return;
   try {
-    const { data, error } = await db.from('student_vocabulary').select('*').eq('student_id', currentUser.id).order('created_at', { ascending: false });
-    if (error) throw error;
-    allVocabulary = data || [];
+    allVocabulary = await LegoData.studentVocabularyByStudent(currentUser.id);
   } catch(e) {
     console.error('loadVocabulary', e);
     allVocabulary = [];
@@ -932,11 +1016,11 @@ async function saveVocabularyEntry(existing, termEl, meaningEl, typeEl){
     updated_at: new Date().toISOString()
   };
   try {
-    const q = existing
-      ? db.from('student_vocabulary').update(payload).eq('id', existing.id).eq('student_id', currentUser.id)
-      : db.from('student_vocabulary').insert(payload);
-    const { error } = await q;
-    if (error) throw error;
+    if (existing) {
+      await LegoData.updateStudentVocabulary(existing.id, payload, currentUser.id);
+    } else {
+      await LegoData.insertStudentVocabulary(payload);
+    }
     showToast(existing ? 'Vocabulario actualizado.' : 'Entrada añadida.');
     if (window.LegoModal && LegoModal.close) LegoModal.close();
     await loadVocabulary();
@@ -949,8 +1033,7 @@ async function saveVocabularyEntry(existing, termEl, meaningEl, typeEl){
 async function deleteVocabularyEntry(entry){
   if (!entry || !entry.id) return;
   try {
-    const { error } = await db.from('student_vocabulary').delete().eq('id', entry.id).eq('student_id', currentUser.id);
-    if (error) throw error;
+    await LegoData.deleteStudentVocabulary(entry.id, currentUser.id);
     showToast('Entrada eliminada.');
     await loadVocabulary();
     renderVocabulary();
@@ -1063,12 +1146,11 @@ function vocabularyPracticeType(kind, flashMode){
 async function recordVocabularyPractice(kind, flashMode, entryCount){
   if (!currentUser) return;
   try {
-    const { error } = await db.from('student_vocabulary_practice_events').insert({
+    await LegoData.insertVocabularyPracticeEvent({
       student_id: currentUser.id,
       practice_type: vocabularyPracticeType(kind, flashMode),
       entry_count: entryCount || 0
     });
-    if (error) console.warn('No se pudo contar la práctica de vocabulario:', error.message || error);
   } catch(e) {
     console.warn('No se pudo contar la práctica de vocabulario:', e.message || e);
   }
@@ -1417,11 +1499,11 @@ function renderVocabulary(){
     default: 'todo'
   }));
 }
-// ── profile ──
+// -- perfil --
 async function loadClasses(){
   if (!currentUser) return;
-  const cr = await db.from('class_credits').select().eq('student_id', currentUser.id);
-  const cs = await db.from('class_sessions').select().eq('student_id', currentUser.id).order('class_date', { ascending: false });
+  const cr = { data: await LegoData.classCreditsByStudent(currentUser.id) };
+  const cs = { data: await LegoData.classSessionsByStudent(currentUser.id) };
   allCredits = (cr && cr.data) || [];
   allSessions = (cs && cs.data) || [];
 }
@@ -1432,7 +1514,37 @@ function clsCreditsTotal(){ return allCredits.reduce(function(sum, c){ return su
 function clsActivas(){ return allSessions.filter(function(x){ return !x.cancelled; }); }
 function clsDadas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) <= hoy; }); }
 function clsProximas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) > hoy; }); }
-function clsRestantes(){ return clsCreditsTotal() - clsDadas().length; }
+function clsTimeToMin(value){
+  const t = value ? String(value).slice(0, 5) : '';
+  if (!t || t.indexOf(':') < 0) return null;
+  const p = t.split(':');
+  return (parseInt(p[0], 10) * 60) + (parseInt(p[1] || '0', 10) || 0);
+}
+function clsDurationMinutes(sess){
+  const sm = clsTimeToMin(sess && sess.class_time);
+  if (sm === null) return 0;
+  let em = clsTimeToMin(sess && sess.class_end_time);
+  if (em === null) em = sm + 60;
+  if (em <= sm) em += 24 * 60;
+  return Math.max(0, em - sm);
+}
+function clsUnitsFromMinutes(minutes){
+  const mins = Number(minutes) || 0;
+  if (mins <= 0) return 1;
+  if (Math.abs(mins - 10) < 0.001) return 0.2;
+  return Math.round((mins / 60) * 100) / 100;
+}
+function clsSessionUnits(sess){
+  const manual = Number(sess && sess.billable_units);
+  if (Number.isFinite(manual) && manual > 0) return manual;
+  return clsUnitsFromMinutes(clsDurationMinutes(sess));
+}
+function clsQty(n){
+  const num = Number(n) || 0;
+  return Math.abs(num - Math.round(num)) < 0.001 ? String(Math.round(num)) : num.toFixed(1);
+}
+function clsDadasTotal(){ return clsDadas().reduce(function(sum, sess){ return sum + clsSessionUnits(sess); }, 0); }
+function clsRestantes(){ return clsCreditsTotal() - clsDadasTotal(); }
 function renderDashClasses(){
   const mount = $('dash-clases');
   if (!mount) return;
@@ -1440,7 +1552,7 @@ function renderDashClasses(){
   const rest = clsRestantes();
   const card = mk('div');
   card.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px';
-  const num = mk('div', null, String(rest));
+  const num = mk('div', null, clsQty(rest));
   num.style.cssText = 'font-size:32px;font-weight:800;line-height:1;color:' + (rest <= 0 ? 'var(--red)' : 'var(--coral)');
   const info = mk('div');
   info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
@@ -1452,7 +1564,7 @@ function renderDashClasses(){
   t2.style.cssText = 'font-size:12px;color:var(--muted)';
   if (prox.length) {
     const p = prox[0];
-    t2.textContent = 'Proxima: ' + clsFmt(p.class_date) + (clsHora(p) ? ' · ' + clsHora(p) : '');
+    t2.textContent = 'Próxima: ' + clsFmt(p.class_date) + (clsHora(p) ? ' · ' + clsHora(p) : '');
   } else {
     t2.textContent = 'Sin clases programadas';
   }
@@ -1469,7 +1581,7 @@ function _clsSessionCard(sess){
   else if (fecha && fecha <= hoy) { chip = LegoChip('Dada', { bg: 'var(--green-lt)', color: 'var(--green)' }); }
   else { chip = LegoChip('Programada', { bg: 'var(--orange-lt)', color: 'var(--orange-dk)' }); }
   const hora = clsHora(sess);
-  return LegoCard({ L2: clsFmt(sess.class_date), L3: hora || 'Sin hora', L4: chip });
+  return LegoCard({ L2: clsFmt(sess.class_date), L3: hora || 'Sin hora', L4: chip, L5: LegoChip(clsQty(clsSessionUnits(sess)) + ' unidades') });
 }
 function _clsCollapsible(titulo, lista){
   const box = mk('div');
@@ -1506,13 +1618,13 @@ function renderClasesCard(){
     b.appendChild(v); b.appendChild(l); return b;
   }
   const rest = clsRestantes();
-  stats.appendChild(stat(rest, 'Restantes', rest <= 0 ? 'var(--red)' : 'var(--coral)'));
-  stats.appendChild(stat(clsCreditsTotal(), 'Pagadas'));
-  stats.appendChild(stat(clsDadas().length, 'Dadas'));
+  stats.appendChild(stat(clsQty(rest), 'Restantes', rest <= 0 ? 'var(--red)' : 'var(--coral)'));
+  stats.appendChild(stat(clsQty(clsCreditsTotal()), 'Pagadas'));
+  stats.appendChild(stat(clsQty(clsDadasTotal()), 'Dadas'));
   card.appendChild(stats);
   const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
   const pas = clsDadas().slice().sort(function(a, b){ return String(b.class_date).localeCompare(String(a.class_date)); });
-  card.appendChild(_clsCollapsible('Proximas', prox));
+  card.appendChild(_clsCollapsible('Próximas', prox));
   card.appendChild(_clsCollapsible('Pasadas', pas));
   return card;
 }
@@ -1549,7 +1661,7 @@ function renderProfile(){
   mount.replaceChildren(card);
 }
 
-// ── ignición ──
+// -- arranque --
 (async function(){
   // Enter en login
   ['login-email', 'login-pass'].forEach(function(id){
