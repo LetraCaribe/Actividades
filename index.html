@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -356,6 +356,8 @@ let currentUser = null;
 let currentProfile = null;
 let allAssignments = [];
 let allCredits = [], allSessions = [];
+let allClassBoards = [];
+let studentBillingContext = null;
 let allVocabulary = [];
 let resultsAsgnId = null;
 let authRecoveryMode = false;
@@ -368,6 +370,7 @@ const ACTIVITY_ICONS = {
   'reading':    { icon: 'ti-book-2',         bg: '#FAECE7', color: '#993C1D' },
   'audio':      { icon: 'ti-headphones',     bg: '#E1F5EE', color: '#0F6E56' },
   'match':      { icon: 'ti-arrows-shuffle', bg: '#FBEAF0', color: '#993556' },
+  'true-false-vocab': { icon: 'ti-checklist', bg: '#E6F4EA', color: '#1A7A3C' },
   'drag-drop':  { icon: 'ti-hand-move',      bg: '#FAEEDA', color: '#854F0B' },
   'mixed':      { icon: 'ti-layout-grid',    bg: '#EAF3DE', color: '#3B6D11' }
 };
@@ -641,7 +644,7 @@ function openActivity(asgn){
   $('player-level').textContent = act.level || '';
   let node;
   try {
-    node = LegoPlayer(act, { mode: 'play', feedback: (asgn.eval_mode !== 'calificado'), onResult: function(res){ submitActivity(asgn, res); } });
+    node = LegoPlayer(act, { mode: 'play', feedback: (asgn.eval_mode !== 'calificado'), saved: _asgnSavedAnswers(asgn), onResult: function(res){ submitActivity(asgn, res); }, onPause: function(answers){ pauseActivity(asgn, answers); } });
   } catch (e) {
     console.error('LegoPlayer error:', e, act);
     node = LegoEmpty({ text: 'Error al abrir: ' + (e && e.message ? e.message : e) });
@@ -655,6 +658,20 @@ function closePlayer(){
 }
 
 // -- submit (contrato del envío) --
+function _asgnSavedAnswers(asgn){
+  var p = asgn && asgn.progress;
+  if (!p) return null;
+  if (typeof p === 'string') { try { p = JSON.parse(p); } catch(e){ return null; } }
+  return (p && p.answers && p.answers.length) ? p.answers : null;
+}
+async function pauseActivity(asgn, answers){
+  closePlayer();
+  try {
+    await LegoData.updateAssignment(asgn.id, { progress: { answers: answers || [], savedAt: new Date().toISOString() } });
+    await loadAssignments();
+    showToast('Progreso guardado. Puedes seguir luego.');
+  } catch(e){ console.error('pauseActivity', e); showToast('Error al guardar: ' + (e && e.message ? e.message : e)); }
+}
 async function submitActivity(asgn, res){
   const act = asgn.activities || {};
   const total = res.total || 0;
@@ -668,7 +685,7 @@ async function submitActivity(asgn, res){
   if (mode === 'calificado' && scorePct < passPct && attemptNo < maxAttempts) {
     closePlayer();
     try {
-      await LegoData.updateAssignment(asgn.id, { attempts: attemptNo });
+      await LegoData.updateAssignment(asgn.id, { attempts: attemptNo, progress: null });
       await loadAssignments();
     } catch (e) { console.error('retry update', e); }
     showRetry(attemptNo, maxAttempts);
@@ -693,7 +710,7 @@ async function submitActivity(asgn, res){
   showResults(asgn, res, scorePct, mode, passPct);
   try {
     await LegoData.insertResponses(rows);
-    await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo });
+    await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo, progress: null });
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
     await LegoData.updateProfile(currentUser.id, { score: newScore });
     if (currentProfile) currentProfile.score = newScore;
@@ -1132,15 +1149,19 @@ function vocabularyMeaningCell(entry){
   wrap.replaceChildren(meaning, del);
   return wrap;
 }
-function vocabularyPracticePairs(entries, limit){
+function vocabularyPracticePairs(entries, limit, kind){
   return entries.filter(function(entry){
-    return (entry.term || '').trim() && (entry.meaning || '').trim();
+    if (!(entry.term || '').trim() || !(entry.meaning || '').trim()) return false;
+    if (kind === 'letter-order') return entry.entry_type !== 'expression' && !/\s/.test(String(entry.meaning || '').trim());
+    return true;
   }).sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10).map(function(entry){
     return { left: entry.term, right: entry.meaning };
   });
 }
 function vocabularyPracticeType(kind, flashMode){
   if (kind === 'flashcard') return flashMode === 'write' ? 'flashcard_write' : 'flashcard_flip';
+  if (kind === 'true-false-vocab') return 'true_false_vocab';
+  if (kind === 'letter-order') return 'letter_order';
   return kind;
 }
 async function recordVocabularyPractice(kind, flashMode, entryCount){
@@ -1156,14 +1177,16 @@ async function recordVocabularyPractice(kind, flashMode, entryCount){
   }
 }
 function openVocabularyPractice(kind, entries, limit, flashMode){
-  const pairs = vocabularyPracticePairs(entries, limit);
+  const pairs = vocabularyPracticePairs(entries, limit, kind);
   if (!pairs.length) { showToast('Necesitas vocabulario para practicar.'); return; }
-  if ((kind === 'match' || kind === 'memory') && pairs.length < 2) { showToast('Necesitas al menos 2 entradas.'); return; }
-  const titles = { flashcard: 'Flashcards', match: 'Emparejar', memory: 'Memory' };
+  if ((kind === 'match' || kind === 'memory' || kind === 'true-false-vocab') && pairs.length < 2) { showToast('Necesitas al menos 2 entradas.'); return; }
+  const titles = { flashcard: 'Flashcards', match: 'Emparejar', memory: 'Memory', 'true-false-vocab': 'Correcto o Incorrecto', 'letter-order': 'Ordenar Letras' };
   const instructions = {
     flashcard: 'Toca cada tarjeta y marca si la recuerdas.',
     match: 'Conecta cada palabra con su significado.',
-    memory: 'Encuentra las parejas de palabra y significado.'
+    memory: 'Encuentra las parejas de palabra y significado.',
+    'true-false-vocab': 'Marca si cada par de palabra y significado es correcto o incorrecto.',
+    'letter-order': 'Ordena las letras para formar el significado.'
   };
   const activity = {
     type: kind,
@@ -1310,7 +1333,9 @@ function renderVocabulary(){
   [
     ['flashcard', 'Flashcards'],
     ['match', 'Emparejar'],
-    ['memory', 'Memory']
+    ['memory', 'Memory'],
+    ['true-false-vocab', 'Correcto / Incorrecto'],
+    ['letter-order', 'Ordenar Letras']
   ].forEach(function(pair){
     const b = mk('button', 'btn btn-outline btn-sm', pair[1]);
     b.type = 'button';
@@ -1443,7 +1468,9 @@ function renderVocabulary(){
     [
       ['flashcard', 'Flashcards'],
       ['match', 'Emparejar'],
-      ['memory', 'Memory']
+      ['memory', 'Memory'],
+      ['true-false-vocab', 'Correcto / Incorrecto'],
+      ['letter-order', 'Ordenar Letras']
     ].forEach(function(pair){
       const b = mk('button', 'btn btn-outline btn-sm', pair[1]);
       b.type = 'button';
@@ -1502,15 +1529,30 @@ function renderVocabulary(){
 // -- perfil --
 async function loadClasses(){
   if (!currentUser) return;
-  const cr = { data: await LegoData.classCreditsByStudent(currentUser.id) };
-  const cs = { data: await LegoData.classSessionsByStudent(currentUser.id) };
-  allCredits = (cr && cr.data) || [];
-  allSessions = (cs && cs.data) || [];
+  const bundle = await Promise.all([
+    LegoData.classCreditsByStudent(currentUser.id),
+    LegoData.classSessionsByStudent(currentUser.id),
+    LegoData.studentBillingContext(currentUser.id).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
+  ]);
+  allCredits = bundle[0] || [];
+  allSessions = bundle[1] || [];
+  studentBillingContext = bundle[2] || null;
+  try {
+    allClassBoards = await LegoData.classBoardsBySessionIds(allSessions.map(function(s){ return s.id; }), { visibleOnly: true });
+  } catch(e) {
+    console.warn('No se pudieron cargar pizarras compartidas:', e.message || e);
+    allClassBoards = [];
+  }
 }
 function clsToday(){ const d = new Date(); const m = d.getMonth() + 1; const day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day; }
 function clsFmt(iso){ if (!iso) return ''; const p = String(iso).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : String(iso); }
 function clsHora(sess){ const t = sess.class_time ? String(sess.class_time).slice(0, 5) : ''; if (!t) return ''; const e = sess.class_end_time ? String(sess.class_end_time).slice(0, 5) : ''; return e ? (t + ' - ' + e) : t; }
-function clsCreditsTotal(){ return allCredits.reduce(function(sum, c){ return sum + (Number(c.credits) || 0); }, 0); }
+function clsBillingRole(){ return studentBillingContext && studentBillingContext.billing_role ? studentBillingContext.billing_role : 'individual'; }
+function clsCreditsTotal(){
+  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.group_paid_units) || 0;
+  if (clsBillingRole() === 'group_member') return 0;
+  return allCredits.reduce(function(sum, c){ return sum + (Number(c.credits) || 0); }, 0);
+}
 function clsActivas(){ return allSessions.filter(function(x){ return !x.cancelled; }); }
 function clsDadas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) <= hoy; }); }
 function clsProximas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) > hoy; }); }
@@ -1543,12 +1585,33 @@ function clsQty(n){
   const num = Number(n) || 0;
   return Math.abs(num - Math.round(num)) < 0.001 ? String(Math.round(num)) : num.toFixed(1);
 }
-function clsDadasTotal(){ return clsDadas().reduce(function(sum, sess){ return sum + clsSessionUnits(sess); }, 0); }
-function clsRestantes(){ return clsCreditsTotal() - clsDadasTotal(); }
+function clsDadasTotal(){
+  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.group_given_units) || 0;
+  return clsDadas().reduce(function(sum, sess){ return sum + clsSessionUnits(sess); }, 0);
+}
+function clsRestantes(){
+  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.visible_remaining_units) || 0;
+  if (clsBillingRole() === 'group_member') return 0;
+  return clsCreditsTotal() - clsDadasTotal();
+}
+function studentBoardForSession(sessionId){
+  return allClassBoards.find(function(b){ return String(b.session_id) === String(sessionId); }) || null;
+}
+function openSharedBoard(sess){
+  const row = studentBoardForSession(sess.id);
+  if (!row) return;
+  const wrap = mk('div');
+  wrap.style.cssText = 'min-width:min(860px,88vw);max-height:78vh;overflow:auto';
+  wrap.appendChild(LegoBoard({ data: row.board_data, readonly: true, height: 520 }));
+  const close = mk('button', 'btn btn-outline btn-sm', 'Cerrar');
+  close.type = 'button';
+  close.onclick = function(){ LegoModal.close(); };
+  LegoModal({ M1: 'Pizarra de clase', M2: clsFmt(sess.class_date) + ' · ' + (clsHora(sess) || 'Sin hora'), M3: wrap, M7: close });
+}
 function renderDashClasses(){
   const mount = $('dash-clases');
   if (!mount) return;
-  if (!allCredits.length && !allSessions.length) { mount.replaceChildren(); return; }
+  if (!allCredits.length && !allSessions.length && !(studentBillingContext && studentBillingContext.group_id)) { mount.replaceChildren(); return; }
   const rest = clsRestantes();
   const card = mk('div');
   card.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px';
@@ -1556,13 +1619,15 @@ function renderDashClasses(){
   num.style.cssText = 'font-size:32px;font-weight:800;line-height:1;color:' + (rest <= 0 ? 'var(--red)' : 'var(--coral)');
   const info = mk('div');
   info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
-  const t1 = mk('div', null, rest === 1 ? 'clase restante' : 'clases restantes');
+  const t1 = mk('div', null, clsBillingRole() === 'group_member' ? 'cubierto por bolsa familiar' : (rest === 1 ? 'clase restante' : 'clases restantes'));
   t1.style.cssText = 'font-size:14px;font-weight:700;color:var(--ink)';
   info.appendChild(t1);
   const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
   const t2 = mk('div');
   t2.style.cssText = 'font-size:12px;color:var(--muted)';
-  if (prox.length) {
+  if (clsBillingRole() === 'group_member') {
+    t2.textContent = studentBillingContext && studentBillingContext.group_name ? studentBillingContext.group_name : 'Bolsa familiar';
+  } else if (prox.length) {
     const p = prox[0];
     t2.textContent = 'Próxima: ' + clsFmt(p.class_date) + (clsHora(p) ? ' · ' + clsHora(p) : '');
   } else {
@@ -1581,7 +1646,15 @@ function _clsSessionCard(sess){
   else if (fecha && fecha <= hoy) { chip = LegoChip('Dada', { bg: 'var(--green-lt)', color: 'var(--green)' }); }
   else { chip = LegoChip('Programada', { bg: 'var(--orange-lt)', color: 'var(--orange-dk)' }); }
   const hora = clsHora(sess);
-  return LegoCard({ L2: clsFmt(sess.class_date), L3: hora || 'Sin hora', L4: chip, L5: LegoChip(clsQty(clsSessionUnits(sess)) + ' unidades') });
+  const board = studentBoardForSession(sess.id);
+  let btn = '';
+  if (board) {
+    btn = mk('button', 'btn btn-outline btn-sm');
+    btn.type = 'button';
+    btn.replaceChildren(LegoIcon('ti-chalkboard', { size: 14 }), document.createTextNode(' Pizarra'));
+    btn.onclick = function(e){ e.stopPropagation(); openSharedBoard(sess); };
+  }
+  return LegoCard({ L2: clsFmt(sess.class_date), L3: hora || 'Sin hora', L4: chip, L5: LegoChip(clsQty(clsSessionUnits(sess)) + ' unidades'), L8: btn });
 }
 function _clsCollapsible(titulo, lista){
   const box = mk('div');
@@ -1622,6 +1695,12 @@ function renderClasesCard(){
   stats.appendChild(stat(clsQty(clsCreditsTotal()), 'Pagadas'));
   stats.appendChild(stat(clsQty(clsDadasTotal()), 'Dadas'));
   card.appendChild(stats);
+  if (clsBillingRole() === 'group_member') {
+    const family = mk('div');
+    family.style.cssText = 'font-size:12px;color:var(--muted);background:var(--sand);border-radius:var(--r);padding:9px 11px;margin-bottom:12px';
+    family.textContent = 'Cubierto por ' + ((studentBillingContext && studentBillingContext.group_name) || 'bolsa familiar') + '.';
+    card.appendChild(family);
+  }
   const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
   const pas = clsDadas().slice().sort(function(a, b){ return String(b.class_date).localeCompare(String(a.class_date)); });
   card.appendChild(_clsCollapsible('Próximas', prox));
@@ -1657,7 +1736,7 @@ function renderProfile(){
   bodyEl.appendChild(row('Miembro desde', currentUser && currentUser.created_at ? fmtDate(currentUser.created_at) : '—'));
 
   card.appendChild(head); card.appendChild(bodyEl);
-  if (allCredits.length || allSessions.length) card.appendChild(renderClasesCard());
+  if (allCredits.length || allSessions.length || (studentBillingContext && studentBillingContext.group_id)) card.appendChild(renderClasesCard());
   mount.replaceChildren(card);
 }
 
@@ -1702,3 +1781,8 @@ function renderProfile(){
 </script>
 </body>
 </html>
+
+
+
+
+

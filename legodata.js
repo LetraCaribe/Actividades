@@ -58,6 +58,17 @@ var LegoData = (function(){
       return ids.map(function(id){ return byId[String(id)] || null; }).filter(function(a){ return a; });
     },
 
+    activityByKey: async function(key){
+      if (!key) return null;
+      var value = String(key);
+      var isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+      var q = db.from('activities').select('*').limit(1);
+      q = isUuid ? q.eq('id', value) : q.eq('slug', value);
+      var r = await q;
+      if (r.error) _throw('activityByKey', r.error);
+      return (r.data || [])[0] || null;
+    },
+
     insertActivity: async function(row){
       var r = await db.from('activities').insert(row).select();
       if (r.error) _throw('insertActivity', r.error);
@@ -88,6 +99,14 @@ var LegoData = (function(){
     assignmentsByStudent: async function(studentId){
       var r = await db.from('assignments').select('*, activities(*), lessons(*)').eq('student_id', studentId).order('assigned_at', { ascending: false });
       if (r.error) _throw('assignmentsByStudent', r.error);
+      return r.data || [];
+    },
+
+    assignmentsByStudents: async function(studentIds){
+      var ids = (studentIds || []).filter(Boolean);
+      if (!ids.length) return [];
+      var r = await db.from('assignments').select('*, activities(*), lessons(*)').in('student_id', ids).order('assigned_at', { ascending: false });
+      if (r.error) _throw('assignmentsByStudents', r.error);
       return r.data || [];
     },
 
@@ -132,6 +151,12 @@ var LegoData = (function(){
       return r.data || [];
     },
 
+    unreviewedResponsesAll: async function(){
+      var r = await db.from('responses').select('*').eq('reviewed', false).order('submitted_at', { ascending: false });
+      if (r.error) _throw('unreviewedResponsesAll', r.error);
+      return r.data || [];
+    },
+
     responsesByAssignment: async function(assignmentId){
       var r = await db.from('responses').select('*').eq('assignment_id', assignmentId).order('question_num');
       if (r.error) _throw('responsesByAssignment', r.error);
@@ -142,6 +167,18 @@ var LegoData = (function(){
     responsesByStudentSlug: async function(studentId, slug){
       var r = await db.from('responses').select('*').eq('student_id', studentId).eq('activity_slug', slug).order('question_num');
       if (r.error) _throw('responsesByStudentSlug', r.error);
+      return r.data || [];
+    },
+
+    responsesByStudent: async function(studentId){
+      var r = await db.from('responses').select('*').eq('student_id', studentId).order('submitted_at', { ascending: false });
+      if (r.error) _throw('responsesByStudent', r.error);
+      return r.data || [];
+    },
+
+    unreviewedResponsesByStudent: async function(studentId){
+      var r = await db.from('responses').select('*').eq('student_id', studentId).eq('reviewed', false).order('submitted_at', { ascending: false });
+      if (r.error) _throw('unreviewedResponsesByStudent', r.error);
       return r.data || [];
     },
 
@@ -196,9 +233,39 @@ LegoData.classCredits = async function(){
   if (r.error) { throw new Error('[LegoData.classCredits] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.classCreditsByYear = async function(year){
+  var y = Number(year) || new Date().getFullYear();
+  var fromDate = y + '-01-01';
+  var nextDate = (y + 1) + '-01-01';
+  var r = await db.from('class_credits')
+    .select('*')
+    .or('and(paid_at.gte.' + fromDate + ',paid_at.lt.' + nextDate + '),and(paid_at.is.null,created_at.gte.' + fromDate + ',created_at.lt.' + nextDate + ')')
+    .order('paid_at', { ascending: false });
+  if (r.error) { throw new Error('[LegoData.classCreditsByYear] ' + r.error.message); }
+  return r.data || [];
+};
 LegoData.classCreditsByStudent = async function(studentId){
   var r = await db.from('class_credits').select('*').eq('student_id', studentId).order('paid_at', { ascending: false });
   if (r.error) { throw new Error('[LegoData.classCreditsByStudent] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.classCreditsWithAccountByStudent = async function(studentId){
+  var r = await db.from('class_credits_with_account').select('*').eq('student_id', studentId).order('paid_at', { ascending: false });
+  if (r.error) { throw new Error('[LegoData.classCreditsWithAccountByStudent] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.classCreditsByStudentYear = async function(studentId, year){
+  if (!studentId) { throw new Error('[LegoData.classCreditsByStudentYear] Falta studentId'); }
+  if (String(year || '').toLowerCase() === 'all') return LegoData.classCreditsWithAccountByStudent(studentId);
+  var y = Number(year) || new Date().getFullYear();
+  var fromDate = y + '-01-01';
+  var nextDate = (y + 1) + '-01-01';
+  var r = await db.from('class_credits_with_account')
+    .select('*')
+    .eq('student_id', studentId)
+    .or('and(paid_at.gte.' + fromDate + ',paid_at.lt.' + nextDate + '),and(paid_at.is.null,created_at.gte.' + fromDate + ',created_at.lt.' + nextDate + ')')
+    .order('paid_at', { ascending: false });
+  if (r.error) { throw new Error('[LegoData.classCreditsByStudentYear] ' + r.error.message); }
   return r.data || [];
 };
 LegoData.insertClassCredit = async function(row){
@@ -206,11 +273,40 @@ LegoData.insertClassCredit = async function(row){
   if (r.error) { throw new Error('[LegoData.insertClassCredit] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.updateClassCredit = async function(id, patch){
+  var r = await db.from('class_credits').update(patch).eq('id', id).select();
+  if (r.error) { throw new Error('[LegoData.updateClassCredit] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.updateClassCredit] RLS bloqueo el update (0 filas) en credit ' + id); }
+  return r.data[0];
+};
 LegoData.deleteClassCredit = async function(id){
   var r = await db.from('class_credits').delete().eq('id', id).select();
   if (r.error) { throw new Error('[LegoData.deleteClassCredit] ' + r.error.message); }
   if (!r.data || !r.data.length) { throw new Error('[LegoData.deleteClassCredit] RLS bloqueo el delete (0 filas) en credit ' + id); }
   return r.data;
+};
+LegoData.paymentAccounts = async function(opts){
+  opts = opts || {};
+  var q = db.from('payment_accounts').select('id,name,currency,active,sort_order,created_at').order('sort_order', { ascending: true }).order('name', { ascending: true });
+  if (!opts.includeInactive) q = q.eq('active', true);
+  var r = await q;
+  if (r.error) { throw new Error('[LegoData.paymentAccounts] ' + r.error.message); }
+  return (r.data || []).map(function(row){
+    return {
+      id: row.id,
+      name: row.name || '',
+      currency: row.currency || '',
+      active: row.active !== false,
+      sort_order: Number(row.sort_order) || 100,
+      created_at: row.created_at || null
+    };
+  });
+};
+LegoData.insertPaymentAccount = async function(row){
+  var r = await db.from('payment_accounts').insert(row).select('id,name,currency,active,sort_order,created_at');
+  if (r.error) { throw new Error('[LegoData.insertPaymentAccount] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.insertPaymentAccount] No se creó la cuenta'); }
+  return r.data[0];
 };
 
 LegoData.classSessions = async function(){
@@ -222,6 +318,97 @@ LegoData.classSessionsByStudent = async function(studentId){
   var r = await db.from('class_sessions').select('*').eq('student_id', studentId).order('class_date', { ascending: false });
   if (r.error) { throw new Error('[LegoData.classSessionsByStudent] ' + r.error.message); }
   return r.data || [];
+};
+LegoData.classSessionsByStudentYear = async function(studentId, year){
+  if (!studentId) { throw new Error('[LegoData.classSessionsByStudentYear] Falta studentId'); }
+  if (String(year || '').toLowerCase() === 'all') return LegoData.classSessionsByStudent(studentId);
+  var y = Number(year) || new Date().getFullYear();
+  var fromDate = y + '-01-01';
+  var nextDate = (y + 1) + '-01-01';
+  var r = await db.from('class_sessions')
+    .select('*')
+    .eq('student_id', studentId)
+    .gte('class_date', fromDate)
+    .lt('class_date', nextDate)
+    .order('class_date', { ascending: false })
+    .order('class_time', { ascending: false });
+  if (r.error) { throw new Error('[LegoData.classSessionsByStudentYear] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.studentClassLedger = async function(studentId){
+  if (!studentId) { throw new Error('[LegoData.studentClassLedger] Falta studentId'); }
+  var result = await Promise.all([
+    LegoData.classCreditsByStudent(studentId),
+    LegoData.classSessionsByStudent(studentId)
+  ]);
+  return {
+    credits: result[0] || [],
+    sessions: result[1] || []
+  };
+};
+LegoData.studentClassLedgerByYear = async function(studentId, year){
+  if (!studentId) { throw new Error('[LegoData.studentClassLedgerByYear] Falta studentId'); }
+  var result = await Promise.all([
+    LegoData.classCreditsByStudentYear(studentId, year),
+    LegoData.classSessionsByStudentYear(studentId, year)
+  ]);
+  return {
+    credits: result[0] || [],
+    sessions: result[1] || []
+  };
+};
+LegoData.studentClassLedgerYears = async function(studentId){
+  if (!studentId) { throw new Error('[LegoData.studentClassLedgerYears] Falta studentId'); }
+  var result = await Promise.all([
+    db.from('class_sessions').select('class_date').eq('student_id', studentId),
+    db.from('class_credits').select('paid_at,created_at').eq('student_id', studentId)
+  ]);
+  if (result[0].error) { throw new Error('[LegoData.studentClassLedgerYears:sessions] ' + result[0].error.message); }
+  if (result[1].error) { throw new Error('[LegoData.studentClassLedgerYears:credits] ' + result[1].error.message); }
+  var yearMap = {};
+  (result[0].data || []).forEach(function(row){
+    var y = String(row.class_date || '').slice(0, 4);
+    if (y) yearMap[y] = true;
+  });
+  (result[1].data || []).forEach(function(row){
+    var y = String(row.paid_at || row.created_at || '').slice(0, 4);
+    if (y) yearMap[y] = true;
+  });
+  return Object.keys(yearMap).sort(function(a, b){ return String(b).localeCompare(String(a)); });
+};
+LegoData.classSessionsByRange = async function(fromDate, toDate){
+  if (!fromDate || !toDate) { throw new Error('[LegoData.classSessionsByRange] Falta rango'); }
+  var r = await db.from('class_sessions')
+    .select('*')
+    .gte('class_date', fromDate)
+    .lte('class_date', toDate)
+    .order('class_date', { ascending: true })
+    .order('class_time', { ascending: true });
+  if (r.error) { throw new Error('[LegoData.classSessionsByRange] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.classPrepSessionsByDate = async function(date){
+  if (!date) { throw new Error('[LegoData.classPrepSessionsByDate] Falta fecha'); }
+  var r = await db.from('class_sessions')
+    .select('*')
+    .eq('class_date', date)
+    .eq('cancelled', false)
+    .not('student_id', 'is', null)
+    .order('class_time', { ascending: true });
+  if (r.error) { throw new Error('[LegoData.classPrepSessionsByDate] ' + r.error.message); }
+  var rows = r.data || [];
+  var ids = Array.from(new Set(rows.map(function(sess){ return sess.student_id; }).filter(Boolean).map(String)));
+  if (!ids.length) return rows;
+  var p = await db.from('profiles')
+    .select('id,full_name,level,status,exclude_from_stats')
+    .in('id', ids);
+  if (p.error) { throw new Error('[LegoData.classPrepSessionsByDate:profiles] ' + p.error.message); }
+  var byId = {};
+  (p.data || []).forEach(function(profile){ byId[String(profile.id)] = profile; });
+  return rows.map(function(sess){
+    sess.profiles = byId[String(sess.student_id)] || null;
+    return sess;
+  });
 };
 LegoData.classSessionsByCalendarUids = async function(studentId, uids){
   if (!uids || !uids.length) return [];
@@ -246,11 +433,86 @@ LegoData.updateClassSession = async function(id, patch){
   if (!r.data || !r.data.length) { throw new Error('[LegoData.updateClassSession] RLS bloqueo el update (0 filas) en session ' + id); }
   return r.data[0];
 };
+LegoData.setClassSessionCancelled = async function(id, cancelled){
+  var r = await db.from('class_sessions').update({ cancelled: !!cancelled }).eq('id', id).select();
+  if (r.error) { throw new Error('[LegoData.setClassSessionCancelled] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.setClassSessionCancelled] RLS bloqueo el update (0 filas) en session ' + id); }
+  return r.data[0];
+};
 LegoData.deleteClassSession = async function(id){
   var r = await db.from('class_sessions').delete().eq('id', id).select();
   if (r.error) { throw new Error('[LegoData.deleteClassSession] ' + r.error.message); }
   if (!r.data || !r.data.length) { throw new Error('[LegoData.deleteClassSession] RLS bloqueo el delete (0 filas) en session ' + id); }
   return r.data;
+};
+
+LegoData.classBoardBySession = async function(sessionId){
+  if (!sessionId) return null;
+  var r = await db.from('class_session_boards').select('*').eq('session_id', sessionId);
+  if (r.error) { throw new Error('[LegoData.classBoardBySession] ' + r.error.message); }
+  return (r.data || [])[0] || null;
+};
+
+LegoData.classBoardsBySessionIds = async function(sessionIds, opts){
+  opts = opts || {};
+  var ids = (sessionIds || []).filter(function(id){ return id !== null && id !== undefined; }).map(function(id){ return String(id); });
+  if (!ids.length) return [];
+  var q = db.from('class_session_boards').select('*').in('session_id', ids).order('updated_at', { ascending: false });
+  if (opts.visibleOnly) q = q.eq('visible_to_student', true);
+  var r = await q;
+  if (r.error) { throw new Error('[LegoData.classBoardsBySessionIds] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.previousClassBoardForStudent = async function(studentId, beforeDate, beforeTime, currentSessionId){
+  if (!studentId || !beforeDate) return null;
+  var sessions = await db.from('class_sessions')
+    .select('id,class_date,class_time')
+    .eq('student_id', studentId)
+    .lt('class_date', beforeDate)
+    .order('class_date', { ascending: false })
+    .order('class_time', { ascending: false })
+    .limit(40);
+  if (sessions.error) { throw new Error('[LegoData.previousClassBoardForStudent:sessions] ' + sessions.error.message); }
+  var ids = (sessions.data || []).filter(function(row){ return String(row.id) !== String(currentSessionId); }).map(function(row){ return row.id; });
+  if (beforeTime) {
+    var sameDay = await db.from('class_sessions')
+      .select('id,class_date,class_time')
+      .eq('student_id', studentId)
+      .eq('class_date', beforeDate)
+      .lt('class_time', beforeTime)
+      .order('class_time', { ascending: false })
+      .limit(10);
+    if (sameDay.error) { throw new Error('[LegoData.previousClassBoardForStudent:sameDay] ' + sameDay.error.message); }
+    ids = (sameDay.data || []).filter(function(row){ return String(row.id) !== String(currentSessionId); }).map(function(row){ return row.id; }).concat(ids);
+  }
+  var rows = await LegoData.classBoardsBySessionIds(ids);
+  var bySession = {};
+  (rows || []).forEach(function(row){ bySession[String(row.session_id)] = row; });
+  for (var i = 0; i < ids.length; i++) {
+    if (bySession[String(ids[i])]) return bySession[String(ids[i])];
+  }
+  return null;
+};
+
+LegoData.saveClassBoard = async function(sessionId, boardData, visibleToStudent){
+  if (!sessionId) { throw new Error('[LegoData.saveClassBoard] Falta sessionId'); }
+  var row = {
+    session_id: sessionId,
+    board_data: boardData || { version: 1, strokes: [], texts: [], shapes: [] },
+    visible_to_student: !!visibleToStudent,
+    updated_at: new Date().toISOString()
+  };
+  var r = await db.from('class_session_boards').upsert(row, { onConflict: 'session_id' }).select();
+  if (r.error) { throw new Error('[LegoData.saveClassBoard] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.saveClassBoard] RLS bloqueo el upsert (0 filas) en session ' + sessionId); }
+  return r.data[0];
+};
+
+LegoData.deleteClassBoardBySession = async function(sessionId){
+  if (!sessionId) { throw new Error('[LegoData.deleteClassBoardBySession] Falta sessionId'); }
+  var r = await db.from('class_session_boards').delete().eq('session_id', sessionId).select('id');
+  if (r.error) { throw new Error('[LegoData.deleteClassBoardBySession] ' + r.error.message); }
+  return r.data || [];
 };
 LegoData.deleteClassSeries = async function(seriesId, fromDate){
   var r = await db.from('class_sessions').delete().eq('series_id', seriesId).gte('class_date', fromDate).select();
@@ -286,16 +548,156 @@ LegoData.studentAliases = async function(){
   if (r.error) { throw new Error('[LegoData.studentAliases] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.studentAliasesByStudent = async function(studentId){
+  var r = await db.from('student_aliases').select('*').eq('student_id', studentId).order('alias');
+  if (r.error) { throw new Error('[LegoData.studentAliasesByStudent] ' + r.error.message); }
+  return r.data || [];
+};
 LegoData.upsertStudentAlias = async function(payload){
   var r = await db.from('student_aliases').upsert(payload, { onConflict: 'alias_key' }).select();
   if (r.error) { throw new Error('[LegoData.upsertStudentAlias] ' + r.error.message); }
   return r.data || [];
 };
 
+function normalizeBillingGroup(row){
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name || '',
+    responsible_student_id: row.responsible_student_id || null,
+    starts_on: row.starts_on || null,
+    active: row.active !== false,
+    created_at: row.created_at || null
+  };
+}
+function normalizeBillingGroupBalance(row){
+  if (!row) return null;
+  return {
+    group_id: row.group_id,
+    group_name: row.group_name || '',
+    responsible_student_id: row.responsible_student_id || null,
+    responsible_student_name: row.responsible_student_name || '',
+    starts_on: row.starts_on || null,
+    active: row.active !== false,
+    total_paid_units: Number(row.total_paid_units) || 0,
+    total_given_units: Number(row.total_given_units) || 0,
+    total_future_units: Number(row.total_future_units) || 0,
+    remaining_units: Number(row.remaining_units) || 0
+  };
+}
+function normalizeBillingGroupMember(row){
+  if (!row) return null;
+  return {
+    id: row.id,
+    group_id: row.group_id,
+    group_name: row.group_name || '',
+    responsible_student_id: row.responsible_student_id || null,
+    student_id: row.student_id,
+    student_name: row.student_name || '',
+    email: row.email || '',
+    level: row.level || '',
+    status: row.status || '',
+    starts_on: row.starts_on || null,
+    active: row.active !== false,
+    is_responsible: row.is_responsible === true
+  };
+}
+function normalizeStudentBillingContext(row){
+  if (!row) return null;
+  return {
+    student_id: row.student_id,
+    full_name: row.full_name || '',
+    group_id: row.group_id || null,
+    group_name: row.group_name || '',
+    responsible_student_id: row.responsible_student_id || null,
+    responsible_student_name: row.responsible_student_name || '',
+    member_starts_on: row.member_starts_on || null,
+    group_starts_on: row.group_starts_on || null,
+    group_active: row.group_active === true,
+    member_active: row.member_active === true,
+    billing_role: row.billing_role || 'individual',
+    visible_remaining_units: Number(row.visible_remaining_units) || 0,
+    group_remaining_units: Number(row.group_remaining_units) || 0,
+    group_paid_units: Number(row.group_paid_units) || 0,
+    group_given_units: Number(row.group_given_units) || 0,
+    group_future_units: Number(row.group_future_units) || 0
+  };
+}
+function normalizeFinanceBalanceRow(row){
+  if (!row) return null;
+  return {
+    row_type: row.row_type || 'student',
+    row_id: row.row_id,
+    row_name: row.row_name || '',
+    student_id: row.student_id || null,
+    group_id: row.group_id || null,
+    status: row.status || '',
+    exclude_from_stats: row.exclude_from_stats === true,
+    total_paid_units: Number(row.total_paid_units) || 0,
+    total_given_units: Number(row.total_given_units) || 0,
+    total_future_units: Number(row.total_future_units) || 0,
+    remaining_units: Number(row.remaining_units) || 0
+  };
+}
+LegoData.billingGroups = async function(opts){
+  opts = opts || {};
+  var q = db.from('billing_groups').select('id,name,responsible_student_id,starts_on,active,created_at').order('name', { ascending: true });
+  if (!opts.includeInactive) q = q.eq('active', true);
+  var r = await q;
+  if (r.error) { throw new Error('[LegoData.billingGroups] ' + r.error.message); }
+  return (r.data || []).map(normalizeBillingGroup);
+};
+LegoData.billingGroupById = async function(groupId){
+  if (!groupId) { throw new Error('[LegoData.billingGroupById] Falta groupId'); }
+  var r = await db.from('billing_groups')
+    .select('id,name,responsible_student_id,starts_on,active,created_at')
+    .eq('id', groupId)
+    .limit(1);
+  if (r.error) { throw new Error('[LegoData.billingGroupById] ' + r.error.message); }
+  return normalizeBillingGroup((r.data || [])[0]);
+};
+LegoData.insertBillingGroup = async function(row){
+  var r = await db.from('billing_groups').insert(row).select('id,name,responsible_student_id,starts_on,active,created_at');
+  if (r.error) { throw new Error('[LegoData.insertBillingGroup] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.insertBillingGroup] No se creó la bolsa'); }
+  return normalizeBillingGroup(r.data[0]);
+};
+LegoData.updateBillingGroup = async function(groupId, patch){
+  if (!groupId) { throw new Error('[LegoData.updateBillingGroup] Falta groupId'); }
+  var r = await db.from('billing_groups').update(patch).eq('id', groupId).select('id,name,responsible_student_id,starts_on,active,created_at');
+  if (r.error) { throw new Error('[LegoData.updateBillingGroup] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.updateBillingGroup] RLS bloqueo el update (0 filas) en group ' + groupId); }
+  return normalizeBillingGroup(r.data[0]);
+};
+LegoData.billingGroupBalance = async function(groupId){
+  if (!groupId) { throw new Error('[LegoData.billingGroupBalance] Falta groupId'); }
+  var r = await db.from('billing_group_balances')
+    .select('group_id,group_name,responsible_student_id,responsible_student_name,starts_on,active,total_paid_units,total_given_units,total_future_units,remaining_units')
+    .eq('group_id', groupId)
+    .limit(1);
+  if (r.error) { throw new Error('[LegoData.billingGroupBalance] ' + r.error.message); }
+  return normalizeBillingGroupBalance((r.data || [])[0]);
+};
+LegoData.billingGroupMembers = async function(groupId){
+  if (!groupId) { throw new Error('[LegoData.billingGroupMembers] Falta groupId'); }
+  var r = await db.from('billing_group_member_rows')
+    .select('id,group_id,group_name,responsible_student_id,student_id,student_name,email,level,status,starts_on,active,is_responsible')
+    .eq('group_id', groupId)
+    .order('is_responsible', { ascending: false })
+    .order('student_name', { ascending: true });
+  if (r.error) { throw new Error('[LegoData.billingGroupMembers] ' + r.error.message); }
+  return (r.data || []).map(normalizeBillingGroupMember);
+};
 LegoData.billingGroupMembersByStudents = async function(studentIds){
   var r = await db.from('billing_group_members').select('id,group_id,student_id').in('student_id', studentIds || []);
   if (r.error) { throw new Error('[LegoData.billingGroupMembersByStudents] ' + r.error.message); }
   return r.data || [];
+};
+LegoData.insertBillingGroupMember = async function(row){
+  var r = await db.from('billing_group_members').insert(row).select('id,group_id,student_id,starts_on,active,created_at');
+  if (r.error) { throw new Error('[LegoData.insertBillingGroupMember] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.insertBillingGroupMember] No se creó el miembro'); }
+  return r.data[0];
 };
 LegoData.deleteBillingGroupMember = async function(id){
   var r = await db.from('billing_group_members').delete().eq('id', id).select();
@@ -308,6 +710,58 @@ LegoData.updateBillingGroupMember = async function(id, patch){
   if (r.error) { throw new Error('[LegoData.updateBillingGroupMember] ' + r.error.message); }
   if (!r.data || !r.data.length) { throw new Error('[LegoData.updateBillingGroupMember] RLS bloqueo el update (0 filas) en member ' + id); }
   return r.data[0];
+};
+LegoData.updateBillingGroupMembersByGroup = async function(groupId, patch){
+  if (!groupId) { throw new Error('[LegoData.updateBillingGroupMembersByGroup] Falta groupId'); }
+  var r = await db.from('billing_group_members').update(patch).eq('group_id', groupId).eq('active', true).select('id,group_id,student_id,starts_on,active,created_at');
+  if (r.error) { throw new Error('[LegoData.updateBillingGroupMembersByGroup] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.studentBillingContext = async function(studentId){
+  if (!studentId) { throw new Error('[LegoData.studentBillingContext] Falta studentId'); }
+  var r = await db.from('student_billing_context')
+    .select('student_id,full_name,group_id,group_name,responsible_student_id,responsible_student_name,member_starts_on,group_starts_on,group_active,member_active,billing_role,visible_remaining_units,group_remaining_units,group_paid_units,group_given_units,group_future_units')
+    .eq('student_id', studentId)
+    .limit(1);
+  if (r.error) { throw new Error('[LegoData.studentBillingContext] ' + r.error.message); }
+  return normalizeStudentBillingContext((r.data || [])[0]) || {
+    student_id: studentId,
+    full_name: '',
+    group_id: null,
+    group_name: '',
+    responsible_student_id: null,
+    responsible_student_name: '',
+    member_starts_on: null,
+    group_starts_on: null,
+    group_active: false,
+    member_active: false,
+    billing_role: 'individual',
+    visible_remaining_units: 0,
+    group_remaining_units: 0,
+    group_paid_units: 0,
+    group_given_units: 0,
+    group_future_units: 0
+  };
+};
+LegoData.financeBalanceRows = async function(opts){
+  opts = opts || {};
+  var q = db.from('finance_balance_rows')
+    .select('row_type,row_id,row_name,student_id,group_id,status,exclude_from_stats,total_paid_units,total_given_units,total_future_units,remaining_units')
+    .order('row_name', { ascending: true });
+  if (!opts.includeExcluded) q = q.eq('exclude_from_stats', false);
+  var r = await q;
+  if (r.error) { throw new Error('[LegoData.financeBalanceRows] ' + r.error.message); }
+  return (r.data || []).map(normalizeFinanceBalanceRow);
+};
+LegoData.financeBillingGroupMembers = async function(){
+  var r = await db.from('billing_group_member_rows')
+    .select('id,group_id,group_name,responsible_student_id,student_id,student_name,email,level,status,starts_on,active,is_responsible')
+    .eq('active', true)
+    .order('group_name', { ascending: true })
+    .order('is_responsible', { ascending: false })
+    .order('student_name', { ascending: true });
+  if (r.error) { throw new Error('[LegoData.financeBillingGroupMembers] ' + r.error.message); }
+  return (r.data || []).map(normalizeBillingGroupMember);
 };
 
 // ── vocabulario ─────────────────────────────────────────
@@ -485,6 +939,20 @@ LegoData.vocabularyLevelBreakdown = async function(){
       total: Number(row.total) || 0
     };
   });
+};
+LegoData.vocabularyRecentStats = async function(){
+  var r = await db.from('vocabulary_recent_stats')
+    .select('new_words_7d,new_expressions_7d')
+    .maybeSingle();
+  if (r.error) { throw new Error('[LegoData.vocabularyRecentStats] ' + r.error.message); }
+  var row = r.data || {};
+  var newWords7d = Number(row.new_words_7d) || 0;
+  var newExpressions7d = Number(row.new_expressions_7d) || 0;
+  return {
+    newWords7d: newWords7d,
+    newExpressions7d: newExpressions7d,
+    totalNew7d: newWords7d + newExpressions7d
+  };
 };
 LegoData.insertStudentVocabulary = async function(rowOrRows){
   var rows = await LegoData.withVocabularyLevelSnapshots(rowOrRows);
@@ -664,6 +1132,11 @@ LegoData.vocabularyPracticeEvents = async function(){
   if (r.error) { throw new Error('[LegoData.vocabularyPracticeEvents] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.vocabularyPracticeEventsByStudent = async function(studentId){
+  var r = await db.from('student_vocabulary_practice_events').select('*').eq('student_id', studentId).order('created_at', { ascending: false });
+  if (r.error) { throw new Error('[LegoData.vocabularyPracticeEventsByStudent] ' + r.error.message); }
+  return r.data || [];
+};
 LegoData.insertVocabularyPracticeEvent = async function(row){
   var payload = await LegoData.withPracticeLevelSnapshot(row);
   var r = await db.from('student_vocabulary_practice_events').insert(payload);
@@ -809,6 +1282,35 @@ LegoData.profileById = async function(id){
   return (r.data || [])[0] || null;
 };
 
+LegoData.adminStudentProfileData = async function(studentId, opts){
+  opts = opts || {};
+  var includeLedger = opts.includeLedger !== false;
+  if (!studentId) { throw new Error('[LegoData.adminStudentProfileData] Falta studentId'); }
+  var results = await Promise.all([
+    LegoData.profileById(studentId),
+    LegoData.assignmentsByStudent(studentId),
+    LegoData.responsesByStudent(studentId),
+    LegoData.studentVocabularyByStudent(studentId),
+    includeLedger ? LegoData.classCreditsByStudent(studentId) : Promise.resolve(null),
+    includeLedger ? LegoData.classSessionsByStudent(studentId) : Promise.resolve(null),
+    LegoData.vocabularyPracticeEventsByStudent(studentId),
+    LegoData.studentAliasesByStudent(studentId)
+  ]);
+  var payload = {
+    student: results[0],
+    assignments: results[1] || [],
+    responses: results[2] || [],
+    vocabulary: results[3] || [],
+    practiceEvents: results[6] || [],
+    aliases: results[7] || []
+  };
+  if (includeLedger) {
+    payload.classCredits = results[4] || [];
+    payload.classSessions = results[5] || [];
+  }
+  return payload;
+};
+
 LegoData.deleteActivity = async function(id){
   var r = await db.from('activities').delete().eq('id', id).select('id');
   if (r.error) { throw new Error('[LegoData.deleteActivity] ' + r.error.message); }
@@ -831,6 +1333,48 @@ LegoData.financeByStudent = async function(){
   if (r.error) { throw new Error('[LegoData.financeByStudent] ' + r.error.message); }
   return r.data || [];
 };
+function normalizeFinanceStudentBalance(row){
+  if (!row) return null;
+  return {
+    student_id: row.student_id,
+    student_name: row.student_name || '',
+    email: row.email || '',
+    status: row.status || '',
+    exclude_from_stats: !!row.exclude_from_stats,
+    total_paid_units: Number(row.total_paid_units) || 0,
+    total_given_units: Number(row.total_given_units) || 0,
+    total_future_units: Number(row.total_future_units) || 0,
+    remaining_units: Number(row.remaining_units) || 0
+  };
+}
+LegoData.financeStudentBalances = async function(){
+  var r = await db.from('finance_student_balances')
+    .select('student_id,student_name,email,status,exclude_from_stats,total_paid_units,total_given_units,total_future_units,remaining_units')
+    .order('student_name', { ascending: true });
+  if (r.error) { throw new Error('[LegoData.financeStudentBalances] ' + r.error.message); }
+  return (r.data || []).map(function(row){
+    return normalizeFinanceStudentBalance(row);
+  });
+};
+LegoData.studentFinanceBalance = async function(studentId){
+  if (!studentId) { throw new Error('[LegoData.studentFinanceBalance] Falta studentId'); }
+  var r = await db.from('finance_student_balances')
+    .select('student_id,student_name,email,status,exclude_from_stats,total_paid_units,total_given_units,total_future_units,remaining_units')
+    .eq('student_id', studentId)
+    .limit(1);
+  if (r.error) { throw new Error('[LegoData.studentFinanceBalance] ' + r.error.message); }
+  return normalizeFinanceStudentBalance((r.data || [])[0]) || {
+    student_id: studentId,
+    student_name: '',
+    email: '',
+    status: '',
+    exclude_from_stats: false,
+    total_paid_units: 0,
+    total_given_units: 0,
+    total_future_units: 0,
+    remaining_units: 0
+  };
+};
 LegoData.studentBalances = async function(){
   var r = await db.from('student_balances').select('*');
   if (r.error) { throw new Error('[LegoData.studentBalances] ' + r.error.message); }
@@ -846,6 +1390,33 @@ LegoData.studentProgress = async function(){
   var r = await db.from('student_progress').select('*');
   if (r.error) { throw new Error('[LegoData.studentProgress] ' + r.error.message); }
   return r.data || [];
+};
+LegoData.studentsRoster = async function(){
+  var r = await db.from('student_admin_roster').select('*').order('full_name');
+  if (r.error) { throw new Error('[LegoData.studentsRoster] ' + r.error.message); }
+  return (r.data || []).map(function(row){
+    return {
+      id: row.student_id,
+      student_id: row.student_id,
+      full_name: row.full_name || '',
+      email: row.email || null,
+      level: row.level || '',
+      status: row.status || '',
+      access_status: row.access_status || '',
+      exclude_from_stats: row.exclude_from_stats === true,
+      created_at: row.created_at || null,
+      completed_count: Number(row.completed_count) || 0,
+      pending_count: Number(row.pending_count) || 0,
+      review_count: Number(row.review_count) || 0,
+      vocab_count: Number(row.vocab_count) || 0,
+      paid_units: Number(row.paid_units) || 0,
+      given_units: Number(row.given_units) || 0,
+      future_units: Number(row.future_units) || 0,
+      remaining_units: Number(row.remaining_units) || 0,
+      last_class_date: row.last_class_date || null,
+      next_class_date: row.next_class_date || null
+    };
+  });
 };
 LegoData.upcomingSessions = async function(opts){
   opts = opts || {};
@@ -867,4 +1438,63 @@ LegoData.vocabularyPopularOrganic = async function(opts){
   var r = await db.from('vocabulary_shared_words_organic').select('term,meaning,student_count').order('student_count', { ascending: false }).order('term').limit(Number(opts.limit) || 8);
   if (r.error) { throw new Error('[LegoData.vocabularyPopularOrganic] ' + r.error.message); }
   return (r.data || []).map(function(row){ return { term: row.term || '', meaning: row.meaning || '', studentCount: Number(row.student_count) || 0 }; });
+};
+
+LegoData.adminClassPrepBySession = async function(sessionId, opts){
+  opts = opts || {};
+  if (!sessionId) { throw new Error('[LegoData.adminClassPrepBySession] Falta sessionId'); }
+  var sess = await db.from('class_sessions').select('*').eq('id', sessionId);
+  if (sess.error) { throw new Error('[LegoData.adminClassPrepBySession:session] ' + sess.error.message); }
+  var session = (sess.data || [])[0] || null;
+  if (!session) { throw new Error('[LegoData.adminClassPrepBySession] Clase no encontrada'); }
+  var studentId = session.student_id || null;
+  var boardPromise = LegoData.classBoardBySession(session.id).catch(function(e){ return { _boardError: e.message || String(e) }; });
+  var libraryPromise = opts.includeLibrary && LegoData.library ? LegoData.library() : Promise.resolve([]);
+  var ledgerSessionsPromise = opts.includeLedger && studentId ? LegoData.classSessionsByStudent(studentId) : Promise.resolve([]);
+  var ledgerCreditsPromise = opts.includeLedger && studentId ? LegoData.classCreditsByStudent(studentId) : Promise.resolve([]);
+  if (!studentId) {
+    var emptyBoard = await boardPromise;
+    return {
+      session: session,
+      student: null,
+      assignments: [],
+      responses: [],
+      vocabulary: [],
+      practiceEvents: [],
+      classSessions: [],
+      classCredits: [],
+      board: emptyBoard && !emptyBoard._boardError ? emptyBoard : null,
+      boardError: emptyBoard && emptyBoard._boardError ? emptyBoard._boardError : '',
+      library: await libraryPromise,
+      libraryLoaded: !!opts.includeLibrary,
+      ledgerLoaded: !!opts.includeLedger
+    };
+  }
+  var results = await Promise.all([
+    LegoData.profileById(studentId),
+    LegoData.assignmentsByStudent(studentId),
+    LegoData.unreviewedResponsesByStudent(studentId),
+    LegoData.studentVocabularyByStudent(studentId),
+    LegoData.vocabularyPracticeEventsByStudent(studentId),
+    ledgerSessionsPromise,
+    ledgerCreditsPromise,
+    boardPromise,
+    libraryPromise
+  ]);
+  var board = results[7];
+  return {
+    session: session,
+    student: results[0],
+    assignments: results[1] || [],
+    responses: results[2] || [],
+    vocabulary: results[3] || [],
+    practiceEvents: results[4] || [],
+    classSessions: results[5] || [],
+    classCredits: results[6] || [],
+    board: board && !board._boardError ? board : null,
+    boardError: board && board._boardError ? board._boardError : '',
+    library: results[8] || [],
+    libraryLoaded: !!opts.includeLibrary,
+    ledgerLoaded: !!opts.includeLedger
+  };
 };
