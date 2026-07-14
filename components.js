@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // components.js — Letra Caribe universal components
 // ============================================================
 
@@ -1884,14 +1884,26 @@ function _lpReviewMC(content, activity, saved){
       var opts2 = q.opts || [];
       var correctIdx = q.correct !== undefined ? q.correct : (q.ans || 0);
       var optsWrap = document.createElement('div'); optsWrap.className = 'lp-mc-opts';
+      var answered = sv.answer !== undefined && sv.answer !== null && String(sv.answer).trim() !== '';
       opts2.forEach(function(o, oi){
         var b = document.createElement('div'); b.className = 'lp-mc-opt';
-        if (oi === correctIdx) b.className = 'lp-mc-opt correct';
-        else if (o === sv.answer) b.className = 'lp-mc-opt wrong';
+        if (answered && oi === correctIdx) b.className = 'lp-mc-opt correct';
+        else if (answered && o === sv.answer) b.className = 'lp-mc-opt wrong';
         b.textContent = o;
         optsWrap.appendChild(b);
       });
       block.appendChild(optsWrap);
+      if (!answered) {
+        var miss = document.createElement('div');
+        miss.style.cssText = 'font-size:12px;font-weight:700;color:var(--red);margin-top:6px';
+        miss.textContent = 'Sin responder. Respuesta correcta: ' + (opts2[correctIdx] || '');
+        block.appendChild(miss);
+      } else if (sv.isCorrect === false && opts2.indexOf(sv.answer) === -1) {
+        var picked = document.createElement('div');
+        picked.style.cssText = 'font-size:12px;font-weight:700;color:var(--red);margin-top:6px';
+        picked.textContent = 'Respuesta del estudiante: ' + sv.answer;
+        block.appendChild(picked);
+      }
     }
     wrap.appendChild(block);
   });
@@ -2525,7 +2537,22 @@ function _lpCompose(activity, content, opts){
       submit.disabled = true;
       if (onResult) onResult({ type: activity.type || 'v2', score: c, total: t, answers: all });
     };
-    root.appendChild(submit);
+    if (typeof opts.onPause === 'function') {
+      var pauseBtn = document.createElement('button');
+      pauseBtn.type = 'button';
+      pauseBtn.textContent = 'Pausar';
+      pauseBtn.style.cssText = 'flex:1;padding:11px;border-radius:10px;border:1px solid var(--red);background:var(--red-lt);color:var(--red);font:inherit;font-size:15px;font-weight:700;cursor:pointer';
+      pauseBtn.onclick = function(){ try { opts.onPause(root.getProgress()); } catch(e){} };
+      submit.className = '';
+      submit.style.cssText = 'flex:1;padding:11px;border-radius:10px;border:none;background:var(--green);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer';
+      var bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;gap:10px;margin-top:16px;flex-shrink:0';
+      bar.appendChild(pauseBtn);
+      bar.appendChild(submit);
+      root.appendChild(bar);
+    } else {
+      root.appendChild(submit);
+    }
   }
   return root;
 }
@@ -2696,6 +2723,195 @@ function _lpFlashcard(content, state, refreshScore){ if ((content.mode || 'flip'
   return wrap;
 }
 
+function _lpTrueFalseVocabStyles(){
+  if (document.getElementById('lego-tfv-styles')) return;
+  var st = document.createElement('style'); st.id = 'lego-tfv-styles';
+  st.textContent = '.lp-tfv{display:flex;flex-direction:column;align-items:center;gap:14px}.lp-tfv-prog{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.lp-tfv-card{width:100%;max-width:460px;min-height:160px;border:1.5px solid var(--border);border-radius:14px;background:var(--white);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.06)}.lp-tfv-term{font-size:24px;font-weight:800;color:var(--ink);overflow-wrap:anywhere}.lp-tfv-eq{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.lp-tfv-meaning{font-size:20px;font-weight:600;color:var(--ink-soft);overflow-wrap:anywhere}.lp-tfv-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}.lp-tfv-btn{padding:10px 18px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);font:inherit;font-size:14px;font-weight:700;cursor:pointer}.lp-tfv-btn.yes{border-color:var(--green);color:var(--green)}.lp-tfv-btn.no{border-color:var(--red);color:var(--red)}.lp-tfv-fb{font-size:13px;min-height:18px;text-align:center;font-weight:700}.lp-tfv-done{font-size:16px;color:var(--ink);text-align:center}';
+  document.head.appendChild(st);
+}
+function _lpTrueFalseRounds(content){
+  var pairs = (content.pairs || []).filter(function(p){ return _lpPairFront(p) && _lpPairBack(p); });
+  var rounds = [];
+  if (pairs.length < 2) return rounds;
+  pairs.forEach(function(p, i){
+    rounds.push({ pair: i, term: _lpPairFront(p), meaning: _lpPairBack(p), shown: _lpPairBack(p), expected: true });
+    var j = (i + 1) % pairs.length;
+    if (_lpPairBack(pairs[j]) === _lpPairBack(p)) j = (i + 2) % pairs.length;
+    rounds.push({ pair: i, term: _lpPairFront(p), meaning: _lpPairBack(p), shown: _lpPairBack(pairs[j]), expected: false });
+  });
+  rounds.sort(function(){ return Math.random() - 0.5; });
+  var limit = Number(content.rounds) || rounds.length;
+  return rounds.slice(0, Math.max(1, Math.min(limit, rounds.length)));
+}
+function _lpTrueFalseVocab(content, state, refreshScore){
+  _lpTrueFalseVocabStyles();
+  var answers = state.answers;
+  var rounds = _lpTrueFalseRounds(content);
+  var wrap = document.createElement('div'); wrap.className = 'lp-tfv';
+  if (content.instructions){ var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions; wrap.appendChild(instr); }
+  if (!rounds.length) {
+    wrap.appendChild(LegoEmpty({ text: 'Necesitas al menos 2 pares para jugar Correcto o Incorrecto.' }));
+    state.score = function(){ return { correct: 0, total: 0 }; };
+    state.detail = function(){ return []; };
+    return wrap;
+  }
+  var prog = document.createElement('div'); prog.className = 'lp-tfv-prog';
+  var card = document.createElement('div'); card.className = 'lp-tfv-card';
+  var term = document.createElement('div'); term.className = 'lp-tfv-term';
+  var eq = document.createElement('div'); eq.className = 'lp-tfv-eq'; eq.textContent = 'significa';
+  var meaning = document.createElement('div'); meaning.className = 'lp-tfv-meaning';
+  card.replaceChildren(term, eq, meaning);
+  var fb = document.createElement('div'); fb.className = 'lp-tfv-fb';
+  var actions = document.createElement('div'); actions.className = 'lp-tfv-actions';
+  var yes = document.createElement('button'); yes.type = 'button'; yes.className = 'lp-tfv-btn yes'; yes.textContent = 'Correcto';
+  var no = document.createElement('button'); no.type = 'button'; no.className = 'lp-tfv-btn no'; no.textContent = 'Incorrecto';
+  actions.replaceChildren(yes, no);
+  var idx = 0, done = 0;
+  function draw(){
+    if (idx >= rounds.length) {
+      prog.textContent = rounds.length + ' / ' + rounds.length;
+      card.replaceChildren();
+      var end = document.createElement('div'); end.className = 'lp-tfv-done'; end.textContent = 'Terminaste.';
+      card.appendChild(end); fb.textContent = ''; actions.style.display = 'none'; return;
+    }
+    var r = rounds[idx];
+    prog.textContent = (idx + 1) + ' / ' + rounds.length;
+    term.textContent = r.term;
+    meaning.textContent = r.shown;
+    if (!card.contains(term)) card.replaceChildren(term, eq, meaning);
+    fb.textContent = '';
+    actions.style.display = 'flex';
+  }
+  function choose(value){
+    if (idx >= rounds.length) return;
+    var r = rounds[idx];
+    var ok = value === r.expected;
+    answers['tfv-' + idx] = { answer: value ? 'Correcto' : 'Incorrecto', correct: ok, expected: r.expected, term: r.term, shown: r.shown, meaning: r.meaning };
+    fb.style.color = ok ? 'var(--green)' : 'var(--red)';
+    fb.textContent = ok ? 'Correcto' : ('Era ' + (r.expected ? 'correcto' : 'incorrecto') + ': ' + r.term + ' = ' + r.meaning);
+    done++; refreshScore();
+    idx++;
+    setTimeout(draw, 650);
+  }
+  yes.onclick = function(){ choose(true); };
+  no.onclick = function(){ choose(false); };
+  wrap.appendChild(prog); wrap.appendChild(card); wrap.appendChild(fb); wrap.appendChild(actions);
+  draw();
+  state.score = function(){ var c = 0; for (var i = 0; i < rounds.length; i++){ var a = answers['tfv-' + i]; if (a && a.correct) c++; } return { correct: c, total: rounds.length }; };
+  state.detail = function(){ return rounds.map(function(r, i){ var a = answers['tfv-' + i] || {}; return { key: 'tfv-' + i, questionText: r.term + ' = ' + r.shown, answer: a.answer || '(sin responder)', isCorrect: a.correct === undefined ? false : !!a.correct }; }); };
+  return wrap;
+}
+function _lpLetterOrderStyles(){
+  if (document.getElementById('lego-lo-styles')) return;
+  var st = document.createElement('style'); st.id = 'lego-lo-styles';
+  st.textContent = '.lp-lo{display:flex;flex-direction:column;align-items:center;gap:14px}.lp-lo-prog{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.lp-lo-card{width:100%;max-width:500px;border:1.5px solid var(--border);border-radius:14px;background:var(--white);display:flex;flex-direction:column;align-items:center;text-align:center;padding:20px;gap:12px;box-shadow:0 4px 14px rgba(0,0,0,.06)}.lp-lo-clue{font-size:15px;font-weight:700;color:var(--ink-soft);overflow-wrap:anywhere}.lp-lo-answer{min-height:46px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center}.lp-lo-slot{min-width:32px;height:38px;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--ink)}.lp-lo-bank{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}.lp-lo-tile{min-width:34px;height:36px;border:1.5px solid var(--border);border-radius:9px;background:var(--sand);font:inherit;font-size:17px;font-weight:800;color:var(--ink);cursor:pointer}.lp-lo-tile.ok{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-lo-tile.bad{background:#FEE2E2;border-color:var(--red);color:var(--red)}.lp-lo-tile:disabled{opacity:1;cursor:default}.lp-lo-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.lp-lo-btn{padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--white);font:inherit;font-size:13px;font-weight:700;cursor:pointer}.lp-lo-btn.primary{border-color:var(--coral);background:var(--coral);color:#fff}.lp-lo-fb{font-size:13px;min-height:18px;text-align:center;font-weight:700}.lp-lo-done{font-size:16px;color:var(--ink);text-align:center}';
+  document.head.appendChild(st);
+}
+function _lpLetterOrderRounds(content){
+  var pairs = (content.pairs || []).filter(function(p){ return _lpPairFront(p) && _lpPairBack(p); });
+  var rounds = pairs.map(function(p, i){ return { pair: i, term: _lpPairBack(p).trim(), clue: _lpPairFront(p).trim() }; }).filter(function(r){ return r.term.replace(/\s+/g, '').length > 1; });
+  rounds.sort(function(){ return Math.random() - 0.5; });
+  var limit = Number(content.rounds) || rounds.length;
+  return rounds.slice(0, Math.max(1, Math.min(limit, rounds.length)));
+}
+function _lpShuffleLetters(text){
+  var arr = Array.from(String(text || '').replace(/\s+/g, ''));
+  var original = arr.join('');
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  if (arr.length > 2 && arr.join('') === original) {
+    var first = arr[0]; arr[0] = arr[1]; arr[1] = first;
+  }
+  return arr;
+}
+function _lpLetterOrder(content, state, refreshScore){
+  _lpLetterOrderStyles();
+  var answers = state.answers;
+  var rounds = _lpLetterOrderRounds(content);
+  var wrap = document.createElement('div'); wrap.className = 'lp-lo';
+  if (content.instructions){ var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions; wrap.appendChild(instr); }
+  if (!rounds.length) {
+    wrap.appendChild(LegoEmpty({ text: 'Necesitas palabras de al menos 2 letras para ordenar.' }));
+    state.score = function(){ return { correct: 0, total: 0 }; };
+    state.detail = function(){ return []; };
+    return wrap;
+  }
+  function norm(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '').trim(); }
+  var prog = document.createElement('div'); prog.className = 'lp-lo-prog';
+  var card = document.createElement('div'); card.className = 'lp-lo-card';
+  var clue = document.createElement('div'); clue.className = 'lp-lo-clue';
+  var answer = document.createElement('div'); answer.className = 'lp-lo-answer';
+  var bank = document.createElement('div'); bank.className = 'lp-lo-bank';
+  var fb = document.createElement('div'); fb.className = 'lp-lo-fb';
+  var actions = document.createElement('div'); actions.className = 'lp-lo-actions';
+  var erase = document.createElement('button'); erase.type = 'button'; erase.className = 'lp-lo-btn'; erase.textContent = 'Borrar';
+  var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'lp-lo-btn'; reset.textContent = 'Reiniciar';
+  var check = document.createElement('button'); check.type = 'button'; check.className = 'lp-lo-btn primary'; check.textContent = 'Comprobar';
+  actions.replaceChildren(erase, reset, check);
+  card.replaceChildren(answer, bank, fb, actions);
+  var idx = 0, selected = [], tileButtons = [], checked = false;
+  function targetChars(){ return Array.from(rounds[idx].term.replace(/\s+/g, '')); }
+  function renderAnswer(){
+    var chars = targetChars();
+    answer.replaceChildren.apply(answer, chars.map(function(ch, i){
+      var slot = document.createElement('div'); slot.className = 'lp-lo-slot'; slot.textContent = selected[i] ? selected[i].char : '';
+      return slot;
+    }));
+  }
+  function draw(){
+    if (idx >= rounds.length) {
+      prog.textContent = rounds.length + ' / ' + rounds.length;
+      card.replaceChildren();
+      var end = document.createElement('div'); end.className = 'lp-lo-done'; end.textContent = 'Terminaste.';
+      card.appendChild(end); return;
+    }
+    checked = false; selected = []; tileButtons = [];
+    var r = rounds[idx];
+    prog.textContent = (idx + 1) + ' / ' + rounds.length;
+    fb.textContent = '';
+    bank.replaceChildren();
+    _lpShuffleLetters(r.term).forEach(function(ch, i){
+      var tile = document.createElement('button'); tile.type = 'button'; tile.className = 'lp-lo-tile'; tile.textContent = ch;
+      tile.onclick = function(){
+        if (checked || tile.disabled) return;
+        var expected = targetChars()[selected.length] || '';
+        if (norm(ch) === norm(expected)) {
+          tile.classList.add('ok');
+          tile.disabled = true;
+          selected.push({ char: ch, tile: tile });
+          fb.textContent = '';
+          renderAnswer();
+          return;
+        }
+        tile.classList.add('bad');
+        setTimeout(function(){ tile.classList.remove('bad'); }, 450);
+      };
+      tileButtons.push(tile); bank.appendChild(tile);
+    });
+    if (!card.contains(answer)) card.replaceChildren(answer, bank, fb, actions);
+    renderAnswer();
+  }
+  erase.onclick = function(){ if (checked || !selected.length) return; var last = selected.pop(); if (last && last.tile) { last.tile.disabled = false; last.tile.classList.remove('ok', 'bad'); } renderAnswer(); };
+  reset.onclick = function(){ if (checked) return; selected.forEach(function(s){ if (s.tile) { s.tile.disabled = false; s.tile.classList.remove('ok', 'bad'); } }); selected = []; fb.textContent = ''; renderAnswer(); };
+  check.onclick = function(){
+    if (idx >= rounds.length || checked) return;
+    var r = rounds[idx];
+    var answerText = selected.map(function(s){ return s.char; }).join('');
+    var ok = norm(answerText) === norm(r.term);
+    answers['lo-' + idx] = { answer: answerText, correct: ok, term: r.term, clue: r.clue };
+    fb.style.color = ok ? 'var(--green)' : 'var(--red)';
+    fb.textContent = ok ? 'Correcto' : ('Respuesta: ' + r.term);
+    checked = true; refreshScore();
+    setTimeout(function(){ idx++; draw(); }, 750);
+  };
+  wrap.appendChild(prog); wrap.appendChild(card);
+  draw();
+  state.score = function(){ var c = 0; for (var i = 0; i < rounds.length; i++){ var a = answers['lo-' + i]; if (a && a.correct) c++; } return { correct: c, total: rounds.length }; };
+  state.detail = function(){ return rounds.map(function(r, i){ var a = answers['lo-' + i] || {}; return { key: 'lo-' + i, questionText: r.clue, answer: a.answer || '(sin responder)', isCorrect: a.correct === undefined ? false : !!a.correct }; }); };
+  return wrap;
+}
 function _lpMemoryStyles(){
   if (document.getElementById('lego-mem-styles')) return;
   var st = document.createElement('style'); st.id = 'lego-mem-styles';
@@ -2757,6 +2973,32 @@ function _lpReviewFlashcard(content, saved){
   });
   return wrap;
 }
+function _lpReviewTrueFalseVocab(content, saved){
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions || 'Revisión de tus respuestas.'; wrap.appendChild(instr);
+  (saved || []).forEach(function(sv){
+    var row = document.createElement('div'); row.className = 'lp-sentence'; row.style.cssText = 'display:flex;gap:8px;align-items:baseline;flex-wrap:wrap';
+    var q = document.createElement('span'); q.style.fontWeight = '600'; q.textContent = sv.questionText || '';
+    var ans = document.createElement('span'); ans.style.color = sv.isCorrect ? 'var(--green)' : 'var(--red)'; ans.textContent = sv.answer || '';
+    row.appendChild(q); row.appendChild(ans);
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+function _lpReviewLetterOrder(content, saved){
+  var wrap = document.createElement('div');
+  wrap.appendChild(_lpReviewScoreHeader(saved));
+  var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions || 'Revisión de tus respuestas.'; wrap.appendChild(instr);
+  (saved || []).forEach(function(sv){
+    var row = document.createElement('div'); row.className = 'lp-sentence'; row.style.cssText = 'display:flex;gap:8px;align-items:baseline;flex-wrap:wrap';
+    var q = document.createElement('span'); q.style.fontWeight = '600'; q.textContent = sv.questionText || '';
+    var ans = document.createElement('span'); ans.style.color = sv.isCorrect ? 'var(--green)' : 'var(--red)'; ans.textContent = sv.answer || '';
+    row.appendChild(q); row.appendChild(ans);
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
 function _lpReviewMemory(content, saved){
   var wrap = document.createElement('div');
   wrap.appendChild(_lpReviewScoreHeader(saved));
@@ -2778,6 +3020,20 @@ LegoTask.flashcard = function(c, ctx){
   if (ctx.mode === 'edit') return { el: _lpEditMatch(c._srcObj || c), score: _lpZero, detail: _lpNone };
   var st = _lpSubState(ctx);
   var el = _lpFlashcard(c, st, ctx.onChange);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
+};
+LegoTask['true-false-vocab'] = function(c, ctx){
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewTrueFalseVocab(c, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpEditMatch(c._srcObj || c), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpTrueFalseVocab(c, st, ctx.onChange);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
+};
+LegoTask['letter-order'] = function(c, ctx){
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewLetterOrder(c, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'edit') return { el: _lpEditMatch(c._srcObj || c), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpLetterOrder(c, st, ctx.onChange);
   return { el: el, score: function(){ return st.score(); }, detail: function(){ return st.detail(); } };
 };
 LegoTask.memory = function(c, ctx){
@@ -2962,3 +3218,596 @@ function LegoLesson(lesson, activities, opts){
   if (lesson.cover) showCover(); else showStep();
   return root;
 }
+
+
+// -- LegoBoard ----------------------------------------------
+// Pizarra editable/readonly sellada. No toca DB ni estado global.
+//   LegoBoard({ data, readonly:false, height:560, onChange:function(data){} })
+//   node._getValue() -> { version, strokes, texts, shapes }
+function LegoBoard(opts){
+  opts = opts || {};
+  if (!document.getElementById('lego-board-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-board-styles';
+    st.textContent = '.lego-board{border:1px solid var(--border);border-radius:var(--r);background:var(--white);overflow:hidden;display:flex;flex-direction:column;min-height:0}.lego-board__tools{padding:8px 10px;border-bottom:1px solid var(--border);background:var(--sand);display:flex;align-items:center;gap:6px;flex-wrap:wrap}.lego-board__tool{width:30px;height:30px;border:1px solid var(--border);background:var(--white);border-radius:7px;padding:0;font:inherit;color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.lego-board__tool.active{background:var(--coral);border-color:var(--coral);color:#fff}.lego-board__submenu{display:none;align-items:center;gap:4px;border:1px solid var(--border);border-radius:8px;background:var(--white);padding:3px}.lego-board__submenu.open{display:flex}.lego-board__subtool{width:28px;height:28px;border:none;background:transparent;border-radius:6px;padding:0;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.lego-board__subtool.active{background:var(--sand);color:var(--coral)}.lego-board__swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--white);outline:1px solid var(--border);cursor:pointer}.lego-board__stage{position:relative;flex:1;min-height:0;background:#fffdf8}.lego-board__canvas{width:100%;height:100%;display:block;background:#fffdf8;touch-action:none}.lego-board__text-editor{position:absolute;z-index:2;min-width:120px;max-width:320px;min-height:34px;border:1px solid var(--coral);border-radius:7px;background:#fff;padding:6px 8px;box-shadow:0 6px 18px rgba(28,26,23,.12);font:700 22px Arial,sans-serif;color:#2D2A24;outline:none;resize:both}.lego-board--readonly .lego-board__canvas{cursor:default}.lego-board:not(.lego-board--readonly) .lego-board__canvas{cursor:crosshair}';
+    document.head.appendChild(st);
+  }
+
+  function emptyBoard(){
+    return { version: 1, strokes: [], texts: [], shapes: [] };
+  }
+  function clonePoint(p){
+    return { x: Number(p && p.x) || 0, y: Number(p && p.y) || 0 };
+  }
+  function normalizeBoard(raw){
+    if (raw && raw.board_data) raw = raw.board_data;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch(e) { raw = emptyBoard(); }
+    }
+    raw = raw || emptyBoard();
+    return {
+      version: 1,
+      strokes: Array.isArray(raw.strokes) ? raw.strokes.map(function(stroke){
+        return {
+          tool: stroke && stroke.tool === 'eraser' ? 'eraser' : 'pen',
+          color: stroke && stroke.color ? String(stroke.color) : '#2D2A24',
+          width: Number(stroke && stroke.width) || (stroke && stroke.tool === 'eraser' ? 18 : 3),
+          points: Array.isArray(stroke && stroke.points) ? stroke.points.map(clonePoint) : []
+        };
+      }) : [],
+      texts: Array.isArray(raw.texts) ? raw.texts.map(function(t){
+        return {
+          x: Number(t && t.x) || 0,
+          y: Number(t && t.y) || 0,
+          text: String(t && t.text || ''),
+          color: t && t.color ? String(t.color) : '#2D2A24',
+          size: Number(t && t.size) || 22
+        };
+      }) : [],
+      shapes: Array.isArray(raw.shapes) ? raw.shapes.map(function(s){
+        var type = s && (s.type === 'rect' || s.type === 'circle' || s.type === 'line' || s.type === 'arrow') ? s.type : 'line';
+        return {
+          type: type,
+          x: Number(s && s.x) || 0,
+          y: Number(s && s.y) || 0,
+          w: Number(s && s.w) || 0,
+          h: Number(s && s.h) || 0,
+          x1: Number(s && s.x1) || 0,
+          y1: Number(s && s.y1) || 0,
+          x2: Number(s && s.x2) || 0,
+          y2: Number(s && s.y2) || 0,
+          color: s && s.color ? String(s.color) : '#2D2A24',
+          width: Number(s && s.width) || 3
+        };
+      }) : []
+    };
+  }
+  function boardCopy(){
+    return normalizeBoard(board);
+  }
+  function emit(){
+    if (typeof opts.onChange === 'function') opts.onChange(boardCopy());
+  }
+  function canvasPoint(ev){
+    var rect = canvas.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(1, (ev.clientX - rect.left) / Math.max(1, rect.width))),
+      y: Math.max(0, Math.min(1, (ev.clientY - rect.top) / Math.max(1, rect.height)))
+    };
+  }
+  function textBounds(t, rect){
+    var size = Number(t.size) || 22;
+    var width = Math.max(60, String(t.text || '').length * size * 0.58);
+    var height = size * 1.25;
+    return { x: (t.x || 0) * rect.width, y: (t.y || 0) * rect.height, w: width, h: height };
+  }
+  function textAtPoint(p){
+    var rect = canvas.getBoundingClientRect();
+    for (var i = board.texts.length - 1; i >= 0; i--) {
+      var b = textBounds(board.texts[i], rect);
+      var x = p.x * rect.width;
+      var y = p.y * rect.height;
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return board.texts[i];
+    }
+    return null;
+  }
+  function makeShape(type, start, end){
+    if (type === 'line' || type === 'arrow') {
+      return { type: type, x1: start.x, y1: start.y, x2: end.x, y2: end.y, color: color, width: 3 };
+    }
+    return {
+      type: type,
+      x: Math.min(start.x, end.x),
+      y: Math.min(start.y, end.y),
+      w: Math.abs(end.x - start.x),
+      h: Math.abs(end.y - start.y),
+      color: color,
+      width: 3
+    };
+  }
+  function drawShape(ctx, shape, rect, isPreview){
+    ctx.save();
+    ctx.strokeStyle = shape.color || '#2D2A24';
+    ctx.lineWidth = shape.width || 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (isPreview) ctx.setLineDash([8, 5]);
+    ctx.beginPath();
+    if (shape.type === 'line' || shape.type === 'arrow') {
+      var x1 = (shape.x1 || 0) * rect.width;
+      var y1 = (shape.y1 || 0) * rect.height;
+      var x2 = (shape.x2 || 0) * rect.width;
+      var y2 = (shape.y2 || 0) * rect.height;
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      if (shape.type === 'arrow') {
+        var angle = Math.atan2(y2 - y1, x2 - x1);
+        var len = 14;
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - len * Math.cos(angle - Math.PI / 6), y2 - len * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - len * Math.cos(angle + Math.PI / 6), y2 - len * Math.sin(angle + Math.PI / 6));
+      }
+    } else if (shape.type === 'circle') {
+      ctx.ellipse(
+        ((shape.x || 0) + (shape.w || 0) / 2) * rect.width,
+        ((shape.y || 0) + (shape.h || 0) / 2) * rect.height,
+        Math.max(1, Math.abs(shape.w || 0) * rect.width / 2),
+        Math.max(1, Math.abs(shape.h || 0) * rect.height / 2),
+        0,
+        0,
+        Math.PI * 2
+      );
+    } else {
+      ctx.rect((shape.x || 0) * rect.width, (shape.y || 0) * rect.height, (shape.w || 0) * rect.width, (shape.h || 0) * rect.height);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawSelection(ctx, item, rect){
+    if (!item) return;
+    var shape = item.kind === 'text' ? null : item.ref;
+    var text = item.kind === 'text' ? item.ref : null;
+    ctx.save();
+    ctx.strokeStyle = '#D95B43';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    if (text) {
+      var tb = textBounds(text, rect);
+      ctx.strokeRect(tb.x, tb.y, tb.w, tb.h);
+    } else if (shape.type === 'line' || shape.type === 'arrow') {
+      ctx.beginPath();
+      ctx.moveTo((shape.x1 || 0) * rect.width, (shape.y1 || 0) * rect.height);
+      ctx.lineTo((shape.x2 || 0) * rect.width, (shape.y2 || 0) * rect.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#D95B43';
+      ctx.beginPath();
+      ctx.arc((shape.x1 || 0) * rect.width, (shape.y1 || 0) * rect.height, 4, 0, Math.PI * 2);
+      ctx.arc((shape.x2 || 0) * rect.width, (shape.y2 || 0) * rect.height, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.strokeRect((shape.x || 0) * rect.width, (shape.y || 0) * rect.height, (shape.w || 0) * rect.width, (shape.h || 0) * rect.height);
+    }
+    ctx.restore();
+  }
+  function distanceToSegment(px, py, x1, y1, x2, y2){
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1);
+    var t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+  function shapeAtPoint(p){
+    var rect = canvas.getBoundingClientRect();
+    var px = p.x * rect.width;
+    var py = p.y * rect.height;
+    for (var i = board.shapes.length - 1; i >= 0; i--) {
+      var s = board.shapes[i];
+      if (s.type === 'line' || s.type === 'arrow') {
+        if (distanceToSegment(px, py, (s.x1 || 0) * rect.width, (s.y1 || 0) * rect.height, (s.x2 || 0) * rect.width, (s.y2 || 0) * rect.height) <= 10) return s;
+      } else {
+        var x = (s.x || 0) * rect.width;
+        var y = (s.y || 0) * rect.height;
+        var w = (s.w || 0) * rect.width;
+        var h = (s.h || 0) * rect.height;
+        if (px >= x - 6 && px <= x + w + 6 && py >= y - 6 && py <= y + h + 6) return s;
+      }
+    }
+    return null;
+  }
+  function moveShape(shape, dx, dy){
+    if (!shape) return;
+    if (shape.type === 'line' || shape.type === 'arrow') {
+      shape.x1 = Math.max(0, Math.min(1, (shape.x1 || 0) + dx));
+      shape.y1 = Math.max(0, Math.min(1, (shape.y1 || 0) + dy));
+      shape.x2 = Math.max(0, Math.min(1, (shape.x2 || 0) + dx));
+      shape.y2 = Math.max(0, Math.min(1, (shape.y2 || 0) + dy));
+    } else {
+      shape.x = Math.max(0, Math.min(1 - (shape.w || 0), (shape.x || 0) + dx));
+      shape.y = Math.max(0, Math.min(1 - (shape.h || 0), (shape.y || 0) + dy));
+    }
+  }
+  function boardItemAtPoint(p){
+    var text = textAtPoint(p);
+    if (text) return { kind: 'text', ref: text };
+    var shape = shapeAtPoint(p);
+    if (shape) return { kind: 'shape', ref: shape };
+    return null;
+  }
+  function moveBoardItem(item, dx, dy){
+    if (!item) return;
+    if (item.kind === 'text') {
+      item.ref.x = Math.max(0, Math.min(1, (item.ref.x || 0) + dx));
+      item.ref.y = Math.max(0, Math.min(1, (item.ref.y || 0) + dy));
+    } else {
+      moveShape(item.ref, dx, dy);
+    }
+  }
+  function deleteBoardItem(item){
+    if (!item) return;
+    if (item.kind === 'text') {
+      board.texts = board.texts.filter(function(t){ return t !== item.ref; });
+    } else {
+      board.shapes = board.shapes.filter(function(shape){ return shape !== item.ref; });
+    }
+  }
+  function openTextEditor(point, existing){
+    if (readonly) return;
+    if (textEditor && textEditor.parentNode) textEditor.blur();
+    var rect = canvas.getBoundingClientRect();
+    textEditor = document.createElement('textarea');
+    textEditor.className = 'lego-board__text-editor';
+    textEditor.value = existing ? existing.text || '' : '';
+    textEditor.style.left = Math.max(0, Math.min(rect.width - 140, point.x * rect.width)) + 'px';
+    textEditor.style.top = Math.max(0, Math.min(rect.height - 44, point.y * rect.height)) + 'px';
+    textEditor.style.color = existing && existing.color ? existing.color : color;
+    textEditor.style.fontSize = ((existing && existing.size) || 22) + 'px';
+    stage.appendChild(textEditor);
+    var done = false;
+    function commit(){
+      if (done) return;
+      done = true;
+      var value = textEditor.value.trim();
+      if (existing) {
+        if (value) {
+          existing.text = value;
+          existing.color = existing.color || color;
+          existing.size = existing.size || 22;
+        } else {
+          board.texts = board.texts.filter(function(t){ return t !== existing; });
+        }
+      } else if (value) {
+        board.texts.push({ x: point.x, y: point.y, text: value, color: color, size: 22 });
+      }
+      if (textEditor && textEditor.parentNode) textEditor.parentNode.removeChild(textEditor);
+      textEditor = null;
+      draw();
+      emit();
+    }
+    textEditor.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        commit();
+      }
+      if (ev.key === 'Escape') {
+        done = true;
+        if (textEditor && textEditor.parentNode) textEditor.parentNode.removeChild(textEditor);
+        textEditor = null;
+      }
+    });
+    textEditor.addEventListener('blur', commit);
+    setTimeout(function(){ textEditor.focus(); textEditor.select(); }, 0);
+  }
+  function draw(){
+    var rect = canvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    var width = Math.max(1, Math.round(rect.width * dpr));
+    var height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.fillStyle = '#fffdf8';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.strokeStyle = 'rgba(61,55,46,.12)';
+    ctx.lineWidth = 1;
+    for (var gx = 32; gx < rect.width; gx += 32) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, rect.height);
+      ctx.stroke();
+    }
+    for (var gy = 32; gy < rect.height; gy += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(rect.width, gy);
+      ctx.stroke();
+    }
+    board.strokes.forEach(function(stroke){
+      var pts = stroke.points || [];
+      if (!pts.length) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = stroke.tool === 'eraser' ? '#fffdf8' : (stroke.color || '#2D2A24');
+      ctx.lineWidth = stroke.tool === 'eraser' ? (stroke.width || 18) : (stroke.width || 3);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      pts.forEach(function(p, idx){
+        var x = p.x * rect.width;
+        var y = p.y * rect.height;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    });
+    board.shapes.forEach(function(shape){ drawShape(ctx, shape, rect, false); });
+    if (selectedItem) drawSelection(ctx, selectedItem, rect);
+    board.texts.forEach(function(t){
+      ctx.save();
+      ctx.fillStyle = t.color || '#2D2A24';
+      ctx.font = '700 ' + (t.size || 22) + 'px Arial, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.fillText(t.text || '', (t.x || 0) * rect.width, (t.y || 0) * rect.height);
+      ctx.restore();
+    });
+    if (previewShape) drawShape(ctx, previewShape, rect, true);
+  }
+  function setTool(next){
+    tool = next;
+    var penMode = tool === 'pen' || tool === 'line' || tool === 'arrow' || tool === 'rect' || tool === 'circle';
+    toolButtons.forEach(function(item){
+      item.btn.classList.toggle('active', item.tool === tool || (item.tool === 'pen-menu' && penMode));
+    });
+    if (penMenu) penMenu.classList.toggle('open', penMenuOpen && penMode);
+    shapeButtons.forEach(function(item){
+      item.btn.classList.toggle('active', item.tool === tool);
+    });
+  }
+  function toolIcon(iconName, label){
+    var wrap = document.createElement('span');
+    wrap.title = label;
+    wrap.setAttribute('aria-label', label);
+    wrap.appendChild(LegoIcon(iconName, { size: 16 }));
+    return wrap;
+  }
+  function addTool(label, value, iconName){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lego-board__tool';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.appendChild(LegoIcon(iconName || 'ti-square', { size: 16 }));
+    btn.onclick = function(){ setTool(value); };
+    toolButtons.push({ tool: value, btn: btn });
+    tools.appendChild(btn);
+  }
+  function addAction(label, fn){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lego-board__tool';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.appendChild(LegoIcon(label === 'Deshacer' ? 'ti-arrow-back-up' : 'ti-trash', { size: 16 }));
+    btn.onclick = fn;
+    tools.appendChild(btn);
+  }
+  function addShapeTool(label, value, iconName){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lego-board__subtool';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.appendChild(LegoIcon(iconName || 'ti-square', { size: 15 }));
+    btn.onclick = function(){ setTool(value); };
+    shapeButtons.push({ tool: value, btn: btn });
+    penMenu.appendChild(btn);
+  }
+
+  var readonly = !!opts.readonly;
+  var board = normalizeBoard(opts.data);
+  var tool = 'pen';
+  var color = '#2D2A24';
+  var drawing = false;
+  var currentStroke = null;
+  var shapeStart = null;
+  var previewShape = null;
+  var selectedItem = null;
+  var movingItem = false;
+  var lastMovePoint = null;
+  var textEditor = null;
+  var toolButtons = [];
+  var shapeButtons = [];
+  var penMenu = null;
+  var penMenuOpen = false;
+
+  var root = document.createElement('div');
+  root.className = 'lego-board' + (readonly ? ' lego-board--readonly' : '');
+  root.style.minHeight = (Number(opts.height) || 520) + 'px';
+  root._getValue = boardCopy;
+  root._setValue = function(next){
+    board = normalizeBoard(next);
+    selectedItem = null;
+    previewShape = null;
+    draw();
+    emit();
+  };
+  root._redraw = draw;
+
+  var tools = document.createElement('div');
+  tools.className = 'lego-board__tools';
+  if (!readonly) {
+    var penBtn = document.createElement('button');
+    penBtn.type = 'button';
+    penBtn.className = 'lego-board__tool';
+    penBtn.title = 'Lápiz';
+    penBtn.setAttribute('aria-label', 'Lápiz');
+    penBtn.appendChild(LegoIcon('ti-pencil', { size: 16 }));
+    penBtn.onclick = function(){
+      var penMode = tool === 'pen' || tool === 'line' || tool === 'arrow' || tool === 'rect' || tool === 'circle';
+      penMenuOpen = penMode ? !penMenuOpen : true;
+      setTool(penMode ? tool : 'pen');
+    };
+    toolButtons.push({ tool: 'pen-menu', btn: penBtn });
+    tools.appendChild(penBtn);
+    penMenu = document.createElement('div');
+    penMenu.className = 'lego-board__submenu';
+    tools.appendChild(penMenu);
+    addShapeTool('Libre', 'pen', 'ti-pencil');
+    addShapeTool('Línea', 'line', 'ti-minus');
+    addShapeTool('Flecha', 'arrow', 'ti-arrow-right');
+    addShapeTool('Rectángulo', 'rect', 'ti-rectangle');
+    addShapeTool('Círculo', 'circle', 'ti-circle');
+    addTool('Texto', 'text', 'ti-letter-t');
+    addTool('Borrar', 'eraser', 'ti-eraser');
+    ['#2D2A24', '#D95B43', '#2F6FA3', '#2F7D5B'].forEach(function(c){
+      var sw = document.createElement('button');
+      sw.type = 'button';
+      sw.className = 'lego-board__swatch';
+      sw.setAttribute('aria-label', 'Color');
+      sw.style.background = c;
+      sw.onclick = function(){ color = c; };
+      tools.appendChild(sw);
+    });
+    addAction('Deshacer', function(){
+      if (board.strokes.length) board.strokes.pop();
+      else if (board.texts.length) board.texts.pop();
+      else if (board.shapes.length) board.shapes.pop();
+      draw();
+      emit();
+    });
+    addAction('Limpiar', function(){
+      if (!confirm('¿Limpiar la pizarra actual?')) return;
+      board = emptyBoard();
+      previewShape = null;
+      selectedItem = null;
+      draw();
+      emit();
+    });
+    setTool('pen');
+    root.appendChild(tools);
+  }
+
+  var stage = document.createElement('div');
+  stage.className = 'lego-board__stage';
+  stage.style.minHeight = Math.max(220, (Number(opts.height) || 520) - (readonly ? 0 : 42)) + 'px';
+  var canvas = document.createElement('canvas');
+  canvas.className = 'lego-board__canvas';
+  if (!readonly) {
+    canvas.addEventListener('pointerdown', function(ev){
+      ev.preventDefault();
+      var p = canvasPoint(ev);
+      if (tool === 'text') {
+        var hitText = textAtPoint(p);
+        if (!hitText) {
+          openTextEditor(p, null);
+          return;
+        }
+        selectedItem = { kind: 'text', ref: hitText };
+        drawing = true;
+        movingItem = true;
+        lastMovePoint = p;
+        if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+        draw();
+        return;
+      }
+      var hitItem = boardItemAtPoint(p);
+      if (hitItem) {
+        if (tool === 'eraser') {
+          deleteBoardItem(hitItem);
+          selectedItem = null;
+          draw();
+          emit();
+          return;
+        }
+        selectedItem = hitItem;
+        drawing = true;
+        movingItem = true;
+        lastMovePoint = p;
+        if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+        draw();
+        return;
+      }
+      selectedItem = null;
+      if (tool === 'line' || tool === 'arrow' || tool === 'rect' || tool === 'circle') {
+        drawing = true;
+        shapeStart = p;
+        previewShape = makeShape(tool, shapeStart, p);
+        if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+        draw();
+        return;
+      }
+      drawing = true;
+      currentStroke = { tool: tool === 'eraser' ? 'eraser' : 'pen', color: color, width: tool === 'eraser' ? 20 : 3, points: [p] };
+      board.strokes.push(currentStroke);
+      if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+      draw();
+    });
+    canvas.addEventListener('pointermove', function(ev){
+      if (!drawing) return;
+      ev.preventDefault();
+      var now = canvasPoint(ev);
+      if (movingItem && selectedItem && lastMovePoint) {
+        moveBoardItem(selectedItem, now.x - lastMovePoint.x, now.y - lastMovePoint.y);
+        lastMovePoint = now;
+        draw();
+        return;
+      }
+      if (shapeStart && (tool === 'line' || tool === 'arrow' || tool === 'rect' || tool === 'circle')) {
+        previewShape = makeShape(tool, shapeStart, canvasPoint(ev));
+        draw();
+        return;
+      }
+      if (!currentStroke) return;
+      currentStroke.points.push(canvasPoint(ev));
+      draw();
+      emit();
+    });
+    function endDraw(){
+      if (movingItem) {
+        movingItem = false;
+        drawing = false;
+        lastMovePoint = null;
+        emit();
+        draw();
+        return;
+      }
+      if (shapeStart && previewShape) {
+        var lineLike = previewShape.type === 'line' || previewShape.type === 'arrow';
+        if ((lineLike && (previewShape.x1 !== previewShape.x2 || previewShape.y1 !== previewShape.y2)) || (!lineLike && previewShape.w > 0.003 && previewShape.h > 0.003)) {
+          board.shapes.push(previewShape);
+          selectedItem = { kind: 'shape', ref: previewShape };
+          emit();
+        }
+      }
+      drawing = false;
+      currentStroke = null;
+      shapeStart = null;
+      previewShape = null;
+      draw();
+    }
+    canvas.addEventListener('dblclick', function(ev){
+      var p = canvasPoint(ev);
+      var t = textAtPoint(p);
+      if (t) openTextEditor({ x: t.x, y: t.y }, t);
+    });
+    canvas.addEventListener('pointerup', endDraw);
+    canvas.addEventListener('pointercancel', endDraw);
+  }
+  stage.appendChild(canvas);
+  root.appendChild(stage);
+  setTimeout(draw, 0);
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function(){ draw(); });
+    ro.observe(stage);
+  }
+  return root;
+}
+
+
+
