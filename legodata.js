@@ -214,9 +214,21 @@ var LegoData = (function(){
       return r.data[0];
     },
 
-    deleteLesson: async function(id){
-      var r = await db.from('lessons').delete().eq('id', id);
+        deleteLesson: async function(id){
+      // Borrado en cadena: responses -> assignments -> lesson.
+      // Decidido 2026-07-14: borrar una leccion arrastra las respuestas de quienes ya la hicieron.
+      var asg = await db.from('assignments').select('id').eq('lesson_id', id);
+      if (asg.error) _throw('deleteLesson.assignments', asg.error);
+      var ids = (asg.data || []).map(function(a){ return a.id; });
+      if (ids.length){
+        var rr = await db.from('responses').delete().in('assignment_id', ids).select('id');
+        if (rr.error) _throw('deleteLesson.responses', rr.error);
+        var ra = await db.from('assignments').delete().eq('lesson_id', id).select('id');
+        if (ra.error) _throw('deleteLesson.assignmentsDel', ra.error);
+      }
+      var r = await db.from('lessons').delete().eq('id', id).select('id');
       if (r.error) _throw('deleteLesson', r.error);
+      if (!r.data || !r.data.length) _throw('deleteLesson', { message: 'RLS bloqueo o leccion inexistente ' + id });
       return true;
     }
 
@@ -875,7 +887,7 @@ LegoData.vocabularyTopShared = async function(opts){
   var minStudents = Number(opts.minStudents) || 2;
   var limit = Number(opts.limit) || 5;
   var q = db.from('vocabulary_shared_words_organic')
-    .select('entry_type,ticket_key,term,meaning,student_count')
+    .select('entry_type,ticket_key,term,meaning,student_count,top_meaning,top_meaning_count')
     .eq('entry_type', entryType)
     .gte('student_count', minStudents)
     .order('student_count', { ascending: false })
@@ -890,6 +902,8 @@ LegoData.vocabularyTopShared = async function(opts){
       term: row.term || '',
       meaning: row.meaning || '',
       studentCount: Number(row.student_count) || 0,
+      topMeaning: row.top_meaning || '',
+      topMeaningCount: Number(row.top_meaning_count) || 0,
       lastSeenAt: row.last_seen_at || null
     };
   });

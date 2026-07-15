@@ -2526,7 +2526,7 @@ function _lpCompose(activity, content, opts){
     submit.className = 'btn btn-coral';
     submit.style.marginTop = '16px';
     submit.style.flexShrink = '0';
-    submit.textContent = 'Enviar respuestas';
+    submit.textContent = opts.submitLabel || 'Enviar respuestas';
     submit.onclick = function(){
       var c = 0, t = 0, all = [];
       pieces.forEach(function(p){
@@ -3117,6 +3117,117 @@ function _lpFlashcardWrite(content, state, refreshScore){
 //     opts: { feedback:true, fcMode, onStepResult(i, activity, result), onFinish(aggregate) }
 //   aggregate: { score, total, pct, steps:[{ title, type, score, total, answers }] }
 // Sellado: createElement + textContent. CSS inyectado una vez.
+function _llCoverStyles(){
+  if (document.getElementById('lego-cover-styles')) return;
+  var st = document.createElement('style'); st.id = 'lego-cover-styles';
+  st.textContent = [
+    '.llc-btn{margin-top:6px;padding:11px 26px;border:none;border-radius:12px;background:var(--coral);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer}',
+    '.llc-split{display:flex;flex-direction:column;height:100%;min-height:0;border-radius:16px;overflow:hidden;border:1px solid var(--border)}',
+    '.llc-split-img{width:100%;height:180px;object-fit:cover;background:var(--sand)}',
+    '.llc-split-body{padding:22px 24px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;text-align:left}',
+    '@media(min-width:640px){.llc-split{flex-direction:row}.llc-split-img{width:45%;height:auto;min-height:320px}.llc-split-body{flex:1;justify-content:center}}',
+    '.llc-ruta{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:26px 20px;border-radius:18px;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid var(--border)}',
+    '.llc-ruta-img{max-width:240px;max-height:150px;border-radius:12px;object-fit:cover}',
+    '.llc-ruta-title{font-size:22px;font-weight:800;color:var(--ink)}',
+    '.llc-ruta-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}',
+    '.llc-steps{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center}',
+    '.llc-step{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:56px}',
+    '.llc-step-ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}',
+    '.llc-step-t{font-size:10px;font-weight:600;color:var(--ink-soft)}',
+    '.llc-arrow{color:var(--muted);font-size:14px}',
+    '.llc-hero{position:relative;border-radius:18px;overflow:hidden;min-height:280px;display:flex;flex-direction:column;justify-content:flex-end;color:#fff}',
+    '.llc-hero-bg{position:absolute;inset:0;background-size:cover;background-position:center}',
+    '.llc-hero-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.72))}',
+    '.llc-hero-in{position:relative;padding:22px 24px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;text-align:left}',
+    '.llc-hero-title{font-size:26px;font-weight:800;color:#fff;line-height:1.15}',
+    '.llc-hero-sub{font-size:14px;color:rgba(255,255,255,.9)}',
+    '.llc-hero-meta{font-size:12px;font-weight:700;color:rgba(255,255,255,.85)}'
+  ].join('');
+  document.head.appendChild(st);
+}
+function _llMeta(lesson, activities){
+  return (lesson.level ? lesson.level + ' · ' : '') + activities.length + (activities.length === 1 ? ' paso' : ' pasos');
+}
+function _llBtn(cv, onStart){
+  var b = document.createElement('button'); b.type = 'button'; b.className = 'llc-btn'; b.textContent = cv.buttonLabel || 'Empezar';
+  b.onclick = function(){ onStart(); };
+  return b;
+}
+function _llTypeLabel(type){
+  var m = { match: 'Vocab', memory: 'Memory', flashcard: 'Cards', 'fill-blank': 'Completar', mc: 'Opcion', reading: 'Lectura', audio: 'Audio', 'true-false-vocab': 'V o F', 'letter-order': 'Letras', 'drag-drop': 'Arrastrar', mixed: 'Mixta' };
+  return m[type] || 'Paso';
+}
+function _llStepIcons(activities){
+  var wrap = document.createElement('div'); wrap.className = 'llc-steps';
+  activities.forEach(function(act, i){
+    if (i > 0){ var ar = document.createElement('span'); ar.className = 'llc-arrow'; ar.textContent = String.fromCharCode(8594); wrap.appendChild(ar); }
+    var ic = (ACTIVITY_ICONS && ACTIVITY_ICONS[act.type]) || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
+    var step = document.createElement('div'); step.className = 'llc-step';
+    var box = document.createElement('div'); box.className = 'llc-step-ico'; box.style.background = ic.bg;
+    box.appendChild(LegoIcon(ic.icon, { size: 20, color: ic.color }));
+    var t = document.createElement('div'); t.className = 'llc-step-t'; t.textContent = _llTypeLabel(act.type);
+    step.appendChild(box); step.appendChild(t);
+    wrap.appendChild(step);
+  });
+  return wrap;
+}
+var LessonCover = {};
+LessonCover.simple = function(cv, lesson, activities, onStart){
+  _llCoverStyles();
+  var box = document.createElement('div'); box.className = 'll-cover ll-cover-b-' + (cv.border || 'none');
+  if (cv.imageUrl){ var img = document.createElement('img'); img.className = 'll-cover-img'; img.src = _llpImgSrc(cv.imageUrl); img.alt = ''; box.appendChild(img); }
+  var t = document.createElement('div'); t.className = 'll-cover-title'; t.textContent = cv.title || lesson.title || 'Leccion'; box.appendChild(t);
+  if (cv.subtitle){ var sb = document.createElement('div'); sb.className = 'll-cover-sub'; sb.textContent = cv.subtitle; box.appendChild(sb); }
+  if (cv.text){ var tx = document.createElement('div'); tx.className = 'll-cover-text'; tx.textContent = cv.text; box.appendChild(tx); }
+  var meta = document.createElement('div'); meta.className = 'll-cover-meta'; meta.textContent = _llMeta(lesson, activities); box.appendChild(meta);
+  box.appendChild(_llStepIcons(activities));
+  box.appendChild(_llBtn(cv, onStart));
+  return box;
+};
+LessonCover.split = function(cv, lesson, activities, onStart){
+  _llCoverStyles();
+  var box = document.createElement('div'); box.className = 'llc-split';
+  if (cv.imageUrl){ var img = document.createElement('img'); img.className = 'llc-split-img'; img.src = _llpImgSrc(cv.imageUrl); img.alt = ''; box.appendChild(img); }
+  var body = document.createElement('div'); body.className = 'llc-split-body';
+  var meta = document.createElement('div'); meta.className = 'll-cover-meta'; meta.textContent = _llMeta(lesson, activities); body.appendChild(meta);
+  var t = document.createElement('div'); t.className = 'll-cover-title'; t.textContent = cv.title || lesson.title || 'Leccion'; body.appendChild(t);
+  if (cv.subtitle){ var sb = document.createElement('div'); sb.className = 'll-cover-sub'; sb.textContent = cv.subtitle; body.appendChild(sb); }
+  if (cv.text){ var tx = document.createElement('div'); tx.className = 'll-cover-text'; tx.textContent = cv.text; body.appendChild(tx); }
+  body.appendChild(_llStepIcons(activities));
+  body.appendChild(_llBtn(cv, onStart));
+  box.appendChild(body);
+  return box;
+};
+LessonCover.ruta = function(cv, lesson, activities, onStart){
+  _llCoverStyles();
+  var box = document.createElement('div'); box.className = 'llc-ruta';
+  if (cv.imageUrl){ var img = document.createElement('img'); img.className = 'llc-ruta-img'; img.src = _llpImgSrc(cv.imageUrl); img.alt = ''; box.appendChild(img); }
+  var t = document.createElement('div'); t.className = 'llc-ruta-title'; t.textContent = cv.title || lesson.title || 'Leccion'; box.appendChild(t);
+  if (cv.subtitle){ var sb = document.createElement('div'); sb.className = 'll-cover-sub'; sb.textContent = cv.subtitle; box.appendChild(sb); }
+  var meta = document.createElement('div'); meta.className = 'll-cover-meta'; meta.textContent = _llMeta(lesson, activities); box.appendChild(meta);
+  var lbl = document.createElement('div'); lbl.className = 'llc-ruta-lbl'; lbl.textContent = 'Tu ruta'; box.appendChild(lbl);
+  box.appendChild(_llStepIcons(activities));
+  box.appendChild(_llBtn(cv, onStart));
+  return box;
+};
+LessonCover.hero = function(cv, lesson, activities, onStart){
+  _llCoverStyles();
+  var box = document.createElement('div'); box.className = 'llc-hero';
+  var bg = document.createElement('div'); bg.className = 'llc-hero-bg';
+  if (cv.imageUrl) bg.style.backgroundImage = 'url("' + _llpImgSrc(cv.imageUrl) + '")';
+  else bg.style.background = 'linear-gradient(135deg,#D4522A,#A83E1E 60%,#B54D07)';
+  box.appendChild(bg);
+  var ov = document.createElement('div'); ov.className = 'llc-hero-ov'; box.appendChild(ov);
+  var inn = document.createElement('div'); inn.className = 'llc-hero-in';
+  var meta = document.createElement('div'); meta.className = 'llc-hero-meta'; meta.textContent = _llMeta(lesson, activities); inn.appendChild(meta);
+  var t = document.createElement('div'); t.className = 'llc-hero-title'; t.textContent = cv.title || lesson.title || 'Leccion'; inn.appendChild(t);
+  if (cv.subtitle){ var sb = document.createElement('div'); sb.className = 'llc-hero-sub'; sb.textContent = cv.subtitle; inn.appendChild(sb); }
+  inn.appendChild(_llStepIcons(activities));
+  inn.appendChild(_llBtn(cv, onStart));
+  box.appendChild(inn);
+  return box;
+};
+
 function LegoLesson(lesson, activities, opts){
   lesson = lesson || {}; activities = activities || []; opts = opts || {};
   if (!document.getElementById('lego-lesson-styles')) {
@@ -3126,7 +3237,16 @@ function LegoLesson(lesson, activities, opts){
   }
   var feedback = opts.feedback !== false;
   var results = [];
-  var idx = 0;
+  var idx = opts.startStep || 0;
+  if (idx < 0) idx = 0; if (idx > activities.length) idx = activities.length;
+  var baseScore = Number(opts.baseScore) || 0;
+  var baseTotal = Number(opts.baseTotal) || 0;
+  var pendingResume = (opts.resumeAnswers && opts.resumeAnswers.length) ? opts.resumeAnswers : null;
+  function accProgress(){
+    var s = baseScore, t = baseTotal;
+    results.forEach(function(r){ if (r) { s += (r.score || 0); t += (r.total || 0); } });
+    return { score: s, total: t };
+  }
   var root = document.createElement('div'); root.className = 'lego-lesson';
   var head = document.createElement('div'); head.className = 'll-head';
   var titleEl = document.createElement('div'); titleEl.className = 'll-title'; titleEl.textContent = lesson.title || 'Lección';
@@ -3153,15 +3273,8 @@ function LegoLesson(lesson, activities, opts){
 
   function showCover(){
     var cv = lesson.cover || {};
-    var box = document.createElement('div'); box.className = 'll-cover ll-cover-b-' + (cv.border || 'none');
-    if (cv.imageUrl) { var img = document.createElement('img'); img.className = 'll-cover-img'; img.src = cv.imageUrl; img.alt = ''; box.appendChild(img); }
-    var t = document.createElement('div'); t.className = 'll-cover-title'; t.textContent = cv.title || lesson.title || 'Lección'; box.appendChild(t);
-    if (cv.subtitle) { var _sub = document.createElement('div'); _sub.className = 'll-cover-sub'; _sub.textContent = cv.subtitle; box.appendChild(_sub); }
-    if (cv.text) { var tx = document.createElement('div'); tx.className = 'll-cover-text'; tx.textContent = cv.text; box.appendChild(tx); }
-    var meta = document.createElement('div'); meta.className = 'll-cover-meta'; meta.textContent = (lesson.level ? lesson.level + ' · ' : '') + activities.length + (activities.length === 1 ? ' paso' : ' pasos'); box.appendChild(meta);
-    var go = document.createElement('button'); go.type = 'button'; go.className = 'll-next'; go.textContent = cv.buttonLabel || 'Empezar';
-    go.onclick = function(){ showStep(); };
-    box.appendChild(go);
+    var layout = LessonCover[cv.layout] || LessonCover.simple;
+    var box = layout(cv, lesson, activities, function(){ showStep(); });
     progTxt.textContent = activities.length + ' pasos'; fill.style.width = '0%';
     body.replaceChildren(box); foot.style.display = 'none';
   }
@@ -3171,16 +3284,18 @@ function LegoLesson(lesson, activities, opts){
     setProg();
     var act = activities[idx];
     foot.style.display = 'none';
+    var savedForStep = pendingResume; pendingResume = null;
     var node = LegoPlayer(act, {
       mode: 'play',
       feedback: feedback,
       fcMode: opts.fcMode,
+      saved: (savedForStep && savedForStep.length) ? savedForStep : undefined,
+      onPause: (typeof opts.onPause === 'function') ? function(partial){ var acc = accProgress(); opts.onPause({ step: idx, score: acc.score, total: acc.total, stepAnswers: partial || [] }); } : undefined,
+      submitLabel: (idx + 1 < activities.length) ? 'Siguiente paso →' : 'Ver resultado',
       onResult: function(res){
         results[idx] = { title: act.title || ('Paso ' + (idx + 1)), type: res.type, score: res.score, total: res.total, answers: res.answers };
         if (typeof opts.onStepResult === 'function') { try { opts.onStepResult(idx, act, res); } catch(e){} }
-        footScore.textContent = feedback ? (res.score + '/' + (res.total || 0)) : '';
-        nextBtn.textContent = (idx + 1 < activities.length) ? 'Siguiente paso →' : 'Ver resultado';
-        foot.style.display = 'flex';
+        idx++; showStep();
       }
     });
     body.replaceChildren(node);
@@ -3191,8 +3306,7 @@ function LegoLesson(lesson, activities, opts){
   function showEnd(){
     progTxt.textContent = 'Paso ' + activities.length + ' de ' + activities.length;
     fill.style.width = '100%';
-    var score = 0, total = 0;
-    results.forEach(function(r){ if (r) { score += (r.score || 0); total += (r.total || 0); } });
+    var _acc = accProgress(); var score = _acc.score, total = _acc.total;
     var pct = total ? Math.round((score / total) * 100) : 0;
     var box = document.createElement('div'); box.className = 'll-end';
     var big = document.createElement('div'); big.className = 'll-end-pct'; big.textContent = feedback ? (pct + '%') : '✓';
@@ -3215,7 +3329,7 @@ function LegoLesson(lesson, activities, opts){
     }
   }
 
-  if (lesson.cover) showCover(); else showStep();
+  if (lesson.cover && idx === 0 && !pendingResume) showCover(); else showStep();
   return root;
 }
 
@@ -3811,3 +3925,55 @@ function LegoBoard(opts){
 
 
 
+
+// -- LegoButton --------------------------------------------
+// Boton universal sellado. Variante visual + tamano + icono opcional.
+//   LegoButton({ label, variant, size, icon, onClick, disabled, type, title })
+//   variant: 'primary'(coral) | 'outline' | 'danger' | 'ghost' | 'teal'   (default primary)
+//   size: 'sm' | 'md'   (default md)
+//   icon: 'ti-...' (Tabler via LegoIcon) o emoji   (opcional, colapsa si falta)
+// Portable: usa variables CSS con fallback, no depende de las clases .btn del host.
+function LegoButton(opts) {
+  opts = opts || {};
+  if (!document.getElementById('lego-button-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-button-styles';
+    st.textContent = '.lego-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border-radius:var(--r,10px);border:none;cursor:pointer;font-family:var(--sans,inherit);font-size:13px;font-weight:500;line-height:1;transition:all .15s;white-space:nowrap}'
+      + '.lego-btn:focus-visible{outline:2px solid var(--coral,#D4522A);outline-offset:2px}'
+      + '.lego-btn--primary{background:var(--coral,#D4522A);color:#fff}'
+      + '.lego-btn--primary:hover{filter:brightness(1.06)}'
+      + '.lego-btn--teal{background:var(--teal,#1E6B72);color:#fff}'
+      + '.lego-btn--teal:hover{filter:brightness(1.06)}'
+      + '.lego-btn--outline{background:var(--white,#fff);color:var(--ink,#1C1A17);border:1.5px solid var(--border,#DDD7CE)}'
+      + '.lego-btn--outline:hover{border-color:var(--ink,#1C1A17)}'
+      + '.lego-btn--danger{background:var(--red-lt,#FEECEC);color:var(--red,#C0392B)}'
+      + '.lego-btn--danger:hover{filter:brightness(.97)}'
+      + '.lego-btn--ghost{background:transparent;color:var(--muted,#8C8479)}'
+      + '.lego-btn--ghost:hover{color:var(--ink,#1C1A17)}'
+      + '.lego-btn--sm{padding:6px 12px;font-size:12px}'
+      + '.lego-btn:disabled{opacity:.5;cursor:not-allowed}';
+    document.head.appendChild(st);
+  }
+  var b = document.createElement('button');
+  b.type = opts.type || 'button';
+  var variant = opts.variant || 'primary';
+  b.className = 'lego-btn lego-btn--' + variant + (opts.size === 'sm' ? ' lego-btn--sm' : '');
+  if (opts.icon) {
+    if (typeof LegoIcon === 'function' && /^ti-/.test(String(opts.icon))) {
+      b.appendChild(LegoIcon(opts.icon, { size: opts.size === 'sm' ? 15 : 16 }));
+    } else {
+      var ic = document.createElement('span');
+      ic.textContent = opts.icon;
+      b.appendChild(ic);
+    }
+  }
+  if (opts.label != null && opts.label !== '') {
+    var lbl = document.createElement('span');
+    lbl.textContent = String(opts.label);
+    b.appendChild(lbl);
+  }
+  if (opts.disabled) b.disabled = true;
+  if (opts.title) b.title = opts.title;
+  if (typeof opts.onClick === 'function') b.addEventListener('click', opts.onClick);
+  return b;
+}

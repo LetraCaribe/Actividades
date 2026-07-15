@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -87,6 +87,9 @@ body{font-family:var(--sans);background:var(--sand);color:var(--ink);min-height:
 
 /* ── PANELS ── */
 .panel{display:none}
+.classprep-focus .sidebar{display:none}
+.classprep-focus .topbar{display:none}
+.classprep-focus .content{padding:8px}
 .panel.active{display:block}
 
 /* ── STATS ── */
@@ -975,8 +978,8 @@ async function loadOverviewData(){
       overviewAgg.revenueUsd = Math.round(_rvA);
       overviewAgg.revenueCop = Math.round(_rvA * (Number(_cfgF.trm) || 0));
       overviewAgg.revenueRealCop = Math.round(_givRevA * (Number(_cfgF.trm) || 0));
-      overviewAgg.trendIncome = _incL > 0 ? Math.round(((_incT - _incL) / _incL) * 100) : null;
-      overviewAgg.trendGiven = _givL > 0 ? Math.round(((_givT - _givL) / _givL) * 100) : null;
+      overviewAgg.trendIncomeDeltaCop = Math.round((_incT - _incL) * (Number(_cfgF.trm) || 0));
+      overviewAgg.trendGivenDelta = _givT - _givL;
     } catch(e){ console.warn('[resumen finanzas] ' + (e.message || e)); }
     if (typeof _ov !== 'undefined' && _ov && _ov.cardsRow) renderResumenCards(_ov.cardsRow);
 }
@@ -1059,7 +1062,7 @@ async function loadClassPrepTodayData(){
   if (!hasSelected) classPrepState.sessionId = null;
 }
 async function loadVocabularyData(){
-  var minStudents = vocabularyDashboardData && vocabularyDashboardData.minStudents ? vocabularyDashboardData.minStudents : 2;
+  var minStudents = 10;
   var practiceTypes = ['flashcard_flip', 'flashcard_write', 'match', 'memory', 'true_false_vocab', 'letter_order'];
   var result = await Promise.all([
     LegoData.students(),
@@ -1356,7 +1359,7 @@ var RESUMEN_METRICS = {
   recent_vocab: { render: function(d){ var r = d.vocabularyRecent || {}; var words = Number(r.newWords7d) || 0; var expressions = Number(r.newExpressions7d) || 0; return resumenCard({ icon: 'ti ti-book-upload', color: 'var(--teal)', value: words + expressions, sub: words + ' palabras / ' + expressions + ' expresiones', label: 'Nuevas 7d', onClick: function(){ if (typeof showPanel === 'function') showPanel('vocabulary'); } }); } },
   students_attention: { render: function(d){ return resumenDualCard({ icon: 'ti ti-users', label: 'Estudiantes por atender', value1: (d.studentsOrange || []).length, value2: (d.studentsRed || []).length, color1: 'var(--gold)', color2: 'var(--red)', onClick: resumenModalStudents }); } },
   revenue:      { render: function(d){ return resumenDualCard({ icon: 'ti ti-cash-banknote', label: 'Real y pagado (mes)', stacked: true, value1: (d.revenueRealCop != null ? overviewMoneyCOP(d.revenueRealCop) : '—'), value2: (d.revenueCop != null ? overviewMoneyCOP(d.revenueCop) : '—'), color1: 'var(--coral)', color2: 'var(--green)', onClick: openOverviewBillingDetail }); } },
-  tendencia:    { render: function(d){ return resumenDualCard({ icon: 'ti ti-trending-up', label: 'Tendencia: ingreso y clases', value1: (d.trendIncome != null ? ((d.trendIncome >= 0 ? '+' : '') + d.trendIncome + '%') : '—'), value2: (d.trendGiven != null ? ((d.trendGiven >= 0 ? '+' : '') + d.trendGiven + '%') : '—'), color1: 'var(--teal)', color2: 'var(--coral)', onClick: openOverviewBillingDetail }); } },
+  tendencia:    { render: function(d){ return resumenDualCard({ icon: 'ti ti-trending-up', label: 'Cambio vs mes pasado (1-14)', value1: overviewTrendDelta(d.trendIncomeDeltaCop, 'money'), value2: overviewTrendDelta(d.trendGivenDelta, 'units'), color1: 'var(--green)', color2: 'var(--coral)', onClick: openOverviewBillingDetail }); } },
   practice:     { label: 'Prácticas 30d', icon: 'ti ti-vocabulary', color: 'var(--coral)', onClick: resumenModalPractice, get: function(d){ return d.counts && d.counts.practice_30; } },
   balance:      { label: 'Saldo total',           icon: 'ti ti-cash',             color: 'var(--teal)',  dest: 'students',   get: function(d){ return d.counts && d.counts.remaining; } },
   practice30:   { label: 'Prácticas 30d',         icon: 'ti ti-vocabulary',       color: 'var(--coral)', dest: 'students',   get: function(d){ return d.counts && d.counts.practice_30; } }
@@ -1597,6 +1600,13 @@ function overviewClassQty(n) {
   return Math.abs(num - Math.round(num)) < 0.001 ? String(Math.round(num)) : num.toFixed(1);
 }
 
+function overviewTrendDelta(value, kind){
+  var n = Number(value) || 0;
+  var arrow = n > 0 ? '▲ ' : (n < 0 ? '▼ ' : '');
+  var mag = Math.abs(n);
+  return kind === 'money' ? (arrow + overviewMoneyCompact(mag)) : (arrow + overviewClassQty(mag));
+}
+
 function overviewMoneyCOP(n) {
   var num = Number(n) || 0;
   try {
@@ -1611,6 +1621,14 @@ function overviewMoneyCell(value, color) {
   el.style.cssText = 'font-weight:700;color:' + (color || 'var(--ink)');
   el.textContent = value ? overviewMoneyCOP(value) : '-';
   return el;
+}
+
+function overviewMoneyCompact(num){
+  num = Number(num) || 0;
+  var a = Math.abs(num);
+  if (a >= 1000000) return '$' + (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (a >= 1000) return '$' + Math.round(num / 1000) + 'K';
+  return overviewMoneyCOP(num);
 }
 
 function overviewMoneyCompactCell(value, color) {
@@ -1652,7 +1670,7 @@ function overviewBillingNameCell(row, mount, opts) {
   var btn = document.createElement('button');
   btn.type = 'button';
   btn.style.cssText = 'border:none;background:none;padding:0;display:flex;align-items:center;gap:6px;font-family:inherit;color:var(--ink);font-weight:700;cursor:pointer;text-align:left';
-  btn.replaceChildren(LegoIcon(open ? 'ti-chevron-down' : 'ti-chevron-right', { size: 15, color: 'var(--muted)' }), document.createTextNode(row.name));
+  btn.replaceChildren(document.createTextNode(row.name));
   btn.onclick = function(){
     overviewBillingExpandedGroups[String(row.groupId || row.id)] = !open;
     renderOverviewBillingPanel(mount, opts);
@@ -2450,8 +2468,7 @@ function renderStats(){
 // -- Por revisar: revision de respuestas (3 niveles, sellado en Lego) --
 function groupResponsesByStudent() {
   var byStudent = {};
-  var _x = overviewExcluded();
-  allResponses.filter(function(r){ return !r.reviewed && !_x[String(r.student_id)]; }).forEach(function(r) {
+  allResponses.filter(function(r){ return !r.reviewed; }).forEach(function(r) {
     var id = r.student_id ? String(r.student_id) : '';
     var name = responseStudentName(r);
     var key = id || name;
@@ -2907,6 +2924,16 @@ async function hydrateStudentProfileScopedData(studentId){
   return mergeStudentProfileScopedData(studentId, scoped);
 }
 
+// Re-render de tareas SIN re-fetch (usa allAssignments ya actualizado en memoria).
+// Evita que un GET cacheado de Supabase pise el reviewed recién marcado.
+function refreshStudentTasks(s){
+  if (!s) return;
+  setStudentViewState(s, 'tasks');
+  var wrap = studentDetailShell(s, 'Tareas');
+  if (!wrap) return;
+  var assignments = (allAssignments || []).filter(function(a){ return String(a.student_id) === String(s.id); });
+  appendStudentTasks(wrap, s, assignments);
+}
 async function showStudentTasksSection(s){
   setStudentViewState(s, 'tasks');
   var wrap = studentDetailShell(s, 'Tareas');
@@ -3526,7 +3553,7 @@ function buildVocabularyLoadPanel(){
   manualBox.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);background:var(--white);padding:12px';
   var manualTitle = document.createElement('div');
   manualTitle.style.cssText = 'font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px';
-  manualTitle.textContent = 'Manual por nivel';
+  manualTitle.textContent = 'Manual';
   var manualControls = document.createElement('div');
   manualControls.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px';
   var levelSel = LegoSelect({ className: 'filter-select', placeholder: 'Nivel', options: vocabularyLevelOptions() });
@@ -3535,7 +3562,10 @@ function buildVocabularyLoadPanel(){
     value: 'word',
     options: [{ value: 'word', label: 'Palabras' }, { value: 'expression', label: 'Expresiones' }]
   });
+  var manualStudentSel = _combo({ placeholder: 'Estudiante', searchable: true, options: [{ value: '', label: '— Estudiante —' }].concat(vocabularyActiveStudents().map(function(s){ return { value: s.id, label: s.full_name || 'Estudiante' }; })) });
+  manualStudentSel.style.minWidth = '170px';
   manualControls.appendChild(levelSel);
+  manualControls.appendChild(manualStudentSel);
   manualControls.appendChild(typeSel);
   var textarea = document.createElement('textarea');
   textarea.className = 'form-textarea';
@@ -3586,7 +3616,34 @@ function buildVocabularyLoadPanel(){
   manualBox.appendChild(textarea);
   manualBox.appendChild(manualStatus);
   manualBox.appendChild(manualPreview);
-  manualBox.appendChild(manualBtn);
+  var studentBtn = document.createElement('button');
+  studentBtn.type = 'button';
+  studentBtn.className = 'btn btn-sm';
+  studentBtn.style.cssText = 'background:var(--ink-soft);color:var(--white)';
+  studentBtn.textContent = 'Añadir a estudiante';
+  studentBtn.onclick = async function(){
+    var rows = vocabularyParseEqualsText(textarea.value, typeSel.value || 'word');
+    var sid = manualStudentSel._getValue ? manualStudentSel._getValue() : manualStudentSel.value;
+    if (!sid) { showToast('Elige un estudiante.'); return; }
+    if (!rows.length) { showToast('Escribe entradas con =.'); return; }
+    var student = vocabularyActiveStudents().find(function(s){ return String(s.id) === String(sid); });
+    if (!student) { showToast('Estudiante no encontrado.'); return; }
+    try {
+      var total = await vocabularySaveRowsForStudents([student], rows, 'estudiante: ' + (student.full_name || ''), 'teacher');
+      showToast(total + ' entradas aplicadas a ' + (student.full_name || 'estudiante') + '.');
+      textarea.value = '';
+      drawManualPreview();
+      await refreshVocabularyPanel();
+    } catch(e) {
+      console.error(e);
+      showToast('No se cargó: ' + (e.message || e));
+    }
+  };
+  var manualBtnRow = document.createElement('div');
+  manualBtnRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+  manualBtnRow.appendChild(manualBtn);
+  manualBtnRow.appendChild(studentBtn);
+  manualBox.appendChild(manualBtnRow);
 
   var seedBox = document.createElement('div');
   seedBox.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);background:var(--white);padding:12px';
@@ -3815,7 +3872,7 @@ function initVocabularyHub(){
   if (!mt) return;
   mt.replaceChildren();
   var data = vocabularyDashboardData || {};
-  var state = { minStudents: data.minStudents || 2 };
+  var state = { minStudents: 10 };
 
   function entryTypeLabel(type){
     return type === 'expression' ? 'Expresiones' : 'Palabras';
@@ -3826,47 +3883,45 @@ function initVocabularyHub(){
     title.textContent = text;
     return title;
   }
+  var _ell = 'max-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
   function statCard(label, value, detail){
     var card = document.createElement('div');
-    card.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);background:var(--white);padding:14px;min-height:96px;display:flex;flex-direction:column;gap:5px;justify-content:center';
+    card.style.cssText = 'flex:1;min-width:150px;border:1px solid var(--border);border-radius:var(--r);background:var(--white);padding:10px 14px;display:flex;flex-direction:column;gap:2px;justify-content:center';
     var lab = document.createElement('div');
-    lab.style.cssText = 'font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:800;letter-spacing:.06em';
+    lab.style.cssText = 'font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:800;letter-spacing:.06em';
     lab.textContent = label;
     var val = document.createElement('div');
-    val.style.cssText = 'font-size:28px;font-weight:900;color:var(--ink);line-height:1';
+    val.style.cssText = 'font-size:20px;font-weight:900;color:var(--ink);line-height:1.1';
     val.textContent = String(value || 0);
     var det = document.createElement('div');
-    det.style.cssText = 'font-size:12px;color:var(--ink-soft);line-height:1.35';
+    det.style.cssText = 'font-size:11px;color:var(--ink-soft);line-height:1.3';
     det.textContent = detail || '';
     card.replaceChildren(lab, val, det);
     return card;
   }
   function topSharedTable(rows, emptyText){
     return LegoTable({
-      minWidth: 560,
-      emptyText: emptyText || 'Sin resultados para este mínimo.',
+      emptyText: emptyText || 'Sin resultados.',
       columns: [
-        { label: 'Palabra', width: '30%', key: 'term' },
-        { label: 'Significado', width: '42%', key: 'meaning' },
-        { label: 'Estudiantes', width: '18%', render: function(row){ return row.studentCount; } }
+        { label: 'Palabra', width: '40%', key: 'term', cellStyle: _ell },
+        { label: 'Significado', width: '42%', cellStyle: _ell, render: function(row){ return (row.meaning || '') + (row.topMeaningCount ? ' (' + row.topMeaningCount + ')' : ''); } },
+        { label: 'Est.', width: '18%', cellStyle: 'text-align:right;font-variant-numeric:tabular-nums', render: function(row){ return row.studentCount; } }
       ],
       rows: rows || []
     });
   }
   function practiceTable(rows){
     return LegoTable({
-      minWidth: 360,
-      emptyText: 'Sin prácticas registradas.',
+      emptyText: 'Sin prácticas.',
       columns: [
-        { label: 'Estudiante', width: '70%', key: 'studentName' },
-        { label: 'Total', width: '30%', key: 'total' }
+        { label: 'Estudiante', width: '72%', key: 'studentName', cellStyle: _ell },
+        { label: 'Veces', width: '28%', cellStyle: 'text-align:right;font-variant-numeric:tabular-nums', render: function(row){ return row.total; } }
       ],
       rows: rows || []
     });
   }
   function levelsTable(rows){
     return LegoTable({
-      minWidth: 520,
       emptyText: 'Sin niveles registrados.',
       columns: [
         { label: 'Tipo', width: '34%', render: function(row){ return entryTypeLabel(row.entryType); } },
@@ -3882,7 +3937,7 @@ function initVocabularyHub(){
   var stats = data.stats || {};
   var top = stats.topShared || {};
   var statGrid = document.createElement('div');
-  statGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px';
+  statGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
   statGrid.replaceChildren(
     statCard('Total de palabras', stats.totalWords, 'Tiquetes únicos de tipo palabra.'),
     statCard('Total de expresiones', stats.totalExpressions, 'Tiquetes únicos de tipo expresión.'),
@@ -3894,44 +3949,16 @@ function initVocabularyHub(){
   topWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px';
   var topControls = document.createElement('div');
   topControls.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap';
-  var topTitle = dashboardTitle('Top compartidas');
-  var minSel = LegoSelect({
-    className: 'filter-select',
-    value: String(state.minStudents),
-    options: [
-      { value: '2', label: '2+ estudiantes' },
-      { value: '5', label: '5+ estudiantes' },
-      { value: '10', label: '10+ estudiantes' },
-      { value: '15', label: '15+ estudiantes' }
-    ],
-    onChange: async function(value){
-      state.minStudents = Number(value) || 2;
-      if (!vocabularyDashboardData) vocabularyDashboardData = {};
-      vocabularyDashboardData.minStudents = state.minStudents;
-      wordsMount.replaceChildren(LegoChip('Cargando...', { bg: 'var(--sand)', color: 'var(--ink-soft)' }));
-      expressionsMount.replaceChildren(LegoChip('Cargando...', { bg: 'var(--sand)', color: 'var(--ink-soft)' }));
-      try {
-        var rows = await Promise.all([
-          LegoData.vocabularyTopShared({ entryType: 'word', minStudents: state.minStudents, limit: 5 }),
-          LegoData.vocabularyTopShared({ entryType: 'expression', minStudents: state.minStudents, limit: 5 })
-        ]);
-        vocabularyDashboardData.topShared = { word: rows[0] || [], expression: rows[1] || [] };
-        renderTopShared();
-      } catch(e) {
-        console.error(e);
-        showToast('No se cargó el top compartido: ' + (e.message || e));
-      }
-    }
-  });
-  topControls.replaceChildren(topTitle, minSel);
+  var topTitle = dashboardTitle('Compartidas por 10+ estudiantes');
+  topControls.replaceChildren(topTitle);
   var topGrid = document.createElement('div');
   topGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px';
   var wordsBox = document.createElement('div');
   var expressionsBox = document.createElement('div');
   var wordsMount = document.createElement('div');
   var expressionsMount = document.createElement('div');
-  wordsBox.replaceChildren(dashboardTitle('Top 5 palabras'), wordsMount);
-  expressionsBox.replaceChildren(dashboardTitle('Top 5 expresiones'), expressionsMount);
+  wordsBox.replaceChildren(dashboardTitle('Palabras'), wordsMount);
+  expressionsBox.replaceChildren(dashboardTitle('Expresiones'), expressionsMount);
   topGrid.replaceChildren(wordsBox, expressionsBox);
   function renderTopShared(){
     var shared = vocabularyDashboardData && vocabularyDashboardData.topShared ? vocabularyDashboardData.topShared : {};
@@ -3942,9 +3969,9 @@ function initVocabularyHub(){
   topWrap.replaceChildren(topControls, topGrid);
 
   var practiceWrap = document.createElement('div');
-  practiceWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  practiceWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;min-width:0';
   var practiceGrid = document.createElement('div');
-  practiceGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px';
+  practiceGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px';
   var leaders = data.practiceLeaders || {};
   var practiceTypes = [
     { key: 'flashcard_flip', label: 'Flashcards estudiar' },
@@ -3963,7 +3990,13 @@ function initVocabularyHub(){
 
   var levelWrap = document.createElement('div');
   levelWrap.replaceChildren(dashboardTitle('Niveles por snapshot'), levelsTable(data.levelBreakdown || []));
-  dashboardPanel.replaceChildren(statGrid, topWrap, practiceWrap, levelWrap);
+  var vocContentCol = document.createElement('div');
+  vocContentCol.style.cssText = 'display:flex;flex-direction:column;gap:16px;min-width:0';
+  vocContentCol.replaceChildren(topWrap, levelWrap);
+  var vocTwoCol = document.createElement('div');
+  vocTwoCol.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start';
+  vocTwoCol.replaceChildren(vocContentCol, practiceWrap);
+  dashboardPanel.replaceChildren(statGrid, vocTwoCol);
 
   var loadPanel = buildVocabularyLoadPanel();
   var hub = LegoHub({
@@ -4858,7 +4891,7 @@ function renderStudentClassLedger(box, s, ledger){
             { label: 'Estado', width: '26%', render: function(row){ var st = classSessionStatus(row); return LegoChip(st.label, st.chip); } },
             { label: 'Unidades', width: '18%', render: function(row){ return classUnitsLabel(classSessionUnits(row)); } },
             { label: '', width: '10%', render: function(row){ return (row.note || '').trim() ? LegoIcon('ti-note', { size: 16, color: 'var(--muted)' }) : ''; } },
-            { label: '', width: '16%', render: function(row){ var wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;align-items:center'; wrap.appendChild(classCancelActionButton(row)); wrap.appendChild(classDeleteActionButton(row, confirmDeleteStudentLedgerClass)); return wrap; } }
+            { label: '', width: '16%', render: function(row){ var wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;align-items:center'; var edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn btn-sm'; edit.setAttribute('aria-label', 'Ver clase'); edit.style.cssText = 'background:none;border:1px solid var(--border);color:var(--ink-soft);display:inline-flex;align-items:center;cursor:pointer'; edit.replaceChildren(LegoIcon('ti-pencil', { size: 15 })); edit.onclick = function(){ openClassSessionModal(row); }; wrap.appendChild(edit); wrap.appendChild(classCancelActionButton(row)); wrap.appendChild(classDeleteActionButton(row, confirmDeleteStudentLedgerClass)); return wrap; } }
           ],
           rows: rows
         }));
@@ -6175,7 +6208,7 @@ function classPrepSection(title, note, content){
   p.style.cssText = 'font-size:12px;color:var(--muted);margin-top:2px';
   p.textContent = note || '';
   left.appendChild(h);
-  left.appendChild(p);
+  if (note) left.appendChild(p);
   head.appendChild(left);
   var body = document.createElement('div');
   body.style.cssText = 'padding:12px';
@@ -6227,10 +6260,7 @@ async function classPrepOpenReview(data, activityKey, assignment){
   btnCerrar.className = 'btn btn-outline btn-sm';
   btnCerrar.textContent = 'Cerrar';
   btnCerrar.onclick = function(){ if (window.LegoModal && LegoModal.close) LegoModal.close(); };
-  var btnRevisada = document.createElement('button');
-  btnRevisada.className = 'btn btn-sm btn-outline';
-  btnRevisada.textContent = 'Marcar revisada';
-  btnRevisada.onclick = async function(){
+  var btnRevisada = LegoButton({ label: 'Marcar revisada', variant: 'outline', size: 'sm', onClick: async function(){
     try {
       if (window.LegoModal && LegoModal.close) LegoModal.close();
       await classPrepMarkReviewed(data, activityKey);
@@ -6239,7 +6269,7 @@ async function classPrepOpenReview(data, activityKey, assignment){
       console.error(e);
       showToast('Error marcando revisión: ' + (e.message || e));
     }
-  };
+  } });
   LegoModal({ M1: 'Revisión - ' + (student.full_name || 'Estudiante'), M2: _evalModalSubtitle(activity.title || activityKey, assignment && assignment.eval_mode), M3: node, M6: btnCerrar, M7: btnRevisada });
 }
 
@@ -6294,7 +6324,7 @@ function appendClassPrepLibrary(wrap, data){
   renderLibraryCardsInto(list, rows);
   box.appendChild(filters);
   box.appendChild(list);
-  wrap.appendChild(classPrepSection('Biblioteca', 'Biblioteca completa, con la misma navegacion y filtros.', box));
+  wrap.appendChild(classPrepSection('Biblioteca', '', box));
 }
 
 function appendClassPrepNotes(wrap, data){
@@ -6325,7 +6355,7 @@ function appendClassPrepNotes(wrap, data){
   actions.appendChild(save);
   box.appendChild(note);
   box.appendChild(actions);
-  wrap.appendChild(classPrepSection('Notas de clase', 'Seguimiento interno del profesor.', box));
+  wrap.appendChild(classPrepSection('Notas de clase', '', box));
 }
 
 function appendClassPrepReview(wrap, student, data){
@@ -6333,7 +6363,7 @@ function appendClassPrepReview(wrap, student, data){
   var cards = classPrepReviewActivities(student, (data && data.responses) || [], (data && data.assignments) || [], data);
   if (cards.length) box.appendChild(legoGrid(cards));
   else box.appendChild(LegoEmpty({ text: 'Nada por revisar para este estudiante.' }));
-  wrap.appendChild(classPrepSection('Por revisar', 'Misma logica de revision, filtrada por estudiante.', box));
+  wrap.appendChild(classPrepSection('Por revisar', '', box));
 }
 
 function classPrepBoardPanel(data){
@@ -6547,6 +6577,15 @@ async function renderClassPrepPanel(sessionId){
   refresh.onclick = function(){ renderClassPrepPanel(classPrepState.sessionId); };
   controls.appendChild(select);
   controls.appendChild(refresh);
+  var focusBtn = document.createElement('button');
+  focusBtn.className = 'btn btn-outline btn-sm';
+  var _cpFocused = document.getElementById('adminPortal').classList.contains('classprep-focus');
+  focusBtn.textContent = _cpFocused ? 'Salir' : 'Enfoque';
+  focusBtn.onclick = function(){
+    var on = document.getElementById('adminPortal').classList.toggle('classprep-focus');
+    focusBtn.textContent = on ? 'Salir' : 'Enfoque';
+  };
+  controls.appendChild(focusBtn);
   mount.appendChild(controls);
   if (!classPrepState.sessionId) {
     mount.appendChild(LegoEmpty({ text: 'No hay clases con estudiante para preparar.' }));
@@ -8303,25 +8342,40 @@ async function actSetPickMode(mode) {
   filterActivitiesPanel();
 }
 function actLessonCardEl(l) {
-  var btnAsg = document.createElement('button');
-  btnAsg.type = 'button'; btnAsg.className = 'btn btn-sm btn-coral'; btnAsg.textContent = 'Asignar';
-  btnAsg.onclick = function(e){ e.stopPropagation(); assignLessonQuick(l); };
-  var btnDel = document.createElement('button');
-  btnDel.type = 'button'; btnDel.className = 'btn btn-sm'; btnDel.textContent = '✕';
-  btnDel.onclick = async function(e){
+  const ic = { icon: 'ti-books', bg: '#EDE9F7', color: '#534AB7' };
+  const iconEl = document.createElement('div');
+  iconEl.style.cssText = 'width:36px;height:36px;border-radius:8px;background:' + ic.bg + ';display:flex;align-items:center;justify-content:center;flex-shrink:0';
+  iconEl.replaceChildren(LegoIcon(ic.icon, { size: 18, color: ic.color }));
+  const btnAssign = document.createElement('button');
+  btnAssign.type = 'button'; btnAssign.className = 'btn btn-outline btn-sm'; btnAssign.title = 'Asignar';
+  btnAssign.replaceChildren(LegoIcon('ti-user-plus'));
+  btnAssign.onclick = function(e){ e.stopPropagation(); assignLessonQuick(l); };
+  const btnEdit = document.createElement('button');
+  btnEdit.type = 'button'; btnEdit.className = 'btn btn-outline btn-sm'; btnEdit.title = 'Editar';
+  btnEdit.replaceChildren(LegoIcon('ti-pencil'));
+  btnEdit.onclick = function(e){ e.stopPropagation(); editLessonQuick(l); };
+  const btnVer = document.createElement('button');
+  btnVer.type = 'button'; btnVer.className = 'btn btn-outline btn-sm'; btnVer.title = 'Ver';
+  btnVer.replaceChildren(LegoIcon('ti-eye'));
+  btnVer.onclick = function(e){ e.stopPropagation(); previewLessonQuick(l); };
+  const btnDelete = document.createElement('button');
+  btnDelete.type = 'button'; btnDelete.className = 'btn btn-danger btn-sm'; btnDelete.title = 'Eliminar';
+  btnDelete.replaceChildren(LegoIcon('ti-trash'));
+  btnDelete.onclick = async function(e){
     e.stopPropagation();
     if (!confirm('¿Eliminar la lección "' + (l.title || '') + '"? Las actividades NO se borran (son referencias).')) return;
     try { await LegoData.deleteLesson(l.id); showToast('Lección eliminada.'); actLessonsCache = await LegoData.lessons(); filterActivitiesPanel(); }
     catch(err){ console.error(err); showToast('Error: ' + (err.message || err)); }
   };
-  return LegoCard({
+  const catCode = getCategoryName(l.grammar_category_id);
+  const slots = {
+    L1: iconEl,
     L2: l.title || 'Lección',
-    L4: LegoChip(l.level || 'B1', 'level'),
-    L5: LegoChip('Lección', { bg: 'var(--sand)', color: 'var(--ink-soft)' }),
-    L6: LegoChip(((l.activity_ids || []).length) + ' pasos', { bg: 'var(--sand)', color: 'var(--muted)' }),
-    L8: btnAsg,
-    L9: btnDel
-  });
+    L4: LegoChip(l.level || 'B1', 'level')
+  };
+  if (catCode) slots.L5 = LegoChip(catCode, 'cat');
+  slots.L8 = LegoActionGrid([btnAssign, btnDelete, btnVer, btnEdit]);
+  return LegoCard(slots);
 }
 function actRenderLessons() {
   var q = ((document.getElementById('f-act-search') || {}).value || '').toLowerCase();
@@ -8463,6 +8517,24 @@ async function deleteActivity(id){
 }
 
 var _reviewOrigin = 'porrevisar';
+// Helper central de "marcar revisada" — sirve para actividad (por student+activity)
+// y para leccion (por assignment_id). Marca DB + memoria (allAssignments/allResponses).
+async function markReviewed(ctx){
+  ctx = ctx || {};
+  if (ctx.assignmentId) {
+    await LegoData.updateAssignment(ctx.assignmentId, { reviewed: true });
+  } else if (ctx.studentId && ctx.activityId) {
+    await LegoData.updateAssignmentsByStudentActivity(ctx.studentId, ctx.activityId, { reviewed: true });
+  }
+  var ids = (ctx.responseIds || []).filter(Boolean);
+  if (ids.length) await LegoData.markResponsesReviewed(ids);
+  if (typeof allAssignments !== 'undefined' && allAssignments) allAssignments.forEach(function(a){
+    if (ctx.assignmentId && String(a.id) === String(ctx.assignmentId)) a.reviewed = true;
+    if (ctx.studentId && ctx.activityId && String(a.student_id) === String(ctx.studentId) && String(a.activity_id) === String(ctx.activityId)) a.reviewed = true;
+  });
+  var set = {}; ids.forEach(function(id){ set[String(id)] = true; });
+  if (typeof allResponses !== 'undefined' && allResponses) allResponses.forEach(function(r){ if (set[String(r.id)]) r.reviewed = true; });
+}
 function openReviewModal(studentRef, activityKey) {
   abrirVistaRevision(studentRef, activityKey);
 }
@@ -8491,10 +8563,7 @@ async function abrirVistaRevision(studentRef, activityKey) {
   btnReasignar.style.cssText = 'background:var(--red-lt);color:var(--red)';
   btnReasignar.textContent = 'Reasignar';
   btnReasignar.onclick = function(){ if (window.LegoModal && LegoModal.close) LegoModal.close(); reassignActivity(enc, encK); };
-  var btnRevisada = document.createElement('button');
-  btnRevisada.className = 'btn btn-sm btn-outline';
-  btnRevisada.textContent = 'Marcar revisada';
-  btnRevisada.onclick = function(){ if (window.LegoModal && LegoModal.close) LegoModal.close(); markActivityReviewed(enc, encK); };
+  var btnRevisada = LegoButton({ label: 'Marcar revisada', variant: 'outline', size: 'sm', onClick: function(){ if (window.LegoModal && LegoModal.close) LegoModal.close(); markActivityReviewed(enc, encK); } });
   LegoModal({ M1: 'Revisión - ' + studentName, M2: _evalModalSubtitle(activity.title || activityKey, _evalModeFor(studentName, activityKey)), M3: node, M5: btnReasignar, M6: btnX, M7: btnRevisada });
 }
 
@@ -8568,10 +8637,12 @@ async function markActivityReviewed(studentRefEncoded, activityKeyEncoded){
     rows.forEach(r => {
       r.reviewed = true;
     });
+    var _idset = {}; responseIds.forEach(function(id){ _idset[String(id)] = true; });
+    if (typeof allResponses !== 'undefined' && allResponses) allResponses.forEach(function(rr){ if (_idset[String(rr.id)]) rr.reviewed = true; });
 
     showToast('Actividad revisada');
     if (activity) allAssignments.forEach(function(aa){ if(String(aa.student_id)===String(studentId) && String(aa.activity_id)===String(activity.id)) aa.reviewed = true; });
-    if (_reviewOrigin === 'lista') { var _st = allStudents.find(function(x){ return String(x.id)===String(studentId); }); if(_st) showStudentDetail(_st); } else openStudentResponses(studentId);
+    if (_reviewOrigin === 'lista') { var _st = allStudents.find(function(x){ return String(x.id)===String(studentId); }); if(_st) refreshStudentTasks(_st); } else openStudentResponses(studentId);
 
 
   } catch(e){
@@ -8617,7 +8688,7 @@ const PANEL_META={
   students:{title:'Mis estudiantes',sub:'Gestiona y asigna actividades'},
   vocabulary:{title:'Vocabulario',sub:'Matriz global de palabras y expresiones'},
   classes:{title:'Clases',sub:'Agenda interna sin Google Calendar'},
-  classprep:{title:'Preparar clase',sub:'Pizarra, materiales y seguimiento de la sesión'},
+  classprep:{title:'Preparar clase',sub:''},
   assign:{title:'Asignar tarea',sub:'Selecciona estudiante y actividad'},
   grading:{title:'Calificar respuestas',sub:'Respuestas abiertas pendientes'},
   activities:{title:'Actividades',sub:'Navega por nivel y tema'},
@@ -8634,6 +8705,7 @@ const PANEL_META={
 async function showPanel(name){
   var previous = activePanelName();
   if (previous && previous !== name) closePanelUi(previous);
+  document.getElementById('adminPortal').classList.remove('classprep-focus');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
@@ -9781,6 +9853,7 @@ function _v2CreatorInit() {
 var _lsRoot = null;
 var _lsBuilt = false;
 var _lsSteps = [];
+var _lsEditingId = null;
 var _lsActsCache = [];
 var _lsLessonsCache = [];
 
@@ -9905,6 +9978,43 @@ function _lsRenderPicker(){
   }
 }
 
+async function editLessonQuick(l){
+  showPanel('creator-hub');
+  if (typeof initCreatorHub === 'function') initCreatorHub();
+  if (creatorHub) creatorHub.switchTo('lesson');
+  _lsEditingId = l.id;
+  var setV = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+  setV('ls-title', l.title);
+  var lvl = document.getElementById('ls-level'); if (lvl) lvl.value = l.level || 'B1';
+  var gc = document.getElementById('ls-gram-cat'); if (gc) gc.value = l.grammar_category_id || '';
+  var cov = l.cover || {};
+  setV('ls-cover-title', cov.title);
+  setV('ls-cover-sub', cov.subtitle);
+  setV('ls-cover-text', cov.text);
+  setV('ls-cover-img', cov.imageUrl);
+  setV('ls-cover-btn', cov.buttonLabel);
+  _lsCoverBorder = cov.border || 'none';
+  _lsCoverLayout = cov.layout || 'simple';
+  var acts = [];
+  try { acts = await LegoData.activitiesByIds(l.activity_ids || []); } catch(e){ acts = []; }
+  var byId = {}; acts.forEach(function(a){ byId[String(a.id)] = a; });
+  _lsSteps = (l.activity_ids || []).map(function(id){ var a = byId[String(id)] || {}; return { id: id, title: a.title || 'Actividad', type: a.type || '' }; });
+  if (typeof _lsRenderSteps === 'function') _lsRenderSteps();
+  showToast('Editando lección: ' + (l.title || ''));
+}
+async function previewLessonQuick(l){
+  var acts = [];
+  try { acts = await LegoData.activitiesByIds(l.activity_ids || []); } catch(e){ acts = []; }
+  if (!acts.length) { showToast('La lección no tiene pasos.'); return; }
+  var mount = document.createElement('div'); mount.style.cssText = 'flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column';
+  try { mount.appendChild(LegoLesson(l, acts, { feedback: true, onStepResult: function(){}, onFinish: function(){ showToast('Fin de la vista previa.'); } })); }
+  catch(err){ console.error('preview leccion', err); mount.appendChild(LegoEmpty({ text: 'Error: ' + (err && err.message ? err.message : err) })); }
+  var x = document.createElement('button');
+  x.textContent = '✕'; x.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)';
+  x.onclick = function(){ if (window.LegoModal && LegoModal.close) LegoModal.close(); };
+  var ov = LegoModal({ M1: 'Vista previa · ' + (l.title || 'Lección'), M6: x, M3: mount });
+  var m = ov.querySelector('.lego-modal'); if (m) { m.classList.add('lego-modal--tall'); m.classList.add('lego-modal--wide'); }
+}
 function _lsPreviewAct(a){
   var mount = document.createElement('div'); mount.style.cssText = 'flex:1 1 auto;min-height:0;overflow:auto';
   try { mount.appendChild(LegoPlayer({ type: a.type || '', content: a.content }, { mode: 'preview' })); }
@@ -9938,6 +10048,7 @@ function _lsPreviewLesson(){
 }
 
 var _lsCoverBorder = 'none';
+var _lsCoverLayout = 'simple';
 function _lsRenderBorderSelector(mount){
   mount = mount || document.getElementById('ls-border-mount');
   if (!mount) return;
@@ -9972,7 +10083,7 @@ function _lsBuildCover(){
   var sub = (document.getElementById('ls-cover-sub') || {}).value || '';
   ct = ct.trim(); tx = tx.trim(); im = im.trim(); bt = bt.trim();
   sub = sub.trim();
-  if (!ct && !tx && !im && !bt && !sub && _lsCoverBorder === 'none') return null;
+  if (!ct && !tx && !im && !bt && !sub && _lsCoverBorder === 'none' && _lsCoverLayout === 'simple') return null;
   var cover = {};
   if (ct) cover.title = ct;
   if (tx) cover.text = tx;
@@ -9980,6 +10091,7 @@ function _lsBuildCover(){
   if (bt) cover.buttonLabel = bt;
   if (sub) cover.subtitle = sub;
   if (_lsCoverBorder && _lsCoverBorder !== 'none') cover.border = _lsCoverBorder;
+  if (_lsCoverLayout && _lsCoverLayout !== 'simple') cover.layout = _lsCoverLayout;
   return cover;
 }
 
@@ -9995,8 +10107,9 @@ async function _lsSave(){
     activity_ids: _lsSteps.map(function(s){ return s.id; })
   };
   try {
-    await LegoData.insertLesson(payload);
-    showToast('Lección guardada: ' + title);
+    if (_lsEditingId) { await LegoData.updateLesson(_lsEditingId, payload); }
+    else { await LegoData.insertLesson(payload); }
+    showToast((_lsEditingId ? 'Lección actualizada: ' : 'Lección guardada: ') + title);
     _lsReset();
     await _lsRefreshLessons();
   } catch(e){ console.error(e); showToast('Error al guardar: ' + (e.message || e)); }
@@ -10004,8 +10117,10 @@ async function _lsSave(){
 
 function _lsReset(){
   _lsSteps = [];
+  _lsEditingId = null;
   _lsFilterType = ''; _lsFilterLevel = ''; _lsFilterCat = '';
   _lsCoverBorder = 'none';
+  _lsCoverLayout = 'simple';
   ['ls-title','ls-cover-title','ls-cover-sub','ls-cover-text','ls-cover-img','ls-cover-btn','ls-act-search'].forEach(function(id){
     var el = document.getElementById(id); if (el) el.value = '';
   });
@@ -10054,11 +10169,13 @@ async function _lsAdminReview(a, s){
   xBtn.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)';
   xBtn.onclick = function(){ if (window.LegoModal && LegoModal.close) LegoModal.close(); };
   var titulo = 'Lección';
+  var lsResponseIds = [];
   try {
     var les = await LegoData.lessonById(a.lesson_id);
     if (les) titulo = les.title || 'Lección';
     var acts = les ? await LegoData.activitiesByIds(les.activity_ids) : [];
     var rows = await LegoData.responsesByAssignment(a.id);
+    lsResponseIds = rows.map(function(r){ return r.id; }).filter(Boolean);
     var wrap = document.createElement('div');
     acts.forEach(function(act, i){
       var head = document.createElement('div');
@@ -10071,7 +10188,15 @@ async function _lsAdminReview(a, s){
     if (!rows.length) wrap.appendChild(LegoEmpty({ text: 'Sin respuestas registradas todavía.' }));
     body.replaceChildren(wrap);
   } catch(e){ console.error(e); body.replaceChildren(LegoEmpty({ text: 'Error al cargar: ' + (e.message || e) })); }
-  var _ov = LegoModal({ M1: 'Revisión — ' + titulo, M2: _evalModalSubtitle((s && s.full_name) || '', a.eval_mode), M3: body, M7: xBtn });
+  var btnRevisada = LegoButton({ label: 'Marcar revisada', variant: 'outline', size: 'sm', onClick: async function(){
+    try {
+      if (window.LegoModal && LegoModal.close) LegoModal.close();
+      await markReviewed({ assignmentId: a.id, responseIds: lsResponseIds });
+      showToast('Lección revisada');
+      if (s && typeof refreshStudentTasks === 'function') refreshStudentTasks(s);
+    } catch(e){ console.error(e); showToast('Error marcando revisión: ' + (e.message || e)); }
+  }});
+  var _ov = LegoModal({ M1: 'Revisión — ' + titulo, M2: _evalModalSubtitle((s && s.full_name) || '', a.eval_mode), M3: body, M5: btnRevisada, M7: xBtn });
   var _m = _ov.querySelector('.lego-modal');
   if (_m) { _m.classList.add('lego-modal--tall'); _m.classList.add('lego-modal--wide'); }
 }
@@ -10084,15 +10209,16 @@ async function _lessonCreatorInit(){
     hint.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:14px';
     hint.textContent = 'Una lección encadena actividades existentes como pasos, en orden. Las actividades se referencian, no se copian: editar la actividad actualiza la lección.';
     root.appendChild(hint);
-    root.appendChild(_lsGroup('Título de la lección', _lsInput('ls-title', 'Ej: Unidad — Ser y los adjetivos')));
-    var row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap';
+    var meta = document.createElement('div');
+    meta.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px';
+    var gTitle = _lsGroup('Título de la lección', _lsInput('ls-title', 'Ej: Unidad — Ser y los adjetivos'));
+    gTitle.style.flex = '1 1 260px'; gTitle.style.marginBottom = '0';
     var lvl = LegoSelect({ options: ['A1','A2','B1','B2','C1','C2'].map(function(l){ return { value: l, label: l }; }), value: 'B1', id: 'ls-level' });
-    var g1 = _lsGroup('Nivel', lvl); g1.style.flex = '0 0 110px';
+    var gLvl = _lsGroup('Nivel', lvl); gLvl.style.flex = '0 0 100px'; gLvl.style.marginBottom = '0';
     var catMount = document.createElement('div'); catMount.id = 'ls-cat-mount';
-    var g2 = _lsGroup('Categoría gramatical', catMount); g2.style.flex = '1';
-    row.appendChild(g1); row.appendChild(g2);
-    root.appendChild(row);
+    var gCat = _lsGroup('Categoría gramatical', catMount); gCat.style.flex = '1 1 200px'; gCat.style.marginBottom = '0';
+    meta.appendChild(gTitle); meta.appendChild(gLvl); meta.appendChild(gCat);
+    root.appendChild(meta);
     var covLabel = document.createElement('button');
     covLabel.type = 'button';
     covLabel.className = 'form-label';
@@ -10112,27 +10238,36 @@ async function _lessonCreatorInit(){
     covBox.appendChild(_lsGroup('Texto', covText));
     covBox.appendChild(_lsGroup('URL de imagen (opcional)', _lsInput('ls-cover-img', 'https://...')));
     covBox.appendChild(_lsGroup('Texto del botón', _lsInput('ls-cover-btn', 'Empezar')));
+    var _lsLaySel = LegoSelect({ options: [{ value: 'simple', label: 'Simple' }, { value: 'split', label: 'Split (imagen al lado)' }, { value: 'ruta', label: 'Ruta (iconos de pasos)' }, { value: 'hero', label: 'Hero (imagen de fondo)' }], value: _lsCoverLayout, onChange: function(v){ _lsCoverLayout = v || 'simple'; } });
+    covBox.appendChild(_lsGroup('Estilo de portada', _lsLaySel));
     var _bm = document.createElement('div'); _bm.id = 'ls-border-mount';
     covBox.appendChild(_lsGroup('Marco de la portada', _bm));
     _lsRenderBorderSelector(_bm);
     root.appendChild(covBox);
-    var stepsLabel = document.createElement('label');
-    stepsLabel.className = 'form-label';
-    stepsLabel.textContent = 'Pasos de la lección (en orden)';
-    root.appendChild(stepsLabel);
-    var stepsList = document.createElement('div'); stepsList.id = 'ls-steps-list'; stepsList.style.marginBottom = '10px';
-    root.appendChild(stepsList);
+    var cols = document.createElement('div');
+    cols.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 14px;align-items:stretch';
+    var colLib = document.createElement('div');
+    colLib.style.cssText = 'flex:1 1 320px;min-width:280px;display:flex;flex-direction:column';
+    var libLabel = document.createElement('label'); libLabel.className = 'form-label'; libLabel.textContent = 'Biblioteca de actividades';
+    colLib.appendChild(libLabel);
     var search = _lsInput('ls-act-search', 'Buscar actividad para agregar...');
     search.addEventListener('input', _lsRenderPicker);
-    root.appendChild(search);
-    var fRow = document.createElement('div');
-    fRow.id = 'ls-filter-row';
+    colLib.appendChild(search);
+    var fRow = document.createElement('div'); fRow.id = 'ls-filter-row';
     fRow.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px';
-    root.appendChild(fRow);
-    var picker = document.createElement('div');
-    picker.id = 'ls-picker-list';
-    picker.style.cssText = 'max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0 14px;display:flex;flex-direction:column;gap:8px';
-    root.appendChild(picker);
+    colLib.appendChild(fRow);
+    var picker = document.createElement('div'); picker.id = 'ls-picker-list';
+    picker.style.cssText = 'flex:1;max-height:440px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px;display:flex;flex-direction:column;gap:8px';
+    colLib.appendChild(picker);
+    var colSeq = document.createElement('div');
+    colSeq.style.cssText = 'flex:1 1 320px;min-width:280px;display:flex;flex-direction:column';
+    var seqLabel = document.createElement('label'); seqLabel.className = 'form-label'; seqLabel.textContent = 'La lección (pasos en orden)';
+    colSeq.appendChild(seqLabel);
+    var stepsList = document.createElement('div'); stepsList.id = 'ls-steps-list';
+    stepsList.style.cssText = 'flex:1;max-height:440px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px;display:flex;flex-direction:column;gap:8px';
+    colSeq.appendChild(stepsList);
+    cols.appendChild(colLib); cols.appendChild(colSeq);
+    root.appendChild(cols);
     var actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px';
     var bSave = document.createElement('button');
@@ -10146,12 +10281,6 @@ async function _lessonCreatorInit(){
     bPrevL.onclick = _lsPreviewLesson;
     actions.appendChild(bSave); actions.appendChild(bPrevL); actions.appendChild(bClear);
     root.appendChild(actions);
-    var exLabel = document.createElement('label');
-    exLabel.className = 'form-label';
-    exLabel.textContent = 'Lecciones existentes';
-    root.appendChild(exLabel);
-    var exList = document.createElement('div'); exList.id = 'ls-lessons-list';
-    root.appendChild(exList);
     _lsRenderSteps();
   }
   try {

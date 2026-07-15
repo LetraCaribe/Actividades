@@ -800,9 +800,17 @@ async function openLesson(asgn){
   try { acts = await LegoData.activitiesByIds(les.activity_ids); }
   catch(e){ console.error('openLesson', e); $('player-mount').replaceChildren(LegoEmpty({ text: 'Error al cargar la lección.' })); return; }
   if (!acts.length) { $('player-mount').replaceChildren(LegoEmpty({ text: 'La lección no tiene pasos.' })); return; }
+  let lessonProg = asgn.progress;
+  if (typeof lessonProg === 'string') { try { lessonProg = JSON.parse(lessonProg); } catch(e){ lessonProg = null; } }
+  const resume = (lessonProg && lessonProg.step != null) ? lessonProg : null;
   const node = LegoLesson(les, acts, {
     feedback: asgn.eval_mode !== 'calificado',
     fcMode: asgn.fc_mode || undefined,
+    startStep: resume ? resume.step : 0,
+    baseScore: resume ? resume.score : 0,
+    baseTotal: resume ? resume.total : 0,
+    resumeAnswers: resume ? resume.stepAnswers : null,
+    onPause: function(p){ pauseLesson(asgn, p); },
     onStepResult: function(i, act, res){
       const rows = (res.answers || []).map(function(a, k){
         return {
@@ -823,7 +831,7 @@ async function openLesson(asgn){
       closePlayer();
       showResults(asgn, { score: agg.score, total: agg.total }, agg.pct, asgn.eval_mode || 'practica', asgn.pass_pct || 70);
       try {
-        await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1 });
+        await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1, progress: null });
         const newScore = ((currentProfile && currentProfile.score) || 0) + (agg.score || 0) * 10;
         await LegoData.updateProfile(currentUser.id, { score: newScore });
         if (currentProfile) currentProfile.score = newScore;
@@ -833,6 +841,14 @@ async function openLesson(asgn){
     }
   });
   $('player-mount').replaceChildren(node);
+}
+async function pauseLesson(asgn, p){
+  closePlayer();
+  try {
+    await LegoData.updateAssignment(asgn.id, { progress: { step: (p && p.step) || 0, score: (p && p.score) || 0, total: (p && p.total) || 0, stepAnswers: (p && p.stepAnswers) || [], savedAt: new Date().toISOString() } });
+    await loadAssignments();
+    showToast('Progreso guardado. Puedes seguir luego.');
+  } catch(e){ console.error('pauseLesson', e); showToast('Error al guardar: ' + (e && e.message ? e.message : e)); }
 }
 async function openLessonReview(asgn){
   const les = _lessonFromAsgn(asgn);
