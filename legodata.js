@@ -151,9 +151,16 @@ var LegoData = (function(){
       return r.data || [];
     },
 
-    unreviewedResponsesAll: async function(){
-      var r = await db.from('responses').select('*').eq('reviewed', false).order('submitted_at', { ascending: false });
-      if (r.error) _throw('unreviewedResponsesAll', r.error);
+        unreviewedResponsesAll: async function(){
+      // Trae la leccion embebida (assignment -> lesson) para agrupar los pasos de una leccion como 1 en Por revisar.
+      // Fallback sin embed si PostgREST no resuelve la relacion (no rompe el panel).
+      var sel = '*, assignments(lesson_id, lessons(id,title))';
+      var r = await db.from('responses').select(sel).eq('reviewed', false).order('submitted_at', { ascending: false });
+      if (r.error) {
+        var r2 = await db.from('responses').select('*').eq('reviewed', false).order('submitted_at', { ascending: false });
+        if (r2.error) _throw('unreviewedResponsesAll', r2.error);
+        return r2.data || [];
+      }
       return r.data || [];
     },
 
@@ -176,9 +183,16 @@ var LegoData = (function(){
       return r.data || [];
     },
 
-    unreviewedResponsesByStudent: async function(studentId){
-      var r = await db.from('responses').select('*').eq('student_id', studentId).eq('reviewed', false).order('submitted_at', { ascending: false });
-      if (r.error) _throw('unreviewedResponsesByStudent', r.error);
+        unreviewedResponsesByStudent: async function(studentId){
+      // Embed de leccion (assignment -> lesson) para agrupar los pasos de una leccion como 1 en Preparar clase.
+      // Fallback sin embed si PostgREST no resuelve la relacion (no rompe el panel).
+      var sel = '*, assignments(lesson_id, lessons(id,title))';
+      var r = await db.from('responses').select(sel).eq('student_id', studentId).eq('reviewed', false).order('submitted_at', { ascending: false });
+      if (r.error) {
+        var r2 = await db.from('responses').select('*').eq('student_id', studentId).eq('reviewed', false).order('submitted_at', { ascending: false });
+        if (r2.error) _throw('unreviewedResponsesByStudent', r2.error);
+        return r2.data || [];
+      }
       return r.data || [];
     },
 
@@ -777,22 +791,137 @@ LegoData.financeBillingGroupMembers = async function(){
 };
 
 // ── vocabulario ─────────────────────────────────────────
+// SELLO DE DERIVACION (Regla 10). Una palabra SERVIDA del banco guarda bank_id y
+// toma su termino/significado del BANCO, no de la copia local -> corriges el banco
+// una vez y cambia en todos los estudiantes. La copia (term/meaning) queda solo de
+// FALLBACK, por si la palabra se borra del banco (on delete set null deja bank_id
+// nulo y la entrada NO se vacia). Mismo patron que responses.student_name.
+// Las palabras que el estudiante escribio el mismo tienen bank_id nulo y conservan
+// su texto: eso es un snapshot suyo, no una bola -- no se le reescribe.
+var _SV_SEL = '*, vocabulary_bank(term, term_key, meaning, meaning_key, tema, nivel, entry_type)';
+
+function _svDerive(rows){
+  return (rows || []).map(function(v){
+    var b = v.vocabulary_bank;
+    if (b) {
+      v.term        = b.term        || v.term;
+      v.term_key    = b.term_key    || v.term_key;
+      v.meaning     = b.meaning     || v.meaning;
+      v.meaning_key = b.meaning_key || v.meaning_key;
+      v.entry_type  = b.entry_type  || v.entry_type;
+      v.tema        = b.tema;
+      v.nivel       = b.nivel;
+    }
+    delete v.vocabulary_bank;
+    return v;
+  });
+}
+
 LegoData.studentVocabulary = async function(){
-  var r = await db.from('student_vocabulary').select('*').order('created_at', { ascending: false });
-  if (r.error) { throw new Error('[LegoData.studentVocabulary] ' + r.error.message); }
-  return r.data || [];
+  var r = await db.from('student_vocabulary').select(_SV_SEL).order('created_at', { ascending: false });
+  if (r.error) {
+    console.warn('[LegoData.studentVocabulary] embed a vocabulary_bank fallo; mostrando copia SIN derivar:', r.error.message);
+    var r2 = await db.from('student_vocabulary').select('*').order('created_at', { ascending: false });
+    if (r2.error) { throw new Error('[LegoData.studentVocabulary] ' + r2.error.message); }
+    return r2.data || [];
+  }
+  return _svDerive(r.data);
 };
 LegoData.studentVocabularyByStudent = async function(studentId){
-  var r = await db.from('student_vocabulary').select('*').eq('student_id', studentId).order('created_at', { ascending: false });
-  if (r.error) { throw new Error('[LegoData.studentVocabularyByStudent] ' + r.error.message); }
-  return r.data || [];
+  var r = await db.from('student_vocabulary').select(_SV_SEL).eq('student_id', studentId).order('created_at', { ascending: false });
+  if (r.error) {
+    console.warn('[LegoData.studentVocabularyByStudent] embed a vocabulary_bank fallo; mostrando copia SIN derivar:', r.error.message);
+    var r2 = await db.from('student_vocabulary').select('*').eq('student_id', studentId).order('created_at', { ascending: false });
+    if (r2.error) { throw new Error('[LegoData.studentVocabularyByStudent] ' + r2.error.message); }
+    return r2.data || [];
+  }
+  return _svDerive(r.data);
 };
 LegoData.studentVocabularyByStudents = async function(studentIds){
   if (!studentIds || !studentIds.length) return [];
-  var r = await db.from('student_vocabulary').select('*').in('student_id', studentIds);
-  if (r.error) { throw new Error('[LegoData.studentVocabularyByStudents] ' + r.error.message); }
-  return r.data || [];
+  var r = await db.from('student_vocabulary').select(_SV_SEL).in('student_id', studentIds);
+  if (r.error) {
+    console.warn('[LegoData.studentVocabularyByStudents] embed a vocabulary_bank fallo; mostrando copia SIN derivar:', r.error.message);
+    var r2 = await db.from('student_vocabulary').select('*').in('student_id', studentIds);
+    if (r2.error) { throw new Error('[LegoData.studentVocabularyByStudents] ' + r2.error.message); }
+    return r2.data || [];
+  }
+  return _svDerive(r.data);
 };
+
+// GRIFO: sirve palabras del banco a un estudiante. NO copia el texto como verdad;
+// guarda bank_id y deja term/meaning de fallback. El indice unico
+// (student_id, bank_id) hace los duplicados IMPOSIBLES a nivel de base, y
+// ignoreDuplicates los salta sin error -> servir dos veces es inofensivo.
+LegoData.serveBankToStudent = async function(studentId, bankRows, opts){
+  if (!studentId || !bankRows || !bankRows.length) return { served: 0, skipped: 0 };
+  opts = opts || {};
+  var now = new Date().toISOString();
+  var payload = bankRows.map(function(b){
+    return {
+      student_id: studentId,
+      bank_id: b.id,
+      term: b.term,
+      term_key: b.term_key,
+      meaning: b.meaning,
+      entry_type: b.entry_type || 'word',
+      source: opts.source || 'teacher',
+      source_detail: opts.sourceDetail || null,
+      updated_at: now
+    };
+  });
+  var r = await db.from('student_vocabulary')
+    .upsert(payload, { onConflict: 'student_id,bank_id', ignoreDuplicates: true })
+    .select('id');
+  if (r.error) { throw new Error('[LegoData.serveBankToStudent] ' + r.error.message); }
+  var served = (r.data || []).length;
+  return { served: served, skipped: payload.length - served };
+};
+// Re-etiquetar filas del estudiante a un paquete (o soltarlas). Usado por el
+// grifo "Destino: Paquete": las sueltas que ya tenia se ORGANIZAN al paquete.
+// GRIFO multi-destinatario: sirve parejas {student_id, bank} en lotes de 400
+// con UN upsert por lote (no un viaje por estudiante). El indice unico
+// (student_id, bank_id) + ignoreDuplicates hace inofensivo repetir.
+LegoData.serveBankPairs = async function(pairs, opts){
+  if (!pairs || !pairs.length) return { served: 0, skipped: 0 };
+  opts = opts || {};
+  var now = new Date().toISOString();
+  var payload = pairs.map(function(p){
+    var b = p.bank;
+    return {
+      student_id: p.student_id,
+      bank_id: b.id,
+      term: b.term,
+      term_key: b.term_key,
+      meaning: b.meaning,
+      entry_type: b.entry_type || 'word',
+      source: opts.source || 'teacher',
+      source_detail: opts.sourceDetail || null,
+      updated_at: now
+    };
+  });
+  var served = 0;
+  for (var i = 0; i < payload.length; i += 400) {
+    var r = await db.from('student_vocabulary')
+      .upsert(payload.slice(i, i + 400), { onConflict: 'student_id,bank_id', ignoreDuplicates: true })
+      .select('id');
+    if (r.error) { throw new Error('[LegoData.serveBankPairs] ' + r.error.message); }
+    served += (r.data || []).length;
+  }
+  return { served: served, skipped: payload.length - served };
+};
+
+LegoData.relabelStudentVocabulary = async function(ids, sourceDetail){
+  if (!ids || !ids.length) return [];
+  var r = await db.from('student_vocabulary')
+    .update({ source_detail: sourceDetail || null, updated_at: new Date().toISOString() })
+    .in('id', ids)
+    .select('id');
+  if (r.error) { throw new Error('[LegoData.relabelStudentVocabulary] ' + r.error.message); }
+  if (!r.data || r.data.length !== ids.length) { throw new Error('[LegoData.relabelStudentVocabulary] se actualizaron ' + ((r.data||[]).length) + ' de ' + ids.length + ' (RLS?)'); }
+  return r.data;
+};
+
 LegoData.studentLevelsByIds = async function(studentIds){
   studentIds = (studentIds || []).map(function(id){ return String(id || ''); }).filter(function(id){ return id; });
   var unique = {};
@@ -1141,6 +1270,97 @@ LegoData.deleteVocabularySetItemsBySet = async function(setId){
   return r.data || [];
 };
 
+LegoData.bankWords = async function(opts){
+  opts = opts || {};
+  var q = db.from('vocabulary_bank').select('*');
+  if (opts.tema)  q = q.eq('tema', opts.tema);
+  if (opts.nivel) q = q.eq('nivel', opts.nivel);
+  q = q.order('created_at', { ascending: false });
+  var r = await q;
+  if (r.error) { throw new Error('[LegoData.bankWords] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.bankTemas = async function(){
+  var r = await db.from('vocabulary_bank').select('tema');
+  if (r.error) { throw new Error('[LegoData.bankTemas] ' + r.error.message); }
+  var seen = {};
+  (r.data || []).forEach(function(row){ if (row.tema) seen[row.tema] = true; });
+  return Object.keys(seen).sort(function(a, b){ return a.localeCompare(b, 'es', { sensitivity: 'base' }); });
+};
+LegoData.insertBankWords = async function(rows){
+  if (!rows || !rows.length) return { inserted: [], skipped: 0 };
+  var temas = {}, niveles = {};
+  rows.forEach(function(r){ if (r.tema) temas[r.tema] = true; if (r.nivel) niveles[r.nivel] = true; });
+  var existing = db.from('vocabulary_bank').select('term_key,tema,nivel');
+  var temaList = Object.keys(temas), nivelList = Object.keys(niveles);
+  if (temaList.length)  existing = existing.in('tema', temaList);
+  if (nivelList.length) existing = existing.in('nivel', nivelList);
+  var ex = await existing;
+  if (ex.error) { throw new Error('[LegoData.insertBankWords] ' + ex.error.message); }
+  var have = {};
+  (ex.data || []).forEach(function(row){ have[row.tema + '|' + row.nivel + '|' + row.term_key] = true; });
+  var payload = [], skipped = 0;
+  rows.forEach(function(r){
+    var termKey = r.term_key || LegoData.vocabularyKey(r.term);
+    var key = r.tema + '|' + r.nivel + '|' + termKey;
+    if (have[key]) { skipped++; return; }
+    have[key] = true;
+    payload.push({ term: r.term, term_key: termKey, meaning: r.meaning, meaning_key: r.meaning_key || LegoData.vocabularyKey(r.meaning), tema: r.tema, nivel: r.nivel, entry_type: r.entry_type || 'word' });
+  });
+  if (!payload.length) return { inserted: [], skipped: skipped };
+  var ins = await db.from('vocabulary_bank').insert(payload).select();
+  if (ins.error) { throw new Error('[LegoData.insertBankWords] ' + ins.error.message); }
+  return { inserted: ins.data || [], skipped: skipped };
+};
+
+LegoData.updateBankWord = async function(id, patch){
+  var r = await db.from('vocabulary_bank').update(patch).eq('id', id).select();
+  if (r.error) { throw new Error('[LegoData.updateBankWord] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.updateBankWord] RLS bloqueo el update (0 filas) en palabra ' + id); }
+  var b = r.data[0];
+  // Propagar a las copias servidas. La copia local NO puede eliminarse (las vistas
+  // SQL de matriz/tiquetes leen la tabla cruda), asi que se sincroniza AQUI, en el
+  // mismo acto de editar la fuente: no existe camino donde la copia quede vieja.
+  // 0 filas afectadas es valido (nadie tiene la palabra); error de RLS si lanza.
+  var p = await db.from('student_vocabulary')
+    .update({ term: b.term, term_key: b.term_key, meaning: b.meaning, entry_type: b.entry_type, updated_at: new Date().toISOString() })
+    .eq('bank_id', id)
+    .select('id');
+  if (p.error) { throw new Error('[LegoData.updateBankWord] propagacion a perfiles: ' + p.error.message); }
+  return b;
+};
+LegoData.deleteBankWord = async function(id){
+  var r = await db.from('vocabulary_bank').delete().eq('id', id).select('id');
+  if (r.error) { throw new Error('[LegoData.deleteBankWord] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.deleteBankWord] RLS bloqueo el delete (0 filas) en palabra ' + id); }
+  return true;
+};
+
+// Renombrar tema = actualizar todas sus palabras. Si el destino ya existe,
+// FUSIONA (las filas simplemente se unen al otro tema). El tema vive SOLO en el
+// banco (los perfiles no lo copian), asi que renombrar no toca nada aguas abajo.
+LegoData.bankWordsByIds = async function(ids){
+  if (!ids || !ids.length) return [];
+  var r = await db.from('vocabulary_bank').select('*').in('id', ids);
+  if (r.error) { throw new Error('[LegoData.bankWordsByIds] ' + r.error.message); }
+  return r.data || [];
+};
+
+LegoData.renameBankTema = async function(fromTema, toTema){
+  var r = await db.from('vocabulary_bank').update({ tema: toTema }).eq('tema', fromTema).select('id');
+  if (r.error) { throw new Error('[LegoData.renameBankTema] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.renameBankTema] 0 filas (RLS o tema inexistente): ' + fromTema); }
+  return r.data.length;
+};
+// Borrar un tema = borrar sus palabras del banco; el CASCADE las quita tambien
+// de los perfiles que las tenian servidas.
+LegoData.deleteBankTema = async function(tema){
+  var r = await db.from('vocabulary_bank').delete().eq('tema', tema).select('id');
+  if (r.error) { throw new Error('[LegoData.deleteBankTema] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.deleteBankTema] 0 filas (RLS o tema inexistente): ' + tema); }
+  return r.data.length;
+};
+
 LegoData.vocabularyPracticeEvents = async function(){
   var r = await db.from('student_vocabulary_practice_events').select('*').order('created_at', { ascending: false });
   if (r.error) { throw new Error('[LegoData.vocabularyPracticeEvents] ' + r.error.message); }
@@ -1254,6 +1474,11 @@ LegoData.deleteAssignment = async function(id){
   if (r.error) { throw new Error('[LegoData.deleteAssignment] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.deleteResponsesByAssignment = async function(assignmentId){
+  var r = await db.from('responses').delete().eq('assignment_id', assignmentId).select('id');
+  if (r.error) { throw new Error('[LegoData.deleteResponsesByAssignment] ' + r.error.message); }
+  return r.data || [];
+};
 
 // ── responses / assignments por estudiante+actividad (reasignar/reiniciar) ──
 LegoData.deleteResponsesByStudentSlug = async function(studentId, slug){
@@ -1271,6 +1496,15 @@ LegoData.updateAssignmentsByStudentActivity = async function(studentId, activity
 LegoData.insertGrammarCategory = async function(row){
   var r = await db.from('grammar_categories').insert(row).select().single();
   if (r.error) { throw new Error('[LegoData.insertGrammarCategory] ' + r.error.message); }
+  return r.data;
+};
+// Insert en LOTE (un solo viaje). insertGrammarCategory usa .single() y solo
+// sirve para una fila; sembrar N de a una abria ventana para doble-clic.
+LegoData.insertGrammarCategories = async function(rows){
+  if (!rows || !rows.length) return [];
+  var r = await db.from('grammar_categories').insert(rows).select();
+  if (r.error) { throw new Error('[LegoData.insertGrammarCategories] ' + r.error.message); }
+  if (!r.data || r.data.length !== rows.length) { throw new Error('[LegoData.insertGrammarCategories] se insertaron ' + ((r.data||[]).length) + ' de ' + rows.length + ' (RLS?)'); }
   return r.data;
 };
 LegoData.updateGrammarCategory = async function(id, patch){
@@ -1326,6 +1560,17 @@ LegoData.adminStudentProfileData = async function(studentId, opts){
 };
 
 LegoData.deleteActivity = async function(id){
+  // Borrado en cadena: responses -> assignments -> activity.
+  // Decidido 2026-07-14: borrar una actividad arrastra las respuestas/asignaciones que cuelgan de ella.
+  var asg = await db.from('assignments').select('id').eq('activity_id', id);
+  if (asg.error) { throw new Error('[LegoData.deleteActivity.assignments] ' + asg.error.message); }
+  var ids = (asg.data || []).map(function(a){ return a.id; });
+  if (ids.length){
+    var rr = await db.from('responses').delete().in('assignment_id', ids).select('id');
+    if (rr.error) { throw new Error('[LegoData.deleteActivity.responses] ' + rr.error.message); }
+    var ra = await db.from('assignments').delete().eq('activity_id', id).select('id');
+    if (ra.error) { throw new Error('[LegoData.deleteActivity.assignmentsDel] ' + ra.error.message); }
+  }
   var r = await db.from('activities').delete().eq('id', id).select('id');
   if (r.error) { throw new Error('[LegoData.deleteActivity] ' + r.error.message); }
   return r.data || [];
