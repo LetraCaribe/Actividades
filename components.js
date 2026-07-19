@@ -4120,7 +4120,7 @@ function LegoActionRow(opts) {
 }
 
 // -- LegoVocabularyEntryForm -------------------------------
-// Formulario compartido de una palabra/expresion y sus sentidos.
+// Formulario compartido de vocabulario canonico: termino en espanol y sentidos en ingles.
 // No conoce estudiante, Banco ni Supabase: entrega un value normalizado al caller.
 //   LegoVocabularyEntryForm({ value, readOnly, onSubmit, onCancel }) -> nodo DOM
 //   value: { term, entry_type, senses:[{meaning,context,example,accepted_answers,locked}] }
@@ -4164,7 +4164,7 @@ function LegoVocabularyEntryForm(opts) {
     ]
   });
   if (opts.readOnly || opts.termLocked) type.disabled = true;
-  top.appendChild(LegoField({ label: 'Palabra o expresión', control: term, compact: true }));
+  top.appendChild(LegoField({ label: 'Español — palabra o expresión', control: term, compact: true }));
   top.appendChild(LegoField({ label: 'Tipo', control: type, compact: true }));
   root.appendChild(top);
 
@@ -4173,7 +4173,7 @@ function LegoVocabularyEntryForm(opts) {
   }
 
   var sensesHead = document.createElement('div'); sensesHead.className = 'lego-vocab-senses-head';
-  var sensesTitle = document.createElement('div'); sensesTitle.className = 'lego-vocab-senses-title'; sensesTitle.textContent = 'Significados';
+  var sensesTitle = document.createElement('div'); sensesTitle.className = 'lego-vocab-senses-title'; sensesTitle.textContent = 'Significados en inglés';
   var count = document.createElement('div'); count.className = 'lego-vocab-count';
   sensesHead.replaceChildren(sensesTitle, count);
   root.appendChild(sensesHead);
@@ -4214,7 +4214,7 @@ function LegoVocabularyEntryForm(opts) {
     if (locked && !expanded) detailsButton.style.display = 'none';
     drawDetails();
     row.appendChild(head);
-    row.appendChild(LegoField({ label: 'Traducción principal', control: meaning, compact: true }));
+    row.appendChild(LegoField({ label: 'Inglés — traducción principal', control: meaning, compact: true }));
     row.appendChild(detailsButton);
     row.appendChild(details);
     var record = { el: row, name: name, remove: remove, meaning: meaning, context: context, example: example, alternatives: alternatives, locked: locked, bank_sense_id: data.bank_sense_id || null };

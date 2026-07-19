@@ -1147,15 +1147,12 @@ async function saveVocabularyEntry(existing, value, form){
   if (senses.some(function(s){ if (localKeys[s.meaning_key]) return true; localKeys[s.meaning_key] = true; return false; })) {
     fail('La misma traducción aparece más de una vez.'); return;
   }
-  const incomingKeys = senses.map(function(s){ return s.meaning_key; });
   const duplicate = allVocabulary.find(function(v){
     if (String(v.id) === String(existing && existing.id)) return false;
     const savedTerm = String(v.term_key || vocabKey(v.term));
-    const savedMeanings = vocabularyEntrySenses(v).map(function(s){ return String(s.meaning_key || vocabKey(s.meaning)); });
-    if (savedTerm === termKey || incomingKeys.indexOf(savedTerm) !== -1 || savedMeanings.indexOf(termKey) !== -1) return true;
-    return savedMeanings.some(function(key){ return incomingKeys.indexOf(key) !== -1; });
+    return savedTerm === termKey;
   });
-  if (duplicate) { fail('Esta palabra o traducción ya existe.'); openVocabularyModal(duplicate); return; }
+  if (duplicate) { fail('Esta palabra en español ya existe.'); openVocabularyModal(duplicate); return; }
   try {
     await LegoData.saveStudentVocabularyWithSenses({
       student_id: currentUser.id,

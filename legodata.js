@@ -885,6 +885,7 @@ function _svDerive(rows){
       v.tema        = b.tema;
       v.nivel       = b.nivel;
     }
+    v.direction = 'es_en';
     var senses = (v.student_vocabulary_senses || []).map(_svSense).filter(function(s){ return s.meaning; });
     senses.sort(function(a, b2){
       if (a.position !== b2.position) return a.position - b2.position;
@@ -1274,11 +1275,8 @@ LegoData.vocabularyKey = function(term){
 
 LegoData.vocabularyTicketKey = function(entry){
   var termKey = String((entry && entry.term_key) || LegoData.vocabularyKey(entry && entry.term));
-  var meaningKey = LegoData.vocabularyKey(entry && entry.meaning);
-  if (!termKey && !meaningKey) return '';
-  if (!meaningKey) return termKey;
-  if (!termKey) return meaningKey;
-  return [termKey, meaningKey].sort().join('::');
+  if (!termKey) return '';
+  return termKey;
 };
 
 LegoData.vocabularyMatrixStats = function(entries){
@@ -1290,7 +1288,7 @@ LegoData.vocabularyMatrixStats = function(entries){
     var ticketKey = LegoData.vocabularyTicketKey(v);
     var studentKey = String(v.student_id || v.id || '');
     if (!ticketKey) return;
-    if (termKey) terms[termKey] = true;
+    if (termKey) terms[ticketKey] = true;
     var uniqueTicket = studentKey ? (studentKey + '::' + ticketKey) : ticketKey;
     tickets[uniqueTicket] = true;
     if (v.entry_type === 'expression') expressions[uniqueTicket] = true;
@@ -1311,6 +1309,8 @@ LegoData.vocabularyPopularityRows = function(entries){
       map[ticketKey] = {
         ticketKey: ticketKey,
         term: v.term || '',
+        direction: 'es_en',
+        termCounts: {},
         meanings: {},
         students: {},
         entries: [],
@@ -1321,8 +1321,14 @@ LegoData.vocabularyPopularityRows = function(entries){
     }
     var row = map[ticketKey];
     row.rawCount += 1;
-    if (!row.term && v.term) row.term = v.term;
-    if (v.meaning) row.meanings[v.meaning] = true;
+    if (v.term) row.termCounts[v.term] = (row.termCounts[v.term] || 0) + 1;
+    var meanings = Array.isArray(v.meanings) && v.meanings.length
+      ? v.meanings.slice()
+      : (Array.isArray(v.senses) && v.senses.length
+        ? v.senses.map(function(s){ return s && s.meaning; })
+        : [v.meaning]);
+    meanings = meanings.map(function(meaning){ return String(meaning || '').trim(); }).filter(function(meaning){ return meaning; });
+    meanings.forEach(function(meaning){ row.meanings[meaning] = true; });
     var studentKey = String(v.student_id || '');
     if (studentKey) row.students[studentKey] = true;
     else row.count += 1;
@@ -1333,7 +1339,7 @@ LegoData.vocabularyPopularityRows = function(entries){
         id: v.id || '',
         student_id: v.student_id || '',
         term: v.term || '',
-        meaning: v.meaning || '',
+        meaning: meanings.join(', '),
         entry_type: v.entry_type || '',
         source: v.source || '',
         source_detail: v.source_detail || ''
@@ -1342,11 +1348,17 @@ LegoData.vocabularyPopularityRows = function(entries){
   });
   return Object.keys(map).map(function(k){
     var row = map[k];
+    var termOptions = Object.keys(row.termCounts).sort(function(a, b){
+      if (row.termCounts[b] !== row.termCounts[a]) return row.termCounts[b] - row.termCounts[a];
+      return a.localeCompare(b, 'es', { sensitivity: 'base' });
+    });
+    if (termOptions.length) row.term = termOptions[0];
     var studentCount = Object.keys(row.students).length;
     if (studentCount) row.count = studentCount;
     row.meaningList = Object.keys(row.meanings).sort(function(a, b){
       return a.localeCompare(b, 'es', { sensitivity: 'base' });
     });
+    delete row.termCounts;
     delete row.entryKeys;
     return row;
   }).sort(function(a, b){
