@@ -1142,7 +1142,6 @@ async function saveVocabularyEntry(existing, value, form){
   function fail(message){ if (form && form.setError) form.setError(message); showToast(message); }
   if (!term || !termKey) { fail('La palabra necesita letras o números.'); return; }
   if (!senses.length || senses.some(function(s){ return !s.meaning_key; })) { fail('Añade al menos un significado válido.'); return; }
-  if (senses.length > 1 && senses.some(function(s){ return !s.context; })) { fail('Cada significado necesita contexto cuando hay varios sentidos.'); return; }
   const localKeys = {};
   if (senses.some(function(s){ if (localKeys[s.meaning_key]) return true; localKeys[s.meaning_key] = true; return false; })) {
     fail('La misma traducción aparece más de una vez.'); return;
@@ -1271,8 +1270,8 @@ function vocabularyPracticePairs(entries, limit, kind, flashMode){
     const senses = vocabularyEntrySenses(entry);
     senses.forEach(function(s, i){
       if (kind === 'letter-order' && (entry.entry_type === 'expression' || /\s/.test(String(s.meaning || '').trim()))) return;
-      const context = String(s.context || '').trim();
-      const front = entry.term + (context ? ' — ' + context : (senses.length > 1 ? ' — sentido ' + (i + 1) : ''));
+      const example = String(s.example || '').trim();
+      const front = entry.term + (example ? ' — ' + example : (senses.length > 1 ? ' — sentido ' + (i + 1) : ''));
       expanded.push({
         left: front,
         right: s.meaning,
