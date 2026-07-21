@@ -181,7 +181,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <div id="screen-login" class="screen active">
   <div class="login-bg"></div>
   <div class="login-box">
-    <div class="login-logo"><img src="website%20logo%20sin%20fondo.png" alt="Letra Caribe"></div>
+    <div class="login-logo"><img src="logo.png" alt="Letra Caribe"></div>
     <div class="login-tabs">
       <button class="ltab active" id="ltab-login" type="button" onclick="switchAuthTab('login')">Ingresar</button>
       <button class="ltab" id="ltab-register" type="button" onclick="switchAuthTab('register')">Registrarse</button>
@@ -240,7 +240,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <!-- ============ PLATFORM ============ -->
 <div id="screen-platform" class="screen">
   <div class="topnav">
-    <div class="topnav-logo"><img src="website%20logo%20sin%20fondo.png" alt="Letra Caribe"></div>
+    <div class="topnav-logo"><img src="logo.png" alt="Letra Caribe"></div>
     <div class="topnav-right">
       <div class="topnav-greeting" id="nav-greeting"></div>
       <div class="topnav-avatar" id="nav-avatar"></div>
@@ -345,7 +345,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <script src="legodata.js"></script>
 <script>
 // ============================================================
-// Portal de estudiantes — motor construido al contrato-datos.md
+// Portal de estudiantes — motor construido al docs/contrato-datos.md
 // ============================================================
 const SUPABASE_URL = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_7NB3dpFRBnwAnFEk2SC_Jw_Vve-Ay0E';
@@ -485,8 +485,15 @@ async function doLogin(){
   $('login-btn').disabled = false;
   if (error) { err.textContent = 'No se pudo ingresar: ' + error.message; err.classList.add('show'); return; }
   currentUser = data.user;
-  await loadProfile();
-  await showPlatform();
+  try {
+    await loadProfile();
+    await showPlatform();
+  } catch(e) {
+    await db.auth.signOut();
+    currentUser = null; currentProfile = null;
+    err.textContent = 'La cuenta no tiene una identidad de estudiante válida.';
+    err.classList.add('show');
+  }
 }
 async function sendPasswordReset(){
   const email = $('reset-email').value.trim();
@@ -528,15 +535,23 @@ async function doRegister(){
   const err = $('reg-err'); err.classList.remove('show');
   if (!name || !email || pass.length < 6) { err.textContent = 'Revisa: nombre, correo y contraseña de 6+ caracteres.'; err.classList.add('show'); return; }
   $('reg-btn').disabled = true;
-  const { data, error } = await db.auth.signUp({ email: email, password: pass, options: { data: { full_name: name } } });
+  const { data, error } = await db.auth.signUp({ email: email, password: pass, options: { data: { full_name: name, level: level } } });
   if (error) { $('reg-btn').disabled = false; err.textContent = 'No se pudo registrar: ' + error.message; err.classList.add('show'); return; }
   currentUser = data.user;
-  if (currentUser) {
-    await LegoData.upsertProfile({ id: currentUser.id, full_name: name, email: email, level: level, score: 0 });
+  try {
+    if (currentUser) {
+      await LegoData.registerCurrentStudent({ full_name: name, email: email, level: level });
+    }
+    $('reg-btn').disabled = false;
+    await loadProfile();
+    await showPlatform();
+  } catch(e) {
+    $('reg-btn').disabled = false;
+    await db.auth.signOut();
+    currentUser = null; currentProfile = null;
+    err.textContent = 'La cuenta se creó, pero no pudo vincularse con el estudiante.';
+    err.classList.add('show');
   }
-  $('reg-btn').disabled = false;
-  await loadProfile();
-  await showPlatform();
 }
 async function doLogout(){
   await db.auth.signOut();
@@ -545,8 +560,22 @@ async function doLogout(){
 }
 async function loadProfile(){
   if (!currentUser) return;
-  try { currentProfile = await LegoData.profileById(currentUser.id); } catch(e){ console.error('loadProfile', e); currentProfile = null; }
+  try {
+    currentProfile = await LegoData.studentByAuthUserId(currentUser.id);
+    if (!currentProfile) {
+      const meta = currentUser.user_metadata || {};
+      const fullName = String(meta.full_name || currentUser.email || '').trim();
+      if (!fullName) throw new Error('La cuenta no contiene un nombre para crear su identidad.');
+      currentProfile = await LegoData.registerCurrentStudent({
+        full_name: fullName,
+        email: currentUser.email || '',
+        level: meta.level || 'A1'
+      });
+    }
+    if (!currentProfile) throw new Error('La cuenta no está vinculada a una identidad de estudiante.');
+  } catch(e){ console.error('loadProfile', e); currentProfile = null; throw e; }
 }
+function currentStudentId(){ return currentProfile && currentProfile.id ? currentProfile.id : null; }
 
 async function showPlatform(){
   showScreen('screen-platform');
@@ -569,8 +598,8 @@ async function showPlatform(){
 
 // -- actividades --
 async function loadAssignments(){
-  if (!currentUser) return;
-  try { allAssignments = await LegoData.assignmentsByStudent(currentUser.id); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
+  if (!currentStudentId()) return;
+  try { allAssignments = await LegoData.assignmentsByStudent(currentStudentId()); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
 
   renderActivities();
 }
@@ -745,7 +774,7 @@ async function submitActivity(asgn, res){
   // Final: practica siempre, o calificado que aprobo / agoto intentos
   const rows = (res.answers || []).map(function(a, i){
     return {
-      student_id: currentUser.id,
+      student_id: currentStudentId(),
       activity_slug: act.slug,
       assignment_id: asgn.id,
       question_num: i + 1,
@@ -762,7 +791,7 @@ async function submitActivity(asgn, res){
     await LegoData.insertResponses(rows);
     await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo, progress: null });
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
-    await LegoData.updateProfile(currentUser.id, { score: newScore });
+    await LegoData.updateCurrentStudentScore(newScore);
     if (currentProfile) currentProfile.score = newScore;
     await loadAssignments();
     renderProfile();
@@ -833,7 +862,7 @@ async function openReview(asgn){
       data = await LegoData.responsesByAssignment(asgn.id);
       data = (data || []).filter(function(r){ return String(r.activity_slug) === String(act.slug); });
     } else {
-      data = await LegoData.responsesLatestAttempt(currentUser.id, act.slug);
+      data = await LegoData.responsesLatestAttempt(currentStudentId(), act.slug);
     }
   } catch(e){ console.error('review responses', e); }
   const saved = (data || []).map(function(r){ return { answer: r.answer, isCorrect: r.is_correct, questionText: r.question_text }; });
@@ -910,7 +939,7 @@ async function openLesson(asgn){
       if (act && act._warmup === true) return;
       const rows = (res.answers || []).map(function(a, k){
         return {
-          student_id: currentUser.id,
+          student_id: currentStudentId(),
           activity_slug: act.slug,
           assignment_id: asgn.id,
           question_num: k + 1,
@@ -929,7 +958,7 @@ async function openLesson(asgn){
       try {
         await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1, progress: null });
         const newScore = ((currentProfile && currentProfile.score) || 0) + (agg.score || 0) * 10;
-        await LegoData.updateProfile(currentUser.id, { score: newScore });
+        await LegoData.updateCurrentStudentScore(newScore);
         if (currentProfile) currentProfile.score = newScore;
         await loadAssignments();
         renderProfile();
@@ -1024,7 +1053,7 @@ async function loadLeaderboard(){
   frag.appendChild(head);
   if (!rows.length) { frag.appendChild(LegoEmpty({ text: 'Sin puntajes todavía.' })); }
   else {
-    const myId = (currentUser && currentUser.id) || null;
+    const myId = currentStudentId();
     rows.forEach(function(p, i){
       const rank = mk('span', null, (i + 1) + '.'); rank.style.cssText = 'font-weight:700;color:var(--muted);min-width:24px';
       const isMe = myId && p.id === myId;
@@ -1096,7 +1125,7 @@ function vocabSourceLabel(source){
 async function loadVocabulary(){
   if (!currentUser) return;
   try {
-    allVocabulary = await LegoData.studentVocabularyByStudent(currentUser.id);
+    allVocabulary = await LegoData.studentVocabularyByStudent(currentStudentId());
   } catch(e) {
     console.error('loadVocabulary', e);
     allVocabulary = [];
@@ -1154,7 +1183,7 @@ async function saveVocabularyEntry(existing, value, form){
   if (duplicate) { fail('Esta palabra en español ya existe.'); openVocabularyModal(duplicate); return; }
   try {
     await LegoData.saveStudentVocabularyWithSenses({
-      student_id: currentUser.id,
+      student_id: currentStudentId(),
       entry_id: existing && existing.id || null,
       term: term,
       term_key: termKey,
@@ -1175,7 +1204,7 @@ async function saveVocabularyEntry(existing, value, form){
 async function deleteVocabularyEntry(entry){
   if (!entry || !entry.id) return;
   try {
-    await LegoData.deleteStudentVocabulary(entry.id, currentUser.id);
+    await LegoData.deleteStudentVocabulary(entry.id, currentStudentId());
     showToast('Entrada eliminada.');
     await loadVocabulary();
     renderVocabulary();
@@ -1269,7 +1298,16 @@ function vocabularyPracticePairs(entries, limit, kind, flashMode){
   usable.forEach(function(entry){
     const senses = vocabularyEntrySenses(entry);
     senses.forEach(function(s, i){
-      if (kind === 'letter-order' && (entry.entry_type === 'expression' || /\s/.test(String(s.meaning || '').trim()))) return;
+      const spanish = String(entry.term || '').trim();
+      if (kind === 'letter-order') {
+        if (entry.entry_type === 'expression' || /\s/.test(spanish)) return;
+        expanded.push({
+          left: s.meaning,
+          right: spanish,
+          accepted: []
+        });
+        return;
+      }
       const example = String(s.example || '').trim();
       const front = entry.term + (example ? ' — ' + example : (senses.length > 1 ? ' — sentido ' + (i + 1) : ''));
       expanded.push({
@@ -1291,7 +1329,7 @@ async function recordVocabularyPractice(kind, flashMode, entryCount){
   if (!currentUser) return;
   try {
     await LegoData.insertVocabularyPracticeEvent({
-      student_id: currentUser.id,
+      student_id: currentStudentId(),
       practice_type: vocabularyPracticeType(kind, flashMode),
       entry_count: entryCount || 0
     });
@@ -1309,7 +1347,7 @@ function openVocabularyPractice(kind, entries, limit, flashMode){
     match: 'Conecta cada palabra con su significado.',
     memory: 'Encuentra las parejas de palabra y significado.',
     'true-false-vocab': 'Marca si cada par de palabra y significado es correcto o incorrecto.',
-    'letter-order': 'Ordena las letras para formar el significado.'
+    'letter-order': 'Ordena las letras para formar la palabra en español.'
   };
   const activity = {
     type: kind,
@@ -1659,9 +1697,9 @@ function renderVocabulary(){
 async function loadClasses(){
   if (!currentUser) return;
   const bundle = await Promise.all([
-    LegoData.classCreditsByStudent(currentUser.id),
-    LegoData.classSessionsByStudent(currentUser.id),
-    LegoData.studentBillingContext(currentUser.id).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
+    LegoData.classCreditsByStudent(currentStudentId()),
+    LegoData.classSessionsByStudent(currentStudentId()),
+    LegoData.studentBillingContext(currentStudentId()).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
   ]);
   allCredits = bundle[0] || [];
   allSessions = bundle[1] || [];
@@ -1879,8 +1917,15 @@ function renderProfile(){
     showResetPasswordForm();
   } else if (data && data.session && data.session.user) {
     currentUser = data.session.user;
-    await loadProfile();
-    await showPlatform();
+    try {
+      await loadProfile();
+      await showPlatform();
+    } catch(e) {
+      await db.auth.signOut();
+      currentUser = null; currentProfile = null;
+      showScreen('screen-login');
+      authErr('login-err', 'La cuenta no tiene una identidad de estudiante válida.');
+    }
   } else {
     showScreen('screen-login');
   }
