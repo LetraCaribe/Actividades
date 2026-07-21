@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Letra Caribe — Portal de Estudiantes</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --orange:#E8670A; --orange-dk:#B54D07; --orange-lt:#FDF0E4;
+  --coral:#E8670A; --coral-dk:#B54D07; --coral-lt:#FDF0E4;
+  --red:#C41E1E; --red-lt:#FDEAEA;
+  --green:#1A7A2A; --green-lt:#E4F5E8;
+  --lime:#7AB010; --lime-lt:#F0F7DC;
+  --ink:#1C1A17; --ink-soft:#4A4540; --muted:#8C8479;
+  --border:#E0DAD2; --bg:#FAFAF7; --sand:#F5F0E8;
+  --white:#FFFFFF;
+  --r:10px; --r-lg:16px;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'Outfit',sans-serif;
+  --shadow:0 2px 16px rgba(28,26,23,.08);
+  --shadow-lg:0 8px 40px rgba(28,26,23,.16);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+.hidden{display:none!important}
+.screen{display:none;flex-direction:column;min-height:100vh}
+.screen.active{display:flex}
+
+/* BOTONES COMPARTIDOS (lo que LegoPlayer espera: .btn / .btn-coral) */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap;background:var(--sand);color:var(--ink)}
+.btn:hover{background:var(--border)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-coral{background:var(--coral);color:white}
+.btn-coral:hover{background:var(--coral-dk)}
+.btn-sm{padding:5px 11px;font-size:12px}
+
+/* CAJA DE ICONO DE ACTIVIDAD (slot L1) */
+.act-iconbox{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* LOGIN */
+#screen-login{background:var(--ink);position:relative;overflow:hidden;align-items:center;justify-content:center}
+.login-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 110% 10%,rgba(232,103,10,.22) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at -10% 90%,rgba(26,122,42,.15) 0%,transparent 60%)}
+.login-box{position:relative;z-index:1;background:var(--white);border-radius:var(--r-lg);padding:36px 32px;width:100%;max-width:400px;box-shadow:var(--shadow-lg);margin:20px}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo img{height:70px;object-fit:contain}
+.login-tabs{display:flex;background:var(--sand);border-radius:var(--r);padding:4px;margin-bottom:22px}
+.ltab{flex:1;padding:8px;text-align:center;font-size:13px;font-weight:500;border-radius:var(--r);cursor:pointer;color:var(--muted);border:none;background:none;font-family:var(--sans);transition:all .18s}
+.ltab.active{background:var(--white);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.login-title{font-family:var(--serif);font-size:21px;font-weight:700;margin-bottom:5px}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.5}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin-bottom:5px}
+.fi{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:var(--white);outline:none;transition:border .15s}
+.fi:focus{border-color:var(--orange)}
+.fs{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:var(--white);outline:none;cursor:pointer}
+.btn-orange{width:100%;padding:12px;background:var(--orange);color:white;border:none;border-radius:var(--r);font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-orange:hover{background:var(--orange-dk)}
+.btn-orange:disabled{opacity:.5;cursor:default}
+.form-err{font-size:12px;color:var(--red);padding:7px 11px;background:var(--red-lt);border-radius:var(--r);margin-bottom:12px;display:none}
+.form-err.show{display:block}
+.auth-link{width:100%;border:none;background:none;color:var(--orange-dk);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;margin-top:12px;padding:6px;text-align:center}
+.auth-link:hover{text-decoration:underline}
+.auth-actions{display:flex;gap:8px;align-items:center;margin-top:12px}
+.auth-actions .auth-link{margin-top:0}
+
+/* PLATFORM */
+#screen-platform{background:var(--bg)}
+.topnav{background:var(--white);border-bottom:2px solid var(--orange);padding:0 20px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.topnav-logo img{height:42px;object-fit:contain;display:block}
+.topnav-right{display:flex;align-items:center;gap:12px}
+.topnav-greeting{font-size:13px;color:var(--muted)}
+.topnav-greeting strong{color:var(--ink)}
+.topnav-avatar{width:34px;height:34px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:white;cursor:pointer;flex-shrink:0}
+.topnav-logout{background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--sans);padding:4px 8px}
+.topnav-logout:hover{color:var(--ink)}
+
+.platform-body{display:flex;flex:1;max-width:1100px;margin:0 auto;width:100%;padding:24px 18px 60px;gap:22px}
+
+/* SIDE NAV */
+.side-nav{width:195px;flex-shrink:0}
+.snav-item{display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:var(--r);font-size:13px;font-weight:500;color:var(--ink-soft);cursor:pointer;transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;font-family:var(--sans)}
+.snav-item:hover{background:var(--sand);color:var(--ink)}
+.snav-item.active{background:var(--orange-lt);color:var(--orange-dk);font-weight:600}
+.snav-item .sni{font-size:18px}
+
+/* MAIN CONTENT */
+.main-content{flex:1;min-width:0}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* WELCOME BANNER */
+.welcome-banner{background:linear-gradient(135deg,var(--orange),var(--orange-dk));border-radius:var(--r-lg);padding:24px 28px;color:white;margin-bottom:18px;position:relative;overflow:hidden}
+.welcome-banner::after{content:'🌴';position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:60px;opacity:.15}
+.wb-time{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.8;margin-bottom:5px}
+.wb-greeting{font-family:var(--serif);font-size:24px;font-weight:700;margin-bottom:3px;line-height:1.2}
+.wb-sub{font-size:12px;opacity:.8}
+
+/* WORD OF THE DAY */
+.wotd-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px}
+.wotd-icon{width:48px;height:48px;background:var(--lime-lt);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.wotd-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--lime);margin-bottom:3px}
+.wotd-word{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.wotd-trans{font-size:12px;color:var(--muted)}
+.wotd-example{font-size:12px;color:var(--ink-soft);font-style:italic;margin-top:5px;padding-top:5px;border-top:1px solid var(--sand)}
+
+/* SECTION HEAD */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-family:var(--serif);font-size:17px;font-weight:700}
+.act-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+
+/* RESULTS SCREEN */
+.results-overlay{display:none;position:fixed;inset:0;z-index:300;align-items:center;justify-content:center;padding:16px;background:rgba(28,26,23,.55)}
+.results-overlay.show{display:flex}
+.results-card{background:var(--white);border-radius:var(--r-lg);max-width:480px;width:100%;padding:36px 32px;box-shadow:0 8px 40px rgba(28,26,23,.18);display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;z-index:301}
+.results-emoji{font-size:54px;margin-bottom:14px;animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
+.results-score-ring{width:96px;height:96px;border-radius:50%;background:var(--orange-lt);border:3px solid var(--orange);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:16px}
+.results-score{font-size:28px;font-weight:700;color:var(--orange);font-family:var(--serif);line-height:1}
+.results-score-lbl{font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.results-title{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--ink);margin-bottom:5px}
+.results-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+.results-note-wrap{width:100%;margin-bottom:20px;text-align:left}
+.results-note-lbl{font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+.results-note{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;color:var(--ink);background:var(--bg);resize:none;outline:none;transition:border .15s;min-height:70px}
+.results-note:focus{border-color:var(--orange)}
+.results-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%}
+.results-actions .btn{flex:1;justify-content:center}
+@keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* ACTIVITY PLAYER (mount unico — LegoPlayer rinde adentro) */
+.player-overlay{display:none;position:fixed;inset:0;background:rgba(28,26,23,.6);z-index:200;align-items:center;justify-content:center;padding:16px}
+.player-overlay.open{display:flex}
+.player-modal{background:var(--white);border-radius:var(--r-lg);max-width:1100px;width:100%;height:88vh;max-height:88vh;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
+.player-header{padding:20px 22px 16px;border-bottom:1px solid var(--border);background:var(--white);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
+.player-htitle{font-family:var(--serif);font-size:18px;font-weight:700;color:var(--ink)}
+.player-hlevel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:3px}
+.player-close{font-size:22px;background:none;border:none;cursor:pointer;color:var(--muted);line-height:1;flex-shrink:0}
+.player-body{flex:1;min-height:0;overflow-y:auto;padding:22px}
+
+/* ARCHIVE SECTION */
+.archive-section{margin-top:28px;border-top:1px solid var(--border);padding-top:16px}
+.archive-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--sand);border:1px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-soft);cursor:pointer;transition:all .15s}
+.archive-toggle:hover{border-color:var(--orange);color:var(--orange)}
+
+/* LEADERBOARD */
+.lb-header-card{background:linear-gradient(135deg,var(--orange),var(--orange-dk));border-radius:var(--r-lg);padding:18px 20px;color:white;margin-bottom:14px}
+.lb-header-card .lbh-title{font-family:var(--serif);font-size:18px;font-weight:700}
+.lb-header-card .lbh-sub{font-size:12px;opacity:.85;margin-top:2px}
+
+/* PROFILE */
+.profile-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;max-width:440px}
+.profile-head{background:linear-gradient(135deg,var(--green),#0D4F1C);padding:24px;display:flex;align-items:center;gap:14px}
+.profile-av{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white}
+.profile-name{font-family:var(--serif);font-size:19px;font-weight:700;color:white;margin-bottom:2px}
+.profile-level{font-size:12px;color:rgba(255,255,255,.7)}
+.profile-body{padding:18px 20px}
+.profile-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--sand);font-size:13px}
+.profile-row:last-child{border-bottom:none}
+.profile-row-label{color:var(--muted);font-weight:500}
+.profile-row-value{font-weight:600;color:var(--ink)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:white;padding:10px 20px;border-radius:22px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;box-shadow:var(--shadow-lg)}
+.toast.show{opacity:1}
+
+@media(max-width:640px){
+  .platform-body{flex-direction:column;padding:14px 12px 60px}
+  .side-nav{width:100%;display:flex;flex-wrap:wrap;gap:4px}
+  .side-nav .snav-item{padding:7px 11px;font-size:12px;flex:0 0 auto}
+  .topnav-greeting{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="screen-login" class="screen active">
+  <div class="login-bg"></div>
+  <div class="login-box">
+    <div class="login-logo"><img src="logo.png" alt="Letra Caribe"></div>
+    <div class="login-tabs">
+      <button class="ltab active" id="ltab-login" type="button" onclick="switchAuthTab('login')">Ingresar</button>
+      <button class="ltab" id="ltab-register" type="button" onclick="switchAuthTab('register')">Registrarse</button>
+    </div>
+
+    <!-- form login -->
+    <div id="form-login">
+      <div class="login-title">Bienvenido</div>
+      <div class="login-sub">Ingresa para ver tus actividades.</div>
+      <div class="form-err" id="login-err"></div>
+      <div class="fg"><label>Correo</label><input class="fi" id="login-email" type="email" autocomplete="email"></div>
+      <div class="fg"><label>Contraseña</label><input class="fi" id="login-pass" type="password" autocomplete="current-password"></div>
+      <button class="btn-orange" id="login-btn" type="button" onclick="doLogin()">Ingresar</button>
+      <button class="auth-link" type="button" onclick="showForgotPasswordForm()">Olvidé mi contraseña</button>
+    </div>
+
+    <!-- form recuperacion -->
+    <div id="form-forgot" class="hidden">
+      <div class="login-title">Recuperar contraseña</div>
+      <div class="login-sub">Escribe tu correo y te enviaremos un enlace seguro para crear una nueva contraseña.</div>
+      <div class="form-err" id="reset-err"></div>
+      <div class="fg"><label>Correo</label><input class="fi" id="reset-email" type="email" autocomplete="email"></div>
+      <button class="btn-orange" id="reset-btn" type="button" onclick="sendPasswordReset()">Enviar enlace</button>
+      <button class="auth-link" type="button" onclick="switchAuthTab('login')">Volver al ingreso</button>
+    </div>
+
+    <!-- form nueva contraseña -->
+    <div id="form-reset" class="hidden">
+      <div class="login-title">Nueva contraseña</div>
+      <div class="login-sub">Crea una nueva contraseña para volver a entrar a tus actividades.</div>
+      <div class="form-err" id="new-pass-err"></div>
+      <div class="fg"><label>Nueva contraseña</label><input class="fi" id="new-pass" type="password" autocomplete="new-password"></div>
+      <div class="fg"><label>Confirmar contraseña</label><input class="fi" id="new-pass2" type="password" autocomplete="new-password"></div>
+      <button class="btn-orange" id="new-pass-btn" type="button" onclick="saveNewPassword()">Guardar contraseña</button>
+    </div>
+
+    <!-- form registro -->
+    <div id="form-register" class="hidden">
+      <div class="login-title">Crea tu cuenta</div>
+      <div class="login-sub">Regístrate para comenzar a practicar.</div>
+      <div class="form-err" id="reg-err"></div>
+      <div class="fg"><label>Nombre completo</label><input class="fi" id="reg-name" type="text"></div>
+      <div class="fg"><label>Correo</label><input class="fi" id="reg-email" type="email"></div>
+      <div class="fg"><label>Contraseña (mínimo 6)</label><input class="fi" id="reg-pass" type="password"></div>
+      <div class="fg"><label>Nivel</label>
+        <select class="fs" id="reg-level">
+          <option value="A1">A1</option><option value="A2">A2</option>
+          <option value="B1">B1</option><option value="B2">B2</option><option value="C1">C1</option>
+        </select>
+      </div>
+      <button class="btn-orange" id="reg-btn" type="button" onclick="doRegister()">Crear cuenta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PLATFORM ============ -->
+<div id="screen-platform" class="screen">
+  <div class="topnav">
+    <div class="topnav-logo"><img src="logo.png" alt="Letra Caribe"></div>
+    <div class="topnav-right">
+      <div class="topnav-greeting" id="nav-greeting"></div>
+      <div class="topnav-avatar" id="nav-avatar"></div>
+      <button class="topnav-logout" type="button" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+  <div class="platform-body">
+    <nav class="side-nav">
+      <button class="snav-item active" id="snav-dashboard" type="button" onclick="showTab('dashboard')"><span class="sni">🏠</span> Inicio</button>
+      <button class="snav-item" id="snav-actividades" type="button" onclick="showTab('actividades')"><span class="sni">📝</span> Actividades</button>
+      <button class="snav-item" id="snav-biblioteca" type="button" onclick="showTab('biblioteca')"><span class="sni">📚</span> Biblioteca</button>
+      <button class="snav-item" id="snav-vocabulario" type="button" onclick="showTab('vocabulario')"><span class="sni">📖</span> Vocabulario</button>
+      <button class="snav-item" id="snav-puntajes" type="button" onclick="showTab('puntajes')"><span class="sni">🏆</span> Puntajes</button>
+      <button class="snav-item" id="snav-perfil" type="button" onclick="showTab('perfil')"><span class="sni">👤</span> Perfil</button>
+    </nav>
+    <main class="main-content">
+      <!-- DASHBOARD -->
+      <section class="tab-panel active" id="tab-dashboard">
+        <div class="welcome-banner">
+          <div class="wb-time" id="wb-time"></div>
+          <div class="wb-greeting" id="wb-greeting"></div>
+          <div class="wb-sub" id="wb-sub"></div>
+        </div>
+        <div id="dash-clases"></div>
+        <div id="wotd-mount"></div>
+        <div class="section-head"><div class="section-title">Pendientes</div></div>
+        <div id="dash-activities"></div>
+      </section>
+
+      <!-- ACTIVIDADES -->
+      <section class="tab-panel" id="tab-actividades">
+        <div class="section-head"><div class="section-title">Actividades pendientes</div></div>
+        <div id="act-pending"></div>
+        <div class="archive-section">
+          <button class="archive-toggle" type="button" onclick="toggleArchive()"><span id="archive-caret">▸</span> Completadas</button>
+          <div id="act-archive" class="hidden" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <!-- BIBLIOTECA -->
+      <section class="tab-panel" id="tab-biblioteca">
+        <div class="section-head"><div class="section-title">Biblioteca</div></div>
+        <div id="library-filters"></div>
+        <div id="library-mount"></div>
+      </section>
+
+      <!-- VOCABULARIO -->
+      <section class="tab-panel" id="tab-vocabulario">
+        <div class="section-head"><div class="section-title">Vocabulario</div></div>
+        <div id="vocab-mount"></div>
+      </section>
+
+      <!-- PUNTAJES -->
+      <section class="tab-panel" id="tab-puntajes">
+        <div class="section-head"><div class="section-title">Puntajes</div></div>
+        <div id="lb-mount"></div>
+      </section>
+
+      <!-- PERFIL -->
+      <section class="tab-panel" id="tab-perfil">
+        <div class="section-head"><div class="section-title">Mi perfil</div></div>
+        <div id="profile-mount"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ============ PLAYER OVERLAY ============ -->
+<div class="player-overlay" id="player-overlay">
+  <div class="player-modal">
+    <div class="player-header">
+      <div>
+        <div class="player-htitle" id="player-title"></div>
+        <div class="player-hlevel" id="player-level"></div>
+      </div>
+      <button class="player-close" type="button" onclick="closePlayer()">×</button>
+    </div>
+    <div class="player-body" id="player-mount"></div>
+  </div>
+</div>
+
+<!-- ============ RESULTS OVERLAY ============ -->
+<div class="results-overlay" id="results-overlay">
+  <div class="results-card">
+    <div class="results-emoji" id="results-emoji">🎉</div>
+    <div class="results-score-ring" id="results-ring"><div class="results-score" id="results-score">0%</div><div class="results-score-lbl">Puntaje</div></div>
+    <div class="results-title" id="results-title">¡Listo!</div>
+    <div class="results-sub" id="results-sub"></div>
+    <div class="results-note-wrap" id="results-notewrap">
+      <div class="results-note-lbl">Nota para tu profesor (opcional)</div>
+      <textarea class="results-note" id="results-note" placeholder="¿Alguna duda o comentario?"></textarea>
+    </div>
+    <div class="results-actions">
+      <button class="btn btn-coral" type="button" id="results-btn" onclick="saveNoteAndClose()">Guardar y cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="components.js"></script>
+<script src="legodata.js"></script>
+<script>
+// ============================================================
+// Portal de estudiantes — motor construido al docs/contrato-datos.md
+// ============================================================
+const SUPABASE_URL = 'https://fsoyquopdsunmiakfosa.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_7NB3dpFRBnwAnFEk2SC_Jw_Vve-Ay0E';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── estado global ──
+let currentUser = null;
+let currentProfile = null;
+let allAssignments = [];
+let allCredits = [], allSessions = [];
+let allClassBoards = [];
+let studentBillingContext = null;
+let allVocabulary = [];
+let resultsAsgnId = null;
+let authRecoveryMode = false;
+
+// ── mapa de iconos por tipo (reusado de admin: ti-* + colores) ──
+const ACTIVITY_ICONS = {
+  'fill-blank': { icon: 'ti-pencil',         bg: '#E6F1FB', color: '#185FA5' },
+  'dropdown':   { icon: 'ti-selector',       bg: '#E6F1FB', color: '#185FA5' },
+  'mc':         { icon: 'ti-list-check',     bg: '#EEEDFE', color: '#534AB7' },
+  'reading':    { icon: 'ti-book-2',         bg: '#FAECE7', color: '#993C1D' },
+  'audio':      { icon: 'ti-headphones',     bg: '#E1F5EE', color: '#0F6E56' },
+  'match':      { icon: 'ti-arrows-shuffle', bg: '#FBEAF0', color: '#993556' },
+  'true-false-vocab': { icon: 'ti-checklist', bg: '#E6F4EA', color: '#1A7A3C' },
+  'drag-drop':  { icon: 'ti-hand-move',      bg: '#FAEEDA', color: '#854F0B' },
+  'mixed':      { icon: 'ti-layout-grid',    bg: '#EAF3DE', color: '#3B6D11' }
+};
+
+// ── helpers DOM ──
+function $(id){ return document.getElementById(id); }
+function mk(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function showToast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 2200); }
+
+function initials(name){
+  const parts = (name || '?').trim().split(/\s+/).slice(0, 2);
+  const s = parts.map(function(w){ return w.charAt(0) || ''; }).join('').toUpperCase();
+  return s || '?';
+}
+function strColor(str){
+  let h = 0; str = str || '';
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+  return 'hsl(' + (h % 360) + ',55%,45%)';
+}
+function greetingPart(){
+  const h = new Date().getHours();
+  if (h < 12) return { time: 'Buenos días', sub: 'Empieza el día practicando.' };
+  if (h < 19) return { time: 'Buenas tardes', sub: 'Un buen momento para una actividad.' };
+  return { time: 'Buenas noches', sub: 'Repasa antes de descansar.' };
+}
+function fmtDate(iso){
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ── caja de icono (slot L1) ──
+function iconBox(type){
+  const meta = ACTIVITY_ICONS[type] || { icon: 'ti-file', bg: '#F1EFE8', color: '#5F5E5A' };
+  const box = mk('div', 'act-iconbox');
+  box.style.background = meta.bg;
+  box.appendChild(LegoIcon(meta.icon, { size: 17, color: meta.color }));
+  return box;
+}
+// ── badge de fecha límite (rojo si vence en ≤2 días) ──
+function dueBadge(asgn){
+  if (!asgn.due_date) return '';
+  const daysLeft = Math.ceil((new Date(asgn.due_date) - new Date()) / 86400000);
+  const urgent = daysLeft <= 2;
+  let label = new Date(asgn.due_date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  if (urgent) label += ' · ' + (daysLeft <= 0 ? 'Vencida' : daysLeft + 'd');
+  return urgent ? LegoChip(label, { bg: 'var(--red-lt)', color: 'var(--red)' }) : LegoChip(label, { bg: 'var(--sand)', color: 'var(--muted)' });
+}
+
+// ── pantallas ──
+function showScreen(id){
+  const screens = document.querySelectorAll('.screen');
+  screens.forEach(function(s){ s.classList.remove('active'); });
+  $(id).classList.add('active');
+}
+function showAuthForm(which){
+  const isLogin = which === 'login';
+  const isRegister = which === 'register';
+  const isForgot = which === 'forgot';
+  const isReset = which === 'reset';
+  $('ltab-login').classList.toggle('active', isLogin);
+  $('ltab-register').classList.toggle('active', isRegister);
+  $('form-login').classList.toggle('hidden', !isLogin);
+  $('form-register').classList.toggle('hidden', !isRegister);
+  $('form-forgot').classList.toggle('hidden', !isForgot);
+  $('form-reset').classList.toggle('hidden', !isReset);
+}
+function switchAuthTab(which){
+  showAuthForm(which);
+}
+function showForgotPasswordForm(){
+  const email = $('login-email').value.trim();
+  if (email) $('reset-email').value = email;
+  showAuthForm('forgot');
+}
+function showResetPasswordForm(){
+  showScreen('screen-login');
+  showAuthForm('reset');
+}
+function passwordRecoveryRedirectUrl(){
+  return 'https://app.letracaribe.com/?reset=1';
+}
+function isPasswordRecoveryUrl(){
+  return window.location.search.indexOf('reset=1') !== -1 || window.location.search.indexOf('type=recovery') !== -1 || window.location.hash.indexOf('type=recovery') !== -1;
+}
+function authErr(id, msg){
+  const err = $(id);
+  if (!err) return;
+  err.textContent = msg;
+  err.classList.add('show');
+}
+function clearAuthErr(id){
+  const err = $(id);
+  if (err) err.classList.remove('show');
+}
+function showTab(name){
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.snav-item').forEach(function(b){ b.classList.remove('active'); });
+  const panel = $('tab-' + name); if (panel) panel.classList.add('active');
+  const nav = $('snav-' + name); if (nav) nav.classList.add('active');
+}
+
+// ── auth ──
+async function doLogin(){
+  const email = $('login-email').value.trim();
+  const pass = $('login-pass').value;
+  const err = $('login-err'); err.classList.remove('show');
+  if (!email || !pass) { err.textContent = 'Completa correo y contraseña.'; err.classList.add('show'); return; }
+  $('login-btn').disabled = true;
+  const { data, error } = await db.auth.signInWithPassword({ email: email, password: pass });
+  $('login-btn').disabled = false;
+  if (error) { err.textContent = 'No se pudo ingresar: ' + error.message; err.classList.add('show'); return; }
+  currentUser = data.user;
+  try {
+    await loadProfile();
+    await showPlatform();
+  } catch(e) {
+    await db.auth.signOut();
+    currentUser = null; currentProfile = null;
+    err.textContent = 'La cuenta no tiene una identidad de estudiante válida.';
+    err.classList.add('show');
+  }
+}
+async function sendPasswordReset(){
+  const email = $('reset-email').value.trim();
+  clearAuthErr('reset-err');
+  if (!email) { authErr('reset-err', 'Escribe tu correo.'); return; }
+  const btn = $('reset-btn');
+  btn.disabled = true;
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: passwordRecoveryRedirectUrl() });
+  btn.disabled = false;
+  if (error) { authErr('reset-err', 'No se pudo enviar el enlace: ' + error.message); return; }
+  showToast('Revisa tu correo para crear una nueva contraseña.');
+  switchAuthTab('login');
+}
+async function saveNewPassword(){
+  const p1 = $('new-pass').value;
+  const p2 = $('new-pass2').value;
+  clearAuthErr('new-pass-err');
+  if (p1.length < 6) { authErr('new-pass-err', 'La contraseña debe tener mínimo 6 caracteres.'); return; }
+  if (p1 !== p2) { authErr('new-pass-err', 'Las contraseñas no coinciden.'); return; }
+  const btn = $('new-pass-btn');
+  btn.disabled = true;
+  const { error } = await db.auth.updateUser({ password: p1 });
+  btn.disabled = false;
+  if (error) { authErr('new-pass-err', 'No se pudo guardar: ' + error.message); return; }
+  await db.auth.signOut();
+  currentUser = null; currentProfile = null; authRecoveryMode = false;
+  if (window.history && window.history.replaceState) window.history.replaceState({}, document.title, window.location.pathname);
+  $('new-pass').value = '';
+  $('new-pass2').value = '';
+  switchAuthTab('login');
+  showScreen('screen-login');
+  showToast('Contrasena actualizada. Ingresa de nuevo.');
+}
+async function doRegister(){
+  const name = $('reg-name').value.trim();
+  const email = $('reg-email').value.trim();
+  const pass = $('reg-pass').value;
+  const level = $('reg-level').value;
+  const err = $('reg-err'); err.classList.remove('show');
+  if (!name || !email || pass.length < 6) { err.textContent = 'Revisa: nombre, correo y contraseña de 6+ caracteres.'; err.classList.add('show'); return; }
+  $('reg-btn').disabled = true;
+  const { data, error } = await db.auth.signUp({ email: email, password: pass, options: { data: { full_name: name, level: level } } });
+  if (error) { $('reg-btn').disabled = false; err.textContent = 'No se pudo registrar: ' + error.message; err.classList.add('show'); return; }
+  currentUser = data.user;
+  try {
+    if (currentUser) {
+      await LegoData.registerCurrentStudent({ full_name: name, email: email, level: level });
+    }
+    $('reg-btn').disabled = false;
+    await loadProfile();
+    await showPlatform();
+  } catch(e) {
+    $('reg-btn').disabled = false;
+    await db.auth.signOut();
+    currentUser = null; currentProfile = null;
+    err.textContent = 'La cuenta se creó, pero no pudo vincularse con el estudiante.';
+    err.classList.add('show');
+  }
+}
+async function doLogout(){
+  await db.auth.signOut();
+  currentUser = null; currentProfile = null; allAssignments = [];
+  showScreen('screen-login');
+}
+async function loadProfile(){
+  if (!currentUser) return;
+  try {
+    currentProfile = await LegoData.studentByAuthUserId(currentUser.id);
+    if (!currentProfile) {
+      const meta = currentUser.user_metadata || {};
+      const fullName = String(meta.full_name || currentUser.email || '').trim();
+      if (!fullName) throw new Error('La cuenta no contiene un nombre para crear su identidad.');
+      currentProfile = await LegoData.registerCurrentStudent({
+        full_name: fullName,
+        email: currentUser.email || '',
+        level: meta.level || 'A1'
+      });
+    }
+    if (!currentProfile) throw new Error('La cuenta no está vinculada a una identidad de estudiante.');
+  } catch(e){ console.error('loadProfile', e); currentProfile = null; throw e; }
+}
+function currentStudentId(){ return currentProfile && currentProfile.id ? currentProfile.id : null; }
+
+async function showPlatform(){
+  showScreen('screen-platform');
+  const name = (currentProfile && currentProfile.full_name) || 'Estudiante';
+  const g = greetingPart();
+  // nav
+  const greet = $('nav-greeting');
+  greet.replaceChildren(document.createTextNode('Hola, '), mk('strong', null, name.split(/\s+/)[0]));
+  const av = $('nav-avatar'); av.textContent = initials(name); av.style.background = strColor(name);
+  // welcome
+  $('wb-time').textContent = g.time;
+  $('wb-greeting').textContent = '¡Hola, ' + name.split(/\s+/)[0] + '!';
+  $('wb-sub').textContent = g.sub;
+  // cargar datos en paralelo
+  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary(), loadClasses(), loadVocabulary() ]);
+  renderDashClasses();
+  renderVocabulary();
+  renderProfile();
+}
+
+// -- actividades --
+async function loadAssignments(){
+  if (!currentStudentId()) return;
+  try { allAssignments = await LegoData.assignmentsByStudent(currentStudentId()); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
+
+  renderActivities();
+}
+function pendingCard(asgn){
+  const les = asgn.lessons || null;
+  const vt = _vtOf(asgn);
+  const act = asgn.activities || {};
+  const btn = mk('button', 'btn btn-sm', 'Abrir →');
+  btn.style.background = 'var(--orange-lt)'; btn.style.color = 'var(--orange-dk)'; btn.style.fontWeight = '600';
+  btn.onclick = function(e){ e.stopPropagation(); openActivity(asgn); };
+  return LegoCard({
+    layout: 'stack',
+    L1: iconBox(les ? 'mixed' : (vt ? vt.format : act.type)),
+    L2: (les && les.title) || (vt && vt.title) || act.title || 'Actividad',
+    corner: dueBadge(asgn),
+    L4: LegoChip(((les && les.level) || (vt && vt.nivel) || act.level || 'A1'), 'level'),
+    L5: les ? LegoChip('Lección', { bg: 'var(--sand)', color: 'var(--ink-soft)' }) : (vt ? LegoChip('Vocabulario', { bg: 'var(--sand)', color: 'var(--ink-soft)' }) : ''),
+    L6: LegoChip('Pendiente', { bg: 'var(--orange-lt)', color: 'var(--orange-dk)' }),
+    L8: btn,
+    onclick: function(){ openActivity(asgn); }
+  });
+}
+function completedCard(asgn){
+  const les = asgn.lessons || null;
+  const vt = _vtOf(asgn);
+  const act = asgn.activities || {};
+  const left = (asgn.score_pct != null) ? LegoScore(asgn.score_pct) : iconBox(les ? 'mixed' : (vt ? vt.format : act.type));
+  const btn = mk('button', 'btn btn-sm', vt ? 'Practicar' : 'Revisar');
+  btn.style.background = 'var(--orange-lt)'; btn.style.color = 'var(--orange-dk)'; btn.style.fontWeight = '600';
+  btn.onclick = function(e){ e.stopPropagation(); openReview(asgn); };
+  const slots = {
+    layout: 'stack',
+    L1: left,
+    L2: (les && les.title) || (vt && vt.title) || act.title || 'Actividad',
+    corner: asgn.completed_at ? LegoChip(fmtDate(asgn.completed_at), { bg: 'var(--sand)', color: 'var(--muted)' }) : '',
+    L4: LegoChip(((les && les.level) || (vt && vt.nivel) || act.level || 'A1'), 'level'),
+    L8: btn
+  };
+  if (les) slots.L5 = LegoChip('Lección', { bg: 'var(--sand)', color: 'var(--ink-soft)' });
+  else if (vt) slots.L5 = LegoChip('Vocabulario', { bg: 'var(--sand)', color: 'var(--ink-soft)' });
+  if (asgn.score_pct == null) slots.L6 = LegoChip('✓ Hecha', { bg: 'var(--green-lt)', color: 'var(--green)' });
+  return LegoCard(slots);
+}
+function renderActivities(){
+  const pending = allAssignments.filter(function(a){ return !a.completed; });
+  const completed = allAssignments.filter(function(a){ return a.completed && !_vtOf(a); });
+
+  // dashboard pendientes
+  const dash = $('dash-activities');
+  if (!pending.length) { dash.replaceChildren(LegoEmpty({ icon: '🎉', text: 'No tienes actividades pendientes.' })); }
+  else { const wrap = mk('div', 'act-list'); pending.forEach(function(a){ wrap.appendChild(pendingCard(a)); }); dash.replaceChildren(wrap); }
+
+  // tab actividades — pendientes
+  const ap = $('act-pending');
+  if (!pending.length) { ap.replaceChildren(LegoEmpty({ icon: '🎉', text: 'Nada pendiente por ahora.' })); }
+  else { const wrap = mk('div', 'act-list'); pending.forEach(function(a){ wrap.appendChild(pendingCard(a)); }); ap.replaceChildren(wrap); }
+
+  // tab actividades — archivo
+  const arch = $('act-archive');
+  if (!completed.length) { arch.replaceChildren(LegoEmpty({ text: 'Aún no has completado actividades.' })); }
+  else { const wrap = mk('div', 'act-list'); completed.forEach(function(a){ wrap.appendChild(completedCard(a)); }); arch.replaceChildren(wrap); }
+}
+function toggleArchive(){
+  const a = $('act-archive');
+  const hidden = a.classList.toggle('hidden');
+  $('archive-caret').textContent = hidden ? '▸' : '▾';
+}
+
+// -- player (LegoPlayer) --
+// -- tarea single-serving de vocabulario (plato 3) --
+// Contrato: el vocabulario NUNCA guarda respuestas ni score. La tarea solo marca
+// el assignment como completada. Se juega con los mismos LegoTask de practica.
+function _vtOf(asgn){
+  var vt = asgn && asgn.vocab_task;
+  if (!vt) return null;
+  if (typeof vt === 'string') { try { vt = JSON.parse(vt); } catch(e){ return null; } }
+  return (vt && vt.bank_ids && vt.bank_ids.length) ? vt : null;
+}
+async function openVocabTask(asgn){
+  var vt = _vtOf(asgn);
+  if (!vt) { showToast('Esta tarea no tiene palabras.'); return; }
+  var kind = vt.format || 'match';
+  var words = [];
+  try { words = await LegoData.bankWordsByIds(vt.bank_ids); }
+  catch(e){ console.error('openVocabTask', e); showToast('Error al cargar la tarea.'); return; }
+  if (!words.length) { showToast('Las palabras de esta tarea ya no están en el banco.'); return; }
+  var pairs = vocabularyPracticePairs(words, words.length, kind);
+  if (!pairs.length) { showToast('Esta tarea no tiene pares jugables.'); return; }
+  var activity = {
+    type: kind,
+    title: vt.title || 'Vocabulario',
+    level: vt.nivel || '',
+    content: { version: 2, task: kind, instructions: '', pairs: pairs }
+  };
+  $('player-title').textContent = activity.title;
+  $('player-level').textContent = activity.level || '';
+  var node;
+  try {
+    node = LegoPlayer(activity, { mode: 'play', feedback: true, fcMode: vt.fc_mode || 'flip', onResult: function(res){ finishVocabTask(asgn, res); } });
+  } catch(e){
+    console.error('LegoPlayer vocab task:', e);
+    node = LegoEmpty({ text: 'Error al abrir: ' + (e && e.message ? e.message : e) });
+  }
+  $('player-mount').replaceChildren(node);
+  $('player-overlay').classList.add('open');
+}
+async function finishVocabTask(asgn, res){
+  closePlayer();
+  if (asgn.completed) { showToast('¡Buena práctica!'); return; }
+  try {
+    await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), attempts: (asgn.attempts || 0) + 1, progress: null });
+    await loadAssignments();
+    showToast('¡Tarea de vocabulario completada!');
+  } catch(e){ console.error('finishVocabTask', e); showToast('Error al guardar: ' + (e && e.message ? e.message : e)); }
+}
+function openActivity(asgn){
+  if (_vtOf(asgn)) { openVocabTask(asgn); return; }
+  if (asgn.lesson_id) { openLesson(asgn); return; }
+  const act = asgn.activities || {};
+  $('player-title').textContent = act.title || 'Actividad';
+  $('player-level').textContent = act.level || '';
+  let node;
+  try {
+    node = LegoPlayer(act, { mode: 'play', feedback: (asgn.eval_mode !== 'calificado'), saved: _asgnSavedAnswers(asgn), onResult: function(res){ submitActivity(asgn, res); }, onPause: function(answers){ pauseActivity(asgn, answers); } });
+  } catch (e) {
+    console.error('LegoPlayer error:', e, act);
+    node = LegoEmpty({ text: 'Error al abrir: ' + (e && e.message ? e.message : e) });
+  }
+  $('player-mount').replaceChildren(node);
+  $('player-overlay').classList.add('open');
+}
+function closePlayer(){
+  $('player-overlay').classList.remove('open');
+  $('player-mount').replaceChildren();
+}
+
+// -- submit (contrato del envío) --
+function _asgnSavedAnswers(asgn){
+  var p = asgn && asgn.progress;
+  if (!p) return null;
+  if (typeof p === 'string') { try { p = JSON.parse(p); } catch(e){ return null; } }
+  return (p && p.answers && p.answers.length) ? p.answers : null;
+}
+async function pauseActivity(asgn, answers){
+  closePlayer();
+  try {
+    await LegoData.updateAssignment(asgn.id, { progress: { answers: answers || [], savedAt: new Date().toISOString() } });
+    await loadAssignments();
+    showToast('Progreso guardado. Puedes seguir luego.');
+  } catch(e){ console.error('pauseActivity', e); showToast('Error al guardar: ' + (e && e.message ? e.message : e)); }
+}
+async function submitActivity(asgn, res){
+  const act = asgn.activities || {};
+  const total = res.total || 0;
+  const scorePct = total ? Math.round((res.score / total) * 100) : 0;
+  const mode = asgn.eval_mode || 'practica';
+  const passPct = asgn.pass_pct || 70;
+  const maxAttempts = asgn.max_attempts || 1;
+  const attemptNo = (asgn.attempts || 0) + 1;
+
+  // Calificado: no paso y le quedan intentos -> reintentar (sin feedback, sin archivar)
+  if (mode === 'calificado' && scorePct < passPct && attemptNo < maxAttempts) {
+    closePlayer();
+    try {
+      await LegoData.updateAssignment(asgn.id, { attempts: attemptNo, progress: null });
+      await loadAssignments();
+    } catch (e) { console.error('retry update', e); }
+    showRetry(attemptNo, maxAttempts);
+    return;
+  }
+
+  // Final: practica siempre, o calificado que aprobo / agoto intentos
+  const rows = (res.answers || []).map(function(a, i){
+    return {
+      student_id: currentStudentId(),
+      activity_slug: act.slug,
+      assignment_id: asgn.id,
+      question_num: i + 1,
+      question_key: a.key || null,
+      question_text: a.questionText || '',
+      question_type: (a.isCorrect === null) ? 'open' : 'mc',
+      answer: a.answer || '',
+      is_correct: a.isCorrect
+    };
+  });
+  closePlayer();
+  showResults(asgn, res, scorePct, mode, passPct);
+  try {
+    await LegoData.insertResponses(rows);
+    await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo, progress: null });
+    const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
+    await LegoData.updateCurrentStudentScore(newScore);
+    if (currentProfile) currentProfile.score = newScore;
+    await loadAssignments();
+    renderProfile();
+  } catch (e) {
+    console.error('submitActivity error:', e);
+    showToast('No se guardó: ' + (e && e.message ? e.message : e));
+  }
+}
+function showResults(asgn, res, scorePct, mode, passPct){
+  resultsAsgnId = asgn.id;
+  mode = mode || asgn.eval_mode || 'practica';
+  passPct = passPct || asgn.pass_pct || 70;
+  const ring = $('results-ring'); if (ring) ring.style.display = '';
+  const nw = $('results-notewrap'); if (nw) nw.style.display = '';
+  const btn = $('results-btn'); if (btn) btn.textContent = 'Guardar y cerrar';
+  $('results-score').textContent = scorePct + '%';
+  if (mode === 'calificado') {
+    const passed = scorePct >= passPct;
+    $('results-emoji').textContent = passed ? '🎉' : '💪';
+    $('results-title').textContent = passed ? '¡Aprobaste!' : 'Nota final';
+    $('results-sub').textContent = passed
+      ? ('Superaste el ' + passPct + '%. ¡Bien hecho!')
+      : ('Esta es tu nota final: ' + scorePct + '%. Sigue practicando este tema.');
+  } else {
+    $('results-emoji').textContent = scorePct >= 80 ? '🎉' : scorePct >= 60 ? '👍' : '💪';
+    $('results-title').textContent = scorePct >= 80 ? '¡Excelente!' : scorePct >= 60 ? '¡Bien hecho!' : '¡A seguir practicando!';
+    $('results-sub').textContent = 'Acertaste ' + (res.score || 0) + ' de ' + (res.total || 0) + '.';
+  }
+  $('results-note').value = asgn.student_note || '';
+  $('results-overlay').classList.add('show');
+}
+function showRetry(attemptNo, maxAttempts){
+  resultsAsgnId = null;
+  const ring = $('results-ring'); if (ring) ring.style.display = 'none';
+  const nw = $('results-notewrap'); if (nw) nw.style.display = 'none';
+  const btn = $('results-btn'); if (btn) btn.textContent = 'Volver a intentar';
+  $('results-emoji').textContent = '💪';
+  $('results-title').textContent = 'Aún no alcanzas el mínimo';
+  const left = maxAttempts - attemptNo;
+  $('results-sub').textContent = left <= 1
+    ? 'Te queda un intento. Repasa con calma y vuelve a intentarlo.'
+    : 'Inténtalo de nuevo. Puedes hacerlo mejor.';
+  $('results-overlay').classList.add('show');
+}
+async function saveNoteAndClose(){
+  const note = $('results-note').value.trim();
+  if (resultsAsgnId) {
+    try { await LegoData.updateAssignment(resultsAsgnId, { student_note: note }); } catch (e) {}
+  }
+  $('results-overlay').classList.remove('show');
+  resultsAsgnId = null;
+  showTab('dashboard');
+}
+
+// ── review (Camino A: lista read-only desde responses, con Legos) ──
+async function openReview(asgn){
+  if (_vtOf(asgn)) { openVocabTask(asgn); return; }
+  if (asgn.lesson_id) { openLessonReview(asgn); return; }
+  const act = asgn.activities || {};
+  $('player-title').textContent = (act.title || 'Actividad') + ' — Revisión';
+  $('player-level').textContent = act.level || '';
+  const mount = $('player-mount');
+  mount.replaceChildren(LegoEmpty({ text: 'Cargando…' }));
+  $('player-overlay').classList.add('open');
+  let data = [];
+  try {
+    if (asgn && asgn.id) {
+      data = await LegoData.responsesByAssignment(asgn.id);
+      data = (data || []).filter(function(r){ return String(r.activity_slug) === String(act.slug); });
+    } else {
+      data = await LegoData.responsesLatestAttempt(currentStudentId(), act.slug);
+    }
+  } catch(e){ console.error('review responses', e); }
+  const saved = (data || []).map(function(r){ return { answer: r.answer, isCorrect: r.is_correct, questionText: r.question_text }; });
+  const node = LegoPlayer(act, { mode: 'review', saved: saved });
+  mount.replaceChildren(node);
+}
+// ── lecciones (LegoLesson sobre el motor; datos por LegoData, scope por asignación) ──
+function _lessonFromAsgn(asgn){
+  const les = asgn.lessons || null;
+  if (!les) return null;
+  if (typeof les.activity_ids === 'string') { try { les.activity_ids = JSON.parse(les.activity_ids); } catch(e) { les.activity_ids = []; } }
+  if (!Array.isArray(les.activity_ids)) les.activity_ids = [];
+  return les;
+}
+async function _lessonPlayableActivities(les){
+  const steps = LegoData.lessonSteps(les);
+  const activityIds = steps.filter(function(step){ return step.kind === 'activity'; }).map(function(step){ return step.id; });
+  const activities = activityIds.length ? await LegoData.activitiesByIds(activityIds) : [];
+  const byId = {};
+  activities.forEach(function(activity){ byId[String(activity.id)] = activity; });
+  const wordCache = {};
+  const resolved = [];
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (step.kind === 'activity') {
+      const activity = byId[String(step.id)];
+      if (activity) resolved.push(activity);
+      else console.warn('Paso de actividad no disponible:', step.id);
+      continue;
+    }
+    const bankIds = (step.bank_ids || []).slice();
+    const cacheKey = bankIds.map(String).join('|');
+    if (!wordCache[cacheKey]) wordCache[cacheKey] = await LegoData.bankWordsByIds(bankIds);
+    const words = wordCache[cacheKey] || [];
+    const kind = step.format || 'match';
+    const pairs = vocabularyPracticePairs(words, words.length, kind);
+    if (!pairs.length) {
+      console.warn('Paso de vocabulario sin palabras jugables:', step.title || kind);
+      continue;
+    }
+    resolved.push({
+      type: kind,
+      title: step.title || (words[0] && words[0].tema) || 'Vocabulario',
+      level: (words[0] && words[0].nivel) || '',
+      content: { version: 2, task: kind, instructions: '', pairs: pairs },
+      _warmup: true
+    });
+  }
+  return resolved;
+}
+async function openLesson(asgn){
+  const les = _lessonFromAsgn(asgn);
+  if (!les) { showToast('Lección no encontrada.'); return; }
+  $('player-title').textContent = les.title || 'Lección';
+  $('player-level').textContent = les.level || '';
+  $('player-mount').replaceChildren(LegoEmpty({ text: 'Cargando…' }));
+  $('player-overlay').classList.add('open');
+  let acts = [];
+  try { acts = await _lessonPlayableActivities(les); }
+  catch(e){ console.error('openLesson', e); $('player-mount').replaceChildren(LegoEmpty({ text: 'Error al cargar la lección.' })); return; }
+  if (!acts.length) { $('player-mount').replaceChildren(LegoEmpty({ text: 'La lección no tiene pasos.' })); return; }
+  let lessonProg = asgn.progress;
+  if (typeof lessonProg === 'string') { try { lessonProg = JSON.parse(lessonProg); } catch(e){ lessonProg = null; } }
+  const resume = (lessonProg && lessonProg.step != null) ? lessonProg : null;
+  const node = LegoLesson(les, acts, {
+    feedback: asgn.eval_mode !== 'calificado',
+    fcMode: asgn.fc_mode || undefined,
+    startStep: resume ? resume.step : 0,
+    baseScore: resume ? resume.score : 0,
+    baseTotal: resume ? resume.total : 0,
+    resumeAnswers: resume ? resume.stepAnswers : null,
+    onPause: function(p){ pauseLesson(asgn, p); },
+    onStepResult: function(i, act, res){
+      if (act && act._warmup === true) return;
+      const rows = (res.answers || []).map(function(a, k){
+        return {
+          student_id: currentStudentId(),
+          activity_slug: act.slug,
+          assignment_id: asgn.id,
+          question_num: k + 1,
+          question_key: a.key || null,
+          question_text: a.questionText || '',
+          question_type: (a.isCorrect === null) ? 'open' : 'mc',
+          answer: a.answer || '',
+          is_correct: a.isCorrect
+        };
+      });
+      LegoData.insertResponses(rows).catch(function(e){ console.error('paso de lección', e); showToast('No se guardó el paso: ' + (e.message || e)); });
+    },
+    onFinish: async function(agg){
+      closePlayer();
+      showResults(asgn, { score: agg.score, total: agg.total }, agg.pct, asgn.eval_mode || 'practica', asgn.pass_pct || 70);
+      try {
+        await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1, progress: null });
+        const newScore = ((currentProfile && currentProfile.score) || 0) + (agg.score || 0) * 10;
+        await LegoData.updateCurrentStudentScore(newScore);
+        if (currentProfile) currentProfile.score = newScore;
+        await loadAssignments();
+        renderProfile();
+      } catch(e){ console.error('lesson finish', e); showToast('No se guardó: ' + (e.message || e)); }
+    }
+  });
+  $('player-mount').replaceChildren(node);
+}
+async function pauseLesson(asgn, p){
+  closePlayer();
+  try {
+    await LegoData.updateAssignment(asgn.id, { progress: { step: (p && p.step) || 0, score: (p && p.score) || 0, total: (p && p.total) || 0, stepAnswers: (p && p.stepAnswers) || [], savedAt: new Date().toISOString() } });
+    await loadAssignments();
+    showToast('Progreso guardado. Puedes seguir luego.');
+  } catch(e){ console.error('pauseLesson', e); showToast('Error al guardar: ' + (e && e.message ? e.message : e)); }
+}
+async function openLessonReview(asgn){
+  const les = _lessonFromAsgn(asgn);
+  if (!les) { showToast('Lección no encontrada.'); return; }
+  $('player-title').textContent = (les.title || 'Lección') + ' — Revisión';
+  $('player-level').textContent = les.level || '';
+  $('player-mount').replaceChildren(LegoEmpty({ text: 'Cargando…' }));
+  $('player-overlay').classList.add('open');
+  try {
+    const acts = await LegoData.activitiesByIds(les.activity_ids);
+    const rows = await LegoData.responsesByAssignment(asgn.id);
+    const wrap = mk('div');
+    acts.forEach(function(act, i){
+      const head = mk('div', null, (i + 1) + '. ' + (act.title || 'Paso'));
+      head.style.cssText = 'font-size:13px;font-weight:700;color:var(--ink);margin:16px 0 8px';
+      wrap.appendChild(head);
+      const stepRows = rows.filter(function(r){ return r.activity_slug === act.slug; });
+      wrap.appendChild(LegoPlayer(act, { mode: 'review', saved: LegoData.toSavedRows(stepRows) }));
+    });
+    if (!rows.length) wrap.appendChild(LegoEmpty({ text: 'Sin respuestas registradas todavía.' }));
+    $('player-mount').replaceChildren(wrap);
+  } catch(e){ console.error('openLessonReview', e); $('player-mount').replaceChildren(LegoEmpty({ text: 'Error al cargar la revisión.' })); }
+}
+
+
+const WOTD_FALLBACK = [
+  { word: 'acogedora', translation: 'welcoming', example: 'Cartagena es una ciudad muy acogedora.' },
+  { word: 'madrugada', translation: 'early morning', example: 'Me desperté a las tres de la madrugada.' },
+  { word: 'chévere', translation: 'cool, great (Colombian)', example: '¡Qué chévere que puedas venir!' },
+  { word: 'sobremesa', translation: 'time talking after a meal', example: 'La sobremesa duró más que el almuerzo.' },
+  { word: 'añoranza', translation: 'longing, nostalgia', example: 'Siento añoranza por mi ciudad.' },
+  { word: 'marisquería', translation: 'seafood restaurant', example: 'Fuimos a una marisquería en la costa.' },
+  { word: 'aguacero', translation: 'heavy rain, downpour', example: 'Cayó un aguacero esta tarde.' },
+  { word: 'bacano', translation: 'awesome (Colombian slang)', example: 'Ese concierto estuvo bacano.' },
+  { word: 'terco', translation: 'stubborn', example: 'No seas tan terco, escucha los consejos.' },
+  { word: 'brindis', translation: 'toast (with drinks)', example: 'Hacemos un brindis por tu cumpleaños.' }
+];
+async function loadWordOfDay(){
+  const mount = $('wotd-mount');
+  let list = [];
+  try {
+    const data = await LegoData.wordsOfDay();
+    list = data || [];
+  } catch (e) { list = []; }
+  const level = currentProfile && currentProfile.level;
+  if (level) {
+    const byLevel = list.filter(function(w){ return w.level === level; });
+    if (byLevel.length) list = byLevel;
+  }
+  if (!list.length) list = WOTD_FALLBACK;
+  if (!list.length) { mount.replaceChildren(); return; }
+  const w = list[(new Date().getDate()) % list.length];
+  const word = w.word || w.term || w.spanish || w.palabra || '';
+  const trans = w.translation || w.english || w.meaning || w.traduccion || '';
+  const example = w.example || w.ejemplo || w.sentence || '';
+  if (!word) { mount.replaceChildren(); return; }
+  const card = mk('div', 'wotd-card');
+  card.appendChild(mk('div', 'wotd-icon', '🌟'));
+  const info = mk('div'); info.style.flex = '1';
+  info.appendChild(mk('div', 'wotd-label', 'Palabra del día'));
+  info.appendChild(mk('div', 'wotd-word', word));
+  if (trans) info.appendChild(mk('div', 'wotd-trans', trans));
+  if (example) info.appendChild(mk('div', 'wotd-example', example));
+  card.appendChild(info);
+  mount.replaceChildren(card);
+}
+// ── leaderboard ──
+async function loadLeaderboard(){
+  const mount = $('lb-mount');
+  const level = (currentProfile && currentProfile.level) || null;
+  let data = []; try { data = await LegoData.leaderboard({ limit: 10, level: level || undefined }); } catch(e){ console.error('loadLeaderboard', e); }
+  const rows = data || [];
+  const frag = document.createDocumentFragment();
+  const head = mk('div', 'lb-header-card');
+  head.appendChild(mk('div', 'lbh-title', 'Tabla de puntajes'));
+  head.appendChild(mk('div', 'lbh-sub', level ? ('Nivel ' + level) : 'Todos los niveles'));
+  frag.appendChild(head);
+  if (!rows.length) { frag.appendChild(LegoEmpty({ text: 'Sin puntajes todavía.' })); }
+  else {
+    const myId = currentStudentId();
+    rows.forEach(function(p, i){
+      const rank = mk('span', null, (i + 1) + '.'); rank.style.cssText = 'font-weight:700;color:var(--muted);min-width:24px';
+      const isMe = myId && p.id === myId;
+      const card = LegoCard({ L1: rank, L2: (p.display_name || 'Anónimo') + (isMe ? ' (tú)' : ''), L4: LegoChip(p.level || 'A1', 'level'), L8: mk('strong', null, (p.score || 0) + ' pts') });
+      frag.appendChild(card);
+    });
+  }
+  mount.replaceChildren(frag);
+}
+
+// ── biblioteca ──
+async function loadLibrary(){
+  try {
+    const data = await LegoData.library();
+    const items = data || [];
+    const fb = $('library-filters');
+    if (fb) fb.replaceChildren(LegoLibraryFilters({ items: items, onFilter: renderLibrary }));
+    renderLibrary(items);
+  } catch(e) {
+    console.error('loadLibrary', e);
+    showToast('Error al cargar biblioteca');
+  }
+}
+
+function renderLibrary(items){
+  const mount = $('library-mount');
+  if (!items.length) {
+    mount.replaceChildren(LegoEmpty({ text: 'No hay materiales disponibles.' }));
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  items.forEach(function(item) {
+    const card = LegoLibraryMaterial(item, {
+      onRead: function(material) { openLibraryViewer(material); }
+    });
+    frag.appendChild(card);
+  });
+
+  mount.replaceChildren(frag);
+}
+
+function openLibraryViewer(item){
+  LegoLibraryViewer(item);
+}
+
+// ── vocabulario ──
+function vocabKey(term){
+  if (typeof LegoData !== 'undefined' && LegoData.vocabularyKey) {
+    return LegoData.vocabularyKey(term);
+  }
+  return String(term || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s'-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function vocabEntryTypeLabel(type){
+  return type === 'expression' ? 'Expresión' : 'Palabra';
+}
+function vocabSourceLabel(source){
+  if (source === 'teacher') return 'Profesor';
+  if (source === 'selection') return 'Selección';
+  if (source === 'import') return 'Importado';
+  return 'Estudiante';
+}
+async function loadVocabulary(){
+  if (!currentUser) return;
+  try {
+    allVocabulary = await LegoData.studentVocabularyByStudent(currentStudentId());
+  } catch(e) {
+    console.error('loadVocabulary', e);
+    allVocabulary = [];
+  }
+}
+function vocabularyEntrySenses(entry){
+  if (entry && Array.isArray(entry.senses) && entry.senses.length) return entry.senses;
+  if (entry && entry.meaning) {
+    return [{
+      id: null,
+      bank_sense_id: null,
+      meaning: entry.meaning,
+      meaning_key: vocabKey(entry.meaning),
+      context: '',
+      example: '',
+      accepted_answers: [],
+      locked: !!entry.bank_id
+    }];
+  }
+  return [];
+}
+async function saveVocabularyEntry(existing, value, form){
+  const term = String(value && value.term || '').trim();
+  const entryType = value && value.entry_type || 'word';
+  const senses = (value && value.senses || []).map(function(s){
+    const meaning = String(s.meaning || '').trim();
+    const seen = {};
+    const accepted = (s.accepted_answers || []).map(function(a){ return String(a || '').trim(); }).filter(function(a){
+      const key = vocabKey(a);
+      if (!key || key === vocabKey(meaning) || seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+    return {
+      meaning: meaning,
+      meaning_key: vocabKey(meaning),
+      context: String(s.context || '').trim(),
+      example: String(s.example || '').trim(),
+      accepted_answers: accepted
+    };
+  });
+  const termKey = vocabKey(term);
+  function fail(message){ if (form && form.setError) form.setError(message); showToast(message); }
+  if (!term || !termKey) { fail('La palabra necesita letras o números.'); return; }
+  if (!senses.length || senses.some(function(s){ return !s.meaning_key; })) { fail('Añade al menos un significado válido.'); return; }
+  const localKeys = {};
+  if (senses.some(function(s){ if (localKeys[s.meaning_key]) return true; localKeys[s.meaning_key] = true; return false; })) {
+    fail('La misma traducción aparece más de una vez.'); return;
+  }
+  const duplicate = allVocabulary.find(function(v){
+    if (String(v.id) === String(existing && existing.id)) return false;
+    const savedTerm = String(v.term_key || vocabKey(v.term));
+    return savedTerm === termKey;
+  });
+  if (duplicate) { fail('Esta palabra en español ya existe.'); openVocabularyModal(duplicate); return; }
+  try {
+    await LegoData.saveStudentVocabularyWithSenses({
+      student_id: currentStudentId(),
+      entry_id: existing && existing.id || null,
+      term: term,
+      term_key: termKey,
+      entry_type: entryType,
+      senses: senses
+    });
+    showToast(existing ? 'Vocabulario actualizado.' : 'Entrada añadida.');
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    await loadVocabulary();
+    renderVocabulary();
+  } catch(e) {
+    console.error('saveVocabularyEntry', e);
+    const message = 'No se guardó: ' + (e && e.message ? e.message : e);
+    if (form && form.setError) form.setError(message);
+    showToast(message);
+  }
+}
+async function deleteVocabularyEntry(entry){
+  if (!entry || !entry.id) return;
+  try {
+    await LegoData.deleteStudentVocabulary(entry.id, currentStudentId());
+    showToast('Entrada eliminada.');
+    await loadVocabulary();
+    renderVocabulary();
+  } catch(e) {
+    console.error('deleteVocabularyEntry', e);
+    showToast('No se eliminó: ' + (e && e.message ? e.message : e));
+  }
+}
+function openVocabularyModal(existing){
+  const locked = !!(existing && existing.bank_id);
+  const form = LegoVocabularyEntryForm({
+    value: existing || { term: '', entry_type: 'word', senses: [{ meaning: '' }] },
+    readOnly: locked,
+    notice: locked ? 'Esta palabra fue añadida por el profesor. Puedes estudiarla o eliminarla de tu lista; sus sentidos se editan desde el Banco.' : '',
+    submitLabel: existing ? 'Guardar cambios' : 'Añadir',
+    onCancel: function(){ LegoModal.close(); },
+    onSubmit: function(value, node){ return saveVocabularyEntry(existing, value, node); }
+  });
+  LegoModal({ M1: existing ? 'Editar vocabulario' : 'Añadir vocabulario', M3: form });
+}
+function vocabMatchesLetter(entry, letter){
+  if (!letter) return true;
+  const meanings = vocabularyEntrySenses(entry).map(function(s){ return String(s.meaning || '').trim(); });
+  if (letter === '#') {
+    const termFirst = String(entry.term || '').trim().charAt(0);
+    return /\d/.test(termFirst) || meanings.some(function(m){ return /\d/.test(m.charAt(0)); });
+  }
+  const l = String(letter).toLowerCase();
+  return vocabKey(entry.term).indexOf(l) === 0 || meanings.some(function(m){ return vocabKey(m).indexOf(l) === 0; });
+}
+function vocabMatchesQuery(entry, q){
+  if (!q) return true;
+  const senseText = vocabularyEntrySenses(entry).map(function(s){
+    return [s.meaning, s.context, s.example].concat(s.accepted_answers || []).join(' ');
+  });
+  const hay = [entry.term, vocabEntryTypeLabel(entry.entry_type), vocabSourceLabel(entry.source)].concat(senseText).join(' ');
+  return vocabKey(hay).indexOf(vocabKey(q)) !== -1;
+}
+function vocabMatchesType(entry, type){
+  if (!type) return true;
+  if (type === 'word') return entry.entry_type !== 'expression';
+  return entry.entry_type === type;
+}
+function vocabularyTablePairs(entries){
+  const pairs = [];
+  for (let i = 0; i < entries.length; i += 2) pairs.push({ left: entries[i], right: entries[i + 1] || null });
+  return pairs;
+}
+function vocabularyTermCell(entry){
+  const wrap = mk('span');
+  if (!entry) return wrap;
+  wrap.style.cssText = 'font-weight:700;cursor:pointer';
+  wrap.textContent = entry.term || '';
+  wrap.onclick = function(){ openVocabularyModal(entry); };
+  return wrap;
+}
+function vocabularyMeaningCell(entry){
+  const wrap = mk('span');
+  if (!entry) return wrap;
+  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:8px;cursor:pointer;min-height:18px';
+  const meanings = mk('span');
+  meanings.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1;min-width:0';
+  vocabularyEntrySenses(entry).forEach(function(s){
+    const line = mk('span');
+    line.textContent = '• ' + (s.meaning || '') + (s.context ? ' — ' + s.context : '');
+    meanings.appendChild(line);
+  });
+  const del = mk('button', 'btn btn-sm');
+  del.type = 'button';
+  del.setAttribute('aria-label', 'Eliminar entrada');
+  del.style.cssText = 'flex:0 0 auto;background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;padding:4px 7px';
+  del.replaceChildren(LegoIcon('ti-trash', { size: 13 }));
+  del.onclick = function(e){ e.stopPropagation(); deleteVocabularyEntry(entry); };
+  wrap.onclick = function(){ openVocabularyModal(entry); };
+  wrap.replaceChildren(meanings, del);
+  return wrap;
+}
+function vocabularyPracticePairs(entries, limit, kind, flashMode){
+  const usable = entries.filter(function(entry){ return String(entry.term || '').trim() && vocabularyEntrySenses(entry).length; });
+  if (kind === 'flashcard' && flashMode !== 'write') {
+    return usable.sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10).map(function(entry){
+      const senses = vocabularyEntrySenses(entry);
+      return {
+        left: entry.term,
+        right: senses[0].meaning,
+        backLines: senses.map(function(s){ return { meaning: s.meaning, context: s.context || '', example: s.example || '' }; })
+      };
+    });
+  }
+  const expanded = [];
+  usable.forEach(function(entry){
+    const senses = vocabularyEntrySenses(entry);
+    senses.forEach(function(s, i){
+      const spanish = String(entry.term || '').trim();
+      if (kind === 'letter-order') {
+        if (entry.entry_type === 'expression' || /\s/.test(spanish)) return;
+        expanded.push({
+          left: s.meaning,
+          right: spanish,
+          accepted: []
+        });
+        return;
+      }
+      const example = String(s.example || '').trim();
+      const front = entry.term + (example ? ' — ' + example : (senses.length > 1 ? ' — sentido ' + (i + 1) : ''));
+      expanded.push({
+        left: front,
+        right: s.meaning,
+        accepted: (s.accepted_answers || []).slice()
+      });
+    });
+  });
+  return expanded.sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10);
+}
+function vocabularyPracticeType(kind, flashMode){
+  if (kind === 'flashcard') return flashMode === 'write' ? 'flashcard_write' : 'flashcard_flip';
+  if (kind === 'true-false-vocab') return 'true_false_vocab';
+  if (kind === 'letter-order') return 'letter_order';
+  return kind;
+}
+async function recordVocabularyPractice(kind, flashMode, entryCount){
+  if (!currentUser) return;
+  try {
+    await LegoData.insertVocabularyPracticeEvent({
+      student_id: currentStudentId(),
+      practice_type: vocabularyPracticeType(kind, flashMode),
+      entry_count: entryCount || 0
+    });
+  } catch(e) {
+    console.warn('No se pudo contar la práctica de vocabulario:', e.message || e);
+  }
+}
+function openVocabularyPractice(kind, entries, limit, flashMode){
+  const pairs = vocabularyPracticePairs(entries, limit, kind, flashMode);
+  if (!pairs.length) { showToast('Necesitas vocabulario para practicar.'); return; }
+  if ((kind === 'match' || kind === 'memory' || kind === 'true-false-vocab') && pairs.length < 2) { showToast('Necesitas al menos 2 entradas.'); return; }
+  const titles = { flashcard: 'Flashcards', match: 'Emparejar', memory: 'Memory', 'true-false-vocab': 'Correcto o Incorrecto', 'letter-order': 'Ordenar Letras' };
+  const instructions = {
+    flashcard: 'Toca cada tarjeta y marca si la recuerdas.',
+    match: 'Conecta cada palabra con su significado.',
+    memory: 'Encuentra las parejas de palabra y significado.',
+    'true-false-vocab': 'Marca si cada par de palabra y significado es correcto o incorrecto.',
+    'letter-order': 'Ordena las letras para formar la palabra en español.'
+  };
+  const activity = {
+    type: kind,
+    title: titles[kind] || 'Práctica',
+    content: { version: 2, task: kind, instructions: instructions[kind] || '', pairs: pairs }
+  };
+  const mount = mk('div');
+  mount.style.cssText = 'min-height:360px;max-height:70vh;overflow:auto';
+  recordVocabularyPractice(kind, flashMode, pairs.length);
+  const player = LegoPlayer(activity, { mode: 'practice', feedback: true, fcMode: flashMode || 'flip' });
+  mount.appendChild(player);
+  const close = mk('button', 'btn btn-outline btn-sm', 'Cerrar');
+  close.type = 'button';
+  close.onclick = function(){ LegoModal.close(); };
+  LegoModal({ M1: titles[kind] || 'Práctica', M2: pairs.length + ' entradas', M3: mount, M7: close });
+}
+function vocabularyPackageName(entry){
+  const detail = String(entry && entry.source_detail || '');
+  return detail.indexOf('paquete:') === 0 ? detail.replace(/^paquete:\s*/i, '').trim() : '';
+}
+function vocabularyPackages(){
+  const map = {};
+  allVocabulary.forEach(function(entry){
+    const name = vocabularyPackageName(entry);
+    if (!name) return;
+    if (!map[name]) map[name] = [];
+    map[name].push(entry);
+  });
+  return Object.keys(map).sort(function(a, b){ return a.localeCompare(b, 'es', { sensitivity: 'base' }); }).map(function(name){
+    return { name: name, entries: map[name].sort(function(a, b){ return String(a.term || '').localeCompare(String(b.term || ''), 'es', { sensitivity: 'base' }); }) };
+  });
+}
+function renderVocabulary(){
+  const mount = $('vocab-mount');
+  if (!mount) return;
+  if (!document.getElementById('vocab-package-layout-styles')) {
+    const st = document.createElement('style');
+    st.id = 'vocab-package-layout-styles';
+    st.textContent = '@media(max-width:720px){.vocab-package-layout{grid-template-columns:1fr!important}.vocab-package-list{max-height:220px!important}}';
+    document.head.appendChild(st);
+  }
+  const allPanel = mk('div');
+  const state = { letter: '', type: '', q: '', limit: 10, flashMode: 'flip', practice: '' };
+  let currentFiltered = [];
+  const top = mk('div');
+  top.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px';
+  const count = mk('div');
+  count.style.cssText = 'font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em';
+  const add = mk('button', 'btn btn-coral btn-sm', 'Añadir');
+  add.type = 'button';
+  add.onclick = function(){ openVocabularyModal(null); };
+  top.appendChild(count);
+  top.appendChild(add);
+  allPanel.appendChild(top);
+
+  const controls = mk('div');
+  controls.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0';
+  const search = mk('input', 'fi');
+  search.placeholder = 'Buscar palabra o significado...';
+  search.style.cssText = 'flex:1;min-width:220px';
+  controls.appendChild(search);
+  const typeSel = LegoSelect({
+    className: 'fs',
+    options: [
+      { value: '', label: 'Todas' },
+      { value: 'word', label: 'Palabras' },
+      { value: 'expression', label: 'Expresiones' }
+    ],
+    onChange: function(v){ state.type = v; renderList(); }
+  });
+  controls.appendChild(typeSel);
+  allPanel.appendChild(controls);
+
+  const letters = mk('div');
+  letters.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px';
+  const letterBtns = [];
+  function letterButton(label, value){
+    const b = mk('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.style.cssText = 'min-width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--white);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit';
+    b.onclick = function(){ state.letter = value; renderList(); };
+    letterBtns.push({ value: value, node: b });
+    letters.appendChild(b);
+  }
+  letterButton('Todos', '');
+  letterButton('0-9', '#');
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch){ letterButton(ch, ch); });
+  allPanel.appendChild(letters);
+
+  const practice = mk('div');
+  practice.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:10px';
+  const practiceChoices = mk('div');
+  practiceChoices.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+  const practiceControls = mk('div');
+  practiceControls.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;align-items:center';
+  const practiceButtons = [];
+  function setPracticeButtonState(){
+    practiceButtons.forEach(function(item){
+      const on = item.kind === state.practice;
+      item.node.className = on ? 'btn btn-coral btn-sm' : 'btn btn-outline btn-sm';
+    });
+  }
+  function renderPracticeControls(){
+    practiceControls.replaceChildren();
+    if (!state.practice) {
+      practiceControls.style.display = 'none';
+      setPracticeButtonState();
+      return;
+    }
+    practiceControls.style.display = 'flex';
+    const limitSel = LegoSelect({
+      className: 'fs',
+      value: String(state.limit),
+      options: [
+        { value: 5, label: '5 palabras' },
+        { value: 10, label: '10 palabras' },
+        { value: 15, label: '15 palabras' },
+        { value: 20, label: '20 palabras' }
+      ],
+      onChange: function(v){ state.limit = parseInt(v, 10) || 10; }
+    });
+    limitSel.style.width = 'auto';
+    practiceControls.appendChild(limitSel);
+    if (state.practice === 'flashcard') {
+      const flashModeSel = LegoSelect({
+        className: 'fs',
+        value: state.flashMode,
+        options: [
+          { value: 'flip', label: 'Estudiar' },
+          { value: 'write', label: 'Escribir' }
+        ],
+        onChange: function(v){ state.flashMode = v || 'flip'; }
+      });
+      flashModeSel.style.width = 'auto';
+      practiceControls.appendChild(flashModeSel);
+    }
+    const start = mk('button', 'btn btn-coral btn-sm', 'Empezar');
+    start.type = 'button';
+    start.onclick = function(){
+      // Regla (2026-07-16): la práctica libre de Todo usa solo las SUELTAS; lo
+      // empaquetado se practica desde Paquetes (cada palabra tiene una casa).
+      const loose = currentFiltered.filter(function(e){ return !vocabularyPackageName(e); });
+      if (!loose.length && currentFiltered.length) { showToast('Estas palabras viven en paquetes. Practícalas desde la pestaña Paquetes.'); return; }
+      openVocabularyPractice(state.practice, loose, state.limit, state.flashMode);
+    };
+    practiceControls.appendChild(start);
+    setPracticeButtonState();
+  }
+  [
+    ['flashcard', 'Flashcards'],
+    ['match', 'Emparejar'],
+    ['memory', 'Memory'],
+    ['true-false-vocab', 'Correcto / Incorrecto'],
+    ['letter-order', 'Ordenar Letras']
+  ].forEach(function(pair){
+    const b = mk('button', 'btn btn-outline btn-sm', pair[1]);
+    b.type = 'button';
+    b.onclick = function(){ state.practice = pair[0]; renderPracticeControls(); };
+    practiceButtons.push({ kind: pair[0], node: b });
+    practiceChoices.appendChild(b);
+  });
+  practice.appendChild(practiceChoices);
+  practice.appendChild(practiceControls);
+  allPanel.appendChild(practice);
+
+  const tableMount = mk('div');
+  allPanel.appendChild(tableMount);
+
+  const packagesPanel = mk('div');
+  const packages = vocabularyPackages();
+  if (packages.length) {
+    const packageState = { packageName: packages[0].name, practice: '', limit: 10, flashMode: 'flip' };
+    let selectedPackage = packages[0];
+    const packageTop = mk('div');
+    packageTop.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px';
+    const packageCount = mk('div');
+    packageCount.style.cssText = 'font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em';
+    packageTop.appendChild(packageCount);
+    const packageChoices = mk('div');
+    packageChoices.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
+    const packageControls = mk('div');
+    packageControls.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px';
+    const packageLayout = mk('div');
+    packageLayout.className = 'vocab-package-layout';
+    packageLayout.style.cssText = 'display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:10px;align-items:start';
+    const packageGrid = mk('div');
+    packageGrid.className = 'vocab-package-list';
+    packageGrid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:8px;max-height:360px;overflow:auto;padding-right:2px';
+    const packagePreview = mk('div');
+    const packagePreviewTitle = mk('div');
+    packagePreviewTitle.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:8px';
+    const packagePreviewBody = mk('div');
+    packagePreviewBody.style.cssText = 'max-height:260px;overflow:auto;border-radius:var(--r)';
+    packagePreview.appendChild(packagePreviewTitle);
+    packagePreview.appendChild(packagePreviewBody);
+    const packageButtons = [];
+    function packageSelectCard(pkg){
+      const icon = mk('div');
+      icon.style.cssText = 'width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--orange-lt);color:var(--orange-dk);flex-shrink:0';
+      icon.replaceChildren(LegoIcon('ti-package', { size: 19 }));
+      const active = pkg.name === packageState.packageName;
+      const card = LegoCard({
+        L1: icon,
+        L2: pkg.name,
+        L4: LegoChip(String(pkg.entries.length) + ' entradas', { bg: 'var(--sand)', color: 'var(--ink-soft)' }),
+        onclick: function(){ packageState.packageName = pkg.name; renderPackagePracticeControls(); }
+      });
+      card.style.cursor = 'pointer';
+      card.style.borderColor = active ? 'var(--coral)' : 'var(--border)';
+      card.style.background = active ? 'var(--orange-lt)' : 'var(--white)';
+      return card;
+    }
+    function renderPackageCards(){
+      packageGrid.replaceChildren();
+      packages.forEach(function(pkg){ packageGrid.appendChild(packageSelectCard(pkg)); });
+    }
+    function renderPackagePreview(){
+      packagePreviewTitle.replaceChildren(
+        LegoIcon('ti-list-details'),
+        document.createTextNode(' ' + selectedPackage.name + ' · ' + selectedPackage.entries.length + ' entradas')
+      );
+      packagePreviewBody.replaceChildren(LegoTable({
+        minWidth: 640,
+        emptyText: 'Este paquete no tiene entradas.',
+        columns: [
+          { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.left); } },
+          { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.left); } },
+          { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.right); } },
+          { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.right); } }
+        ],
+        rows: vocabularyTablePairs(selectedPackage.entries)
+      }));
+    }
+    function setPackageButtonState(){
+      packageButtons.forEach(function(item){
+        const on = item.kind === packageState.practice;
+        item.node.className = on ? 'btn btn-coral btn-sm' : 'btn btn-outline btn-sm';
+      });
+    }
+    function renderPackagePracticeControls(){
+      selectedPackage = packages.find(function(pkg){ return pkg.name === packageState.packageName; }) || packages[0];
+      packageCount.textContent = selectedPackage.entries.length + ' entradas';
+      renderPackageCards();
+      renderPackagePreview();
+      packageControls.replaceChildren();
+      if (!packageState.practice) {
+        packageControls.style.display = 'none';
+        setPackageButtonState();
+        return;
+      }
+      packageControls.style.display = 'flex';
+      const limitSel = LegoSelect({
+        className: 'fs',
+        value: String(packageState.limit),
+        options: [
+          { value: 5, label: '5 palabras' },
+          { value: 10, label: '10 palabras' },
+          { value: 15, label: '15 palabras' },
+          { value: 20, label: '20 palabras' }
+        ],
+        onChange: function(v){ packageState.limit = parseInt(v, 10) || 10; }
+      });
+      limitSel.style.width = 'auto';
+      packageControls.appendChild(limitSel);
+      if (packageState.practice === 'flashcard') {
+        const flashModeSel = LegoSelect({
+          className: 'fs',
+          value: packageState.flashMode,
+          options: [
+            { value: 'flip', label: 'Estudiar' },
+            { value: 'write', label: 'Escribir' }
+          ],
+          onChange: function(v){ packageState.flashMode = v || 'flip'; }
+        });
+        flashModeSel.style.width = 'auto';
+        packageControls.appendChild(flashModeSel);
+      }
+      const start = mk('button', 'btn btn-coral btn-sm', 'Empezar');
+      start.type = 'button';
+      start.onclick = function(){ openVocabularyPractice(packageState.practice, selectedPackage.entries, packageState.limit, packageState.flashMode); };
+      packageControls.appendChild(start);
+      setPackageButtonState();
+    }
+    [
+      ['flashcard', 'Flashcards'],
+      ['match', 'Emparejar'],
+      ['memory', 'Memory'],
+      ['true-false-vocab', 'Correcto / Incorrecto'],
+      ['letter-order', 'Ordenar Letras']
+    ].forEach(function(pair){
+      const b = mk('button', 'btn btn-outline btn-sm', pair[1]);
+      b.type = 'button';
+      b.onclick = function(){ packageState.practice = pair[0]; renderPackagePracticeControls(); };
+      packageButtons.push({ kind: pair[0], node: b });
+      packageChoices.appendChild(b);
+    });
+    packagesPanel.appendChild(packageTop);
+    packagesPanel.appendChild(packageChoices);
+    packagesPanel.appendChild(packageControls);
+    packageLayout.appendChild(packageGrid);
+    packageLayout.appendChild(packagePreview);
+    packagesPanel.appendChild(packageLayout);
+    renderPackagePracticeControls();
+  } else {
+    packagesPanel.appendChild(LegoEmpty({ text: 'Aún no tienes paquetes asignados.' }));
+  }
+
+  search.addEventListener('input', function(){ state.q = search.value; renderList(); });
+
+  function renderList(){
+    letterBtns.forEach(function(item){
+      const on = item.value === state.letter;
+      item.node.style.background = on ? 'var(--coral)' : 'var(--white)';
+      item.node.style.borderColor = on ? 'var(--coral)' : 'var(--border)';
+      item.node.style.color = on ? '#fff' : 'var(--muted)';
+    });
+    const filtered = allVocabulary.filter(function(entry){
+      return vocabMatchesLetter(entry, state.letter) && vocabMatchesType(entry, state.type) && vocabMatchesQuery(entry, state.q);
+    }).sort(function(a, b){
+      return String(a.term || '').localeCompare(String(b.term || ''), 'es', { sensitivity: 'base' });
+    });
+    currentFiltered = filtered;
+    count.textContent = filtered.length + ' de ' + allVocabulary.length + ' entradas';
+    tableMount.replaceChildren(LegoTable({
+      minWidth: 760,
+      emptyText: allVocabulary.length ? 'Sin resultados para este filtro.' : 'Aún no tienes vocabulario guardado.',
+      columns: [
+        { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.left); } },
+        { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.left); } },
+        { label: 'Palabra', width: '22%', render: function(row){ return vocabularyTermCell(row.right); } },
+        { label: 'Significado', width: '28%', render: function(row){ return vocabularyMeaningCell(row.right); } }
+      ],
+      rows: vocabularyTablePairs(filtered)
+    }));
+  }
+  renderList();
+  mount.replaceChildren(LegoInnerHub({
+    tabs: [
+      { id: 'todo', label: 'Todo', content: allPanel, onShow: renderList },
+      { id: 'paquetes', label: 'Paquetes', content: packagesPanel }
+    ],
+    default: 'todo'
+  }));
+}
+// -- perfil --
+async function loadClasses(){
+  if (!currentUser) return;
+  const bundle = await Promise.all([
+    LegoData.classCreditsByStudent(currentStudentId()),
+    LegoData.classSessionsByStudent(currentStudentId()),
+    LegoData.studentBillingContext(currentStudentId()).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
+  ]);
+  allCredits = bundle[0] || [];
+  allSessions = bundle[1] || [];
+  studentBillingContext = bundle[2] || null;
+  try {
+    allClassBoards = await LegoData.classBoardsBySessionIds(allSessions.map(function(s){ return s.id; }), { visibleOnly: true });
+  } catch(e) {
+    console.warn('No se pudieron cargar pizarras compartidas:', e.message || e);
+    allClassBoards = [];
+  }
+}
+function clsToday(){ const d = new Date(); const m = d.getMonth() + 1; const day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day; }
+function clsFmt(iso){ if (!iso) return ''; const p = String(iso).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : String(iso); }
+function clsHora(sess){ const t = sess.class_time ? String(sess.class_time).slice(0, 5) : ''; if (!t) return ''; const e = sess.class_end_time ? String(sess.class_end_time).slice(0, 5) : ''; return e ? (t + ' - ' + e) : t; }
+function clsBillingRole(){ return studentBillingContext && studentBillingContext.billing_role ? studentBillingContext.billing_role : 'individual'; }
+function clsCreditsTotal(){
+  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.group_paid_units) || 0;
+  if (clsBillingRole() === 'group_member') return 0;
+  return allCredits.reduce(function(sum, c){ return sum + (Number(c.credits) || 0); }, 0);
+}
+function clsActivas(){ return allSessions.filter(function(x){ return !x.cancelled; }); }
+function clsDadas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) <= hoy; }); }
+function clsProximas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) > hoy; }); }
+function clsDurationMinutes(sess){ return LegoData.sessionDurationMinutes(sess); }
+function clsUnitsFromMinutes(minutes){ return LegoData.unitsFromMinutes(minutes); }
+function clsSessionUnits(sess){ return LegoData.sessionUnits(sess); }
+function clsQty(n){
+  const num = Number(n) || 0;
+  return Math.abs(num - Math.round(num)) < 0.001 ? String(Math.round(num)) : num.toFixed(1);
+}
+function clsDadasTotal(){
+  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.group_given_units) || 0;
+  return clsDadas().reduce(function(sum, sess){ return sum + clsSessionUnits(sess); }, 0);
+}
+function clsRestantes(){
+  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.visible_remaining_units) || 0;
+  if (clsBillingRole() === 'group_member') return 0;
+  return clsCreditsTotal() - clsDadasTotal();
+}
+function studentBoardForSession(sessionId){
+  return allClassBoards.find(function(b){ return String(b.session_id) === String(sessionId); }) || null;
+}
+function openSharedBoard(sess){
+  const row = studentBoardForSession(sess.id);
+  if (!row) return;
+  const wrap = mk('div');
+  wrap.style.cssText = 'min-width:min(860px,88vw);max-height:78vh;overflow:auto';
+  wrap.appendChild(LegoBoard({ data: row.board_data, readonly: true, height: 520 }));
+  const close = mk('button', 'btn btn-outline btn-sm', 'Cerrar');
+  close.type = 'button';
+  close.onclick = function(){ LegoModal.close(); };
+  LegoModal({ M1: 'Pizarra de clase', M2: clsFmt(sess.class_date) + ' · ' + (clsHora(sess) || 'Sin hora'), M3: wrap, M7: close });
+}
+function renderDashClasses(){
+  const mount = $('dash-clases');
+  if (!mount) return;
+  if (!allCredits.length && !allSessions.length && !(studentBillingContext && studentBillingContext.group_id)) { mount.replaceChildren(); return; }
+  const rest = clsRestantes();
+  const card = mk('div');
+  card.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px';
+  const num = mk('div', null, clsQty(rest));
+  num.style.cssText = 'font-size:32px;font-weight:800;line-height:1;color:' + (rest <= 0 ? 'var(--red)' : 'var(--coral)');
+  const info = mk('div');
+  info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+  const t1 = mk('div', null, clsBillingRole() === 'group_member' ? 'cubierto por bolsa familiar' : (rest === 1 ? 'clase restante' : 'clases restantes'));
+  t1.style.cssText = 'font-size:14px;font-weight:700;color:var(--ink)';
+  info.appendChild(t1);
+  const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
+  const t2 = mk('div');
+  t2.style.cssText = 'font-size:12px;color:var(--muted)';
+  if (clsBillingRole() === 'group_member') {
+    t2.textContent = studentBillingContext && studentBillingContext.group_name ? studentBillingContext.group_name : 'Bolsa familiar';
+  } else if (prox.length) {
+    const p = prox[0];
+    t2.textContent = 'Próxima: ' + clsFmt(p.class_date) + (clsHora(p) ? ' · ' + clsHora(p) : '');
+  } else {
+    t2.textContent = 'Sin clases programadas';
+  }
+  info.appendChild(t2);
+  card.appendChild(num);
+  card.appendChild(info);
+  mount.replaceChildren(card);
+}
+function _clsSessionCard(sess){
+  const hoy = clsToday();
+  const fecha = sess.class_date ? String(sess.class_date).slice(0, 10) : '';
+  let chip;
+  if (sess.cancelled) { chip = LegoChip('Cancelada', { bg: 'var(--sand)', color: 'var(--muted)' }); }
+  else if (fecha && fecha <= hoy) { chip = LegoChip('Dada', { bg: 'var(--green-lt)', color: 'var(--green)' }); }
+  else { chip = LegoChip('Programada', { bg: 'var(--orange-lt)', color: 'var(--orange-dk)' }); }
+  const hora = clsHora(sess);
+  const board = studentBoardForSession(sess.id);
+  let btn = '';
+  if (board) {
+    btn = mk('button', 'btn btn-outline btn-sm');
+    btn.type = 'button';
+    btn.replaceChildren(LegoIcon('ti-chalkboard', { size: 14 }), document.createTextNode(' Pizarra'));
+    btn.onclick = function(e){ e.stopPropagation(); openSharedBoard(sess); };
+  }
+  return LegoCard({ L2: clsFmt(sess.class_date), L3: hora || 'Sin hora', L4: chip, L5: LegoChip(clsQty(clsSessionUnits(sess)) + ' unidades'), L8: btn });
+}
+function _clsCollapsible(titulo, lista){
+  const box = mk('div');
+  box.style.cssText = 'border:1px solid var(--border);border-radius:var(--r);margin-top:12px;overflow:hidden';
+  const head = mk('button');
+  head.type = 'button';
+  head.style.cssText = 'width:100%;background:var(--sand);border:none;padding:13px 15px;text-align:left;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px';
+  const list = mk('div');
+  list.style.cssText = 'padding:14px;display:none;flex-direction:column;gap:10px';
+  const caret = mk('span', null, '▸');
+  const label = mk('span', null, titulo + ' (' + lista.length + ')');
+  head.appendChild(caret); head.appendChild(label);
+  if (lista.length) { lista.forEach(function(sess){ list.appendChild(_clsSessionCard(sess)); }); }
+  else { list.appendChild(LegoEmpty({ text: 'Nada aqui.' })); }
+  head.onclick = function(){ const open = list.style.display === 'none'; list.style.display = open ? 'flex' : 'none'; caret.textContent = open ? '▾' : '▸'; };
+  box.appendChild(head); box.appendChild(list);
+  return box;
+}
+function renderClasesCard(){
+  const card = mk('div');
+  card.style.cssText = 'margin-top:22px;padding:18px 20px;border-top:1px solid var(--border)';
+  const head = mk('div', 'section-head');
+  head.appendChild(mk('div', 'section-title', 'Mis clases'));
+  card.appendChild(head);
+  const stats = mk('div');
+  stats.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px';
+  function stat(n, lbl, color){
+    const b = mk('div');
+    b.style.cssText = 'flex:1;min-width:92px;background:var(--sand);border-radius:var(--r);padding:16px 12px;text-align:center';
+    const v = mk('div', null, String(n));
+    v.style.cssText = 'font-size:27px;font-weight:800;line-height:1;color:' + (color || 'var(--ink)');
+    const l = mk('div', null, lbl);
+    l.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:6px';
+    b.appendChild(v); b.appendChild(l); return b;
+  }
+  const rest = clsRestantes();
+  stats.appendChild(stat(clsQty(rest), 'Restantes', rest <= 0 ? 'var(--red)' : 'var(--coral)'));
+  stats.appendChild(stat(clsQty(clsCreditsTotal()), 'Pagadas'));
+  stats.appendChild(stat(clsQty(clsDadasTotal()), 'Dadas'));
+  card.appendChild(stats);
+  if (clsBillingRole() === 'group_member') {
+    const family = mk('div');
+    family.style.cssText = 'font-size:12px;color:var(--muted);background:var(--sand);border-radius:var(--r);padding:9px 11px;margin-bottom:12px';
+    family.textContent = 'Cubierto por ' + ((studentBillingContext && studentBillingContext.group_name) || 'bolsa familiar') + '.';
+    card.appendChild(family);
+  }
+  const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
+  const pas = clsDadas().slice().sort(function(a, b){ return String(b.class_date).localeCompare(String(a.class_date)); });
+  card.appendChild(_clsCollapsible('Próximas', prox));
+  card.appendChild(_clsCollapsible('Pasadas', pas));
+  return card;
+}
+
+function renderProfile(){
+  const mount = $('profile-mount');
+  if (!currentProfile) { mount.replaceChildren(LegoEmpty({ text: 'No se pudo cargar el perfil.' })); return; }
+  const name = currentProfile.full_name || 'Estudiante';
+  const completedCount = allAssignments.filter(function(a){ return a.completed; }).length;
+
+  const card = mk('div', 'profile-card');
+  const head = mk('div', 'profile-head');
+  const av = mk('div', 'profile-av', initials(name));
+  const headInfo = mk('div');
+  headInfo.appendChild(mk('div', 'profile-name', name));
+  headInfo.appendChild(mk('div', 'profile-level', 'Nivel ' + (currentProfile.level || '—')));
+  head.appendChild(av); head.appendChild(headInfo);
+
+  const bodyEl = mk('div', 'profile-body');
+  function row(label, value){
+    const r = mk('div', 'profile-row');
+    r.appendChild(mk('div', 'profile-row-label', label));
+    r.appendChild(mk('div', 'profile-row-value', value));
+    return r;
+  }
+  bodyEl.appendChild(row('Correo', currentProfile.email || '—'));
+  bodyEl.appendChild(row('Nivel', currentProfile.level || '—'));
+  bodyEl.appendChild(row('Actividades completadas', String(completedCount)));
+  bodyEl.appendChild(row('Puntaje', String(currentProfile.score || 0) + ' pts'));
+  bodyEl.appendChild(row('Miembro desde', currentUser && currentUser.created_at ? fmtDate(currentUser.created_at) : '—'));
+
+  card.appendChild(head); card.appendChild(bodyEl);
+  if (allCredits.length || allSessions.length || (studentBillingContext && studentBillingContext.group_id)) card.appendChild(renderClasesCard());
+  mount.replaceChildren(card);
+}
+
+// -- arranque --
+(async function(){
+  // Enter en login
+  ['login-email', 'login-pass'].forEach(function(id){
+    const el = $(id);
+    if (el) el.addEventListener('keydown', function(e){ if (e.key === 'Enter') doLogin(); });
+  });
+  ['reg-name', 'reg-email', 'reg-pass'].forEach(function(id){
+    const el = $(id);
+    if (el) el.addEventListener('keydown', function(e){ if (e.key === 'Enter') doRegister(); });
+  });
+  const resetEmail = $('reset-email');
+  if (resetEmail) resetEmail.addEventListener('keydown', function(e){ if (e.key === 'Enter') sendPasswordReset(); });
+  ['new-pass', 'new-pass2'].forEach(function(id){
+    const el = $(id);
+    if (el) el.addEventListener('keydown', function(e){ if (e.key === 'Enter') saveNewPassword(); });
+  });
+
+  ['login-pass', 'reg-pass', 'new-pass', 'new-pass2'].forEach(function(id){ var el = $(id); if (el) LegoPassToggle(el); });
+  authRecoveryMode = isPasswordRecoveryUrl();
+  db.auth.onAuthStateChange(function(event, session){
+    if (event === 'PASSWORD_RECOVERY') {
+      authRecoveryMode = true;
+      currentUser = session && session.user ? session.user : null;
+      showResetPasswordForm();
+    }
+  });
+  const { data } = await db.auth.getSession();
+  if (authRecoveryMode) {
+    showResetPasswordForm();
+  } else if (data && data.session && data.session.user) {
+    currentUser = data.session.user;
+    try {
+      await loadProfile();
+      await showPlatform();
+    } catch(e) {
+      await db.auth.signOut();
+      currentUser = null; currentProfile = null;
+      showScreen('screen-login');
+      authErr('login-err', 'La cuenta no tiene una identidad de estudiante válida.');
+    }
+  } else {
+    showScreen('screen-login');
+  }
+})();
+</script>
+</body>
+</html>
+
+
+
+
+
