@@ -46,6 +46,16 @@ var LegoData = (function(){
       return r.data || [];
     },
 
+    activitiesCatalog: async function(opts){
+      opts = opts || {};
+      var ob = opts.orderBy || 'created_at';
+      var asc = opts.orderBy ? (opts.ascending !== false) : false;
+      var columns = 'id,slug,title,description,type,level,grammar_category_id,subfoco_id,created_at';
+      var r = await db.from('activities').select(columns).order(ob, { ascending: asc });
+      if (r.error) _throw('activitiesCatalog', r.error);
+      return r.data || [];
+    },
+
     // Resuelve actividades por id PRESERVANDO el orden de la lista pedida
     // (los pasos de una leccion son una lista ordenada de ids).
     activitiesByIds: async function(ids){
@@ -62,8 +72,9 @@ var LegoData = (function(){
       if (!key) return null;
       var value = String(key);
       var isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+      var isNumericId = /^\d+$/.test(value);
       var q = db.from('activities').select('*').limit(1);
-      q = isUuid ? q.eq('id', value) : q.eq('slug', value);
+      q = (isUuid || isNumericId) ? q.eq('id', isNumericId ? Number(value) : value) : q.eq('slug', value);
       var r = await q;
       if (r.error) _throw('activityByKey', r.error);
       return (r.data || [])[0] || null;
@@ -137,6 +148,75 @@ var LegoData = (function(){
     },
 
     // ── responses ───────────────────────────────────────────
+
+    studentGoalsByStudent: async function(studentId){
+      if (!studentId) _throw('studentGoalsByStudent', { message: 'Falta studentId' });
+      var r = await db.from('student_goals').select('*').eq('student_id', studentId).order('completed', { ascending: true }).order('created_at', { ascending: false });
+      if (r.error) _throw('studentGoalsByStudent', r.error);
+      return r.data || [];
+    },
+
+    insertStudentGoal: async function(studentId, text){
+      var clean = String(text || '').trim();
+      if (!studentId) _throw('insertStudentGoal', { message: 'Falta studentId' });
+      if (!clean) _throw('insertStudentGoal', { message: 'Escribe un objetivo' });
+      var r = await db.from('student_goals').insert({ student_id: studentId, text: clean }).select();
+      if (r.error) _throw('insertStudentGoal', r.error);
+      if (!r.data || !r.data.length) _throw('insertStudentGoal', { message: 'RLS bloqueo el insert (0 filas)' });
+      return r.data[0];
+    },
+
+    updateStudentGoal: async function(goalId, patch){
+      if (!goalId) _throw('updateStudentGoal', { message: 'Falta goalId' });
+      var next = Object.assign({}, patch || {});
+      if (Object.prototype.hasOwnProperty.call(next, 'text')) {
+        next.text = String(next.text || '').trim();
+        if (!next.text) _throw('updateStudentGoal', { message: 'El objetivo no puede quedar vacio' });
+      }
+      if (Object.prototype.hasOwnProperty.call(next, 'completed')) {
+        next.completed = !!next.completed;
+        next.completed_at = next.completed ? new Date().toISOString() : null;
+      }
+      var r = await db.from('student_goals').update(next).eq('id', goalId).select();
+      if (r.error) _throw('updateStudentGoal', r.error);
+      if (!r.data || !r.data.length) _throw('updateStudentGoal', { message: 'RLS bloqueo el update (0 filas)' });
+      return r.data[0];
+    },
+
+    deleteStudentGoal: async function(goalId){
+      if (!goalId) _throw('deleteStudentGoal', { message: 'Falta goalId' });
+      var r = await db.from('student_goals').delete().eq('id', goalId).select('id');
+      if (r.error) _throw('deleteStudentGoal', r.error);
+      if (!r.data || !r.data.length) _throw('deleteStudentGoal', { message: 'RLS bloqueo el delete (0 filas)' });
+      return r.data[0];
+    },
+
+    studentGoalAssignmentLinksByStudent: async function(studentId){
+      if (!studentId) _throw('studentGoalAssignmentLinksByStudent', { message: 'Falta studentId' });
+      var r = await db.from('student_goal_assignments')
+        .select('goal_id,assignment_id,linked_at,student_goals!inner(student_id)')
+        .eq('student_goals.student_id', studentId);
+      if (r.error) _throw('studentGoalAssignmentLinksByStudent', r.error);
+      return (r.data || []).map(function(row){
+        return { goal_id: row.goal_id, assignment_id: row.assignment_id, linked_at: row.linked_at };
+      });
+    },
+
+    replaceAssignmentGoalLinks: async function(assignmentId, goalIds){
+      if (!assignmentId) _throw('replaceAssignmentGoalLinks', { message: 'Falta assignmentId' });
+      var wanted = Array.from(new Set((goalIds || []).filter(Boolean).map(String)));
+      var r = await db.rpc('replace_student_goal_assignments', {
+        p_assignment_id: assignmentId,
+        p_goal_ids: wanted
+      });
+      if (r.error) _throw('replaceAssignmentGoalLinks', r.error);
+      var saved = (r.data || []).map(function(row){ return String(row.goal_id); }).sort();
+      var expected = wanted.slice().sort();
+      if (saved.length !== expected.length || saved.some(function(id, i){ return id !== expected[i]; })) {
+        _throw('replaceAssignmentGoalLinks', { message: 'El RPC no confirmó todos los vínculos' });
+      }
+      return wanted;
+    },
 
     insertResponses: async function(rows){
       if (!rows || !rows.length) return true;
@@ -321,7 +401,7 @@ LegoData.classCreditsByYear = async function(year){
   var fromDate = y + '-01-01';
   var nextDate = (y + 1) + '-01-01';
   var r = await db.from('class_credits')
-    .select('*')
+    .select('student_id,billing_group_id,credits,paid_at,created_at')
     .or('and(paid_at.gte.' + fromDate + ',paid_at.lt.' + nextDate + '),and(paid_at.is.null,created_at.gte.' + fromDate + ',created_at.lt.' + nextDate + ')')
     .order('paid_at', { ascending: false });
   if (r.error) { throw new Error('[LegoData.classCreditsByYear] ' + r.error.message); }
@@ -468,6 +548,17 @@ LegoData.classSessionsByRange = async function(fromDate, toDate){
     .order('class_date', { ascending: true })
     .order('class_time', { ascending: true });
   if (r.error) { throw new Error('[LegoData.classSessionsByRange] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.financeClassSessionsByRange = async function(fromDate, toDate){
+  if (!fromDate || !toDate) { throw new Error('[LegoData.financeClassSessionsByRange] Falta rango'); }
+  var r = await db.from('class_sessions')
+    .select('student_id,class_date,cancelled,billable_units,class_time,class_end_time')
+    .gte('class_date', fromDate)
+    .lte('class_date', toDate)
+    .order('class_date', { ascending: true })
+    .order('class_time', { ascending: true });
+  if (r.error) { throw new Error('[LegoData.financeClassSessionsByRange] ' + r.error.message); }
   return r.data || [];
 };
 LegoData.classPrepSessionsByDate = async function(date){
@@ -748,6 +839,18 @@ LegoData.insertBillingGroup = async function(row){
   if (!r.data || !r.data.length) { throw new Error('[LegoData.insertBillingGroup] No se creó la bolsa'); }
   return normalizeBillingGroup(r.data[0]);
 };
+LegoData.createBillingGroupWithMembers = async function(payload){
+  payload = payload || {};
+  var r = await db.rpc('create_billing_group_with_members', {
+    p_name: payload.name,
+    p_responsible_student_id: payload.responsible_student_id,
+    p_member_ids: payload.member_ids || [],
+    p_starts_on: payload.starts_on || null
+  });
+  if (r.error) { throw new Error('[LegoData.createBillingGroupWithMembers] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.createBillingGroupWithMembers] No se creó la bolsa'); }
+  return normalizeBillingGroup(r.data[0]);
+};
 LegoData.updateBillingGroup = async function(groupId, patch){
   if (!groupId) { throw new Error('[LegoData.updateBillingGroup] Falta groupId'); }
   var r = await db.from('billing_groups').update(patch).eq('id', groupId).select('id,name,responsible_student_id,starts_on,active,created_at');
@@ -766,8 +869,8 @@ LegoData.billingGroupBalance = async function(groupId){
 };
 LegoData.billingGroupMembers = async function(groupId){
   if (!groupId) { throw new Error('[LegoData.billingGroupMembers] Falta groupId'); }
-  var r = await db.from('billing_group_member_rows')
-    .select('id,group_id,group_name,responsible_student_id,student_id,student_name,email,level,status,starts_on,active,is_responsible')
+  var r = await db.from('student_finance_group_members')
+    .select('id,group_id,group_name,responsible_student_id,student_id,student_name,email,level,status,starts_on,active,is_responsible,total_individual_paid_units,total_given_units,total_future_units')
     .eq('group_id', groupId)
     .order('is_responsible', { ascending: false })
     .order('student_name', { ascending: true });
@@ -1106,6 +1209,31 @@ LegoData.vocabularyDashboardStats = async function(){
       term: row.top_shared_term || '',
       meaning: row.top_shared_meaning || '',
       studentCount: Number(row.top_shared_students) || 0
+    }
+  };
+};
+LegoData.vocabularyAdminDashboardSummary = async function(opts){
+  opts = opts || {};
+  var minStudents = Math.max(1, Number(opts.minStudents) || 10);
+  var rowLimit = Math.max(1, Math.min(Number(opts.limit) || 5, 20));
+  var r = await db.rpc('vocabulary_admin_dashboard_summary', {
+    p_min_students: minStudents,
+    p_row_limit: rowLimit
+  });
+  if (r.error) { throw new Error('[LegoData.vocabularyAdminDashboardSummary] ' + r.error.message); }
+  var data = r.data || {};
+  var leaders = data.practiceLeaders || {};
+  return {
+    stats: data.stats || {},
+    topShared: data.topShared || { word: [], expression: [] },
+    levelBreakdown: Array.isArray(data.levelBreakdown) ? data.levelBreakdown : [],
+    practiceLeaders: {
+      flashcard_flip: Array.isArray(leaders.flashcard_flip) ? leaders.flashcard_flip : [],
+      flashcard_write: Array.isArray(leaders.flashcard_write) ? leaders.flashcard_write : [],
+      match: Array.isArray(leaders.match) ? leaders.match : [],
+      memory: Array.isArray(leaders.memory) ? leaders.memory : [],
+      true_false_vocab: Array.isArray(leaders.true_false_vocab) ? leaders.true_false_vocab : [],
+      letter_order: Array.isArray(leaders.letter_order) ? leaders.letter_order : []
     }
   };
 };
@@ -1839,15 +1967,19 @@ LegoData.activityStats = async function(){
   if (r.error) { throw new Error('[LegoData.activityStats] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.activitiesOverviewSummary = async function(){
+  var r = await db.rpc('activities_overview_summary');
+  if (r.error) { throw new Error('[LegoData.activitiesOverviewSummary] ' + r.error.message); }
+  var data = r.data || {};
+  return Array.isArray(data.activities) ? data.activities : [];
+};
 LegoData.studentProgress = async function(){
   var r = await db.from('student_progress').select('*');
   if (r.error) { throw new Error('[LegoData.studentProgress] ' + r.error.message); }
   return r.data || [];
 };
-LegoData.studentsRoster = async function(){
-  var r = await db.from('student_registry').select('*').order('full_name');
-  if (r.error) { throw new Error('[LegoData.studentsRoster] ' + r.error.message); }
-  return (r.data || []).map(function(row){
+function normalizeStudentRegistryRows(rows){
+  return (rows || []).map(function(row){
     return {
       id: row.student_id,
       student_id: row.student_id,
@@ -1871,6 +2003,37 @@ LegoData.studentsRoster = async function(){
       next_class_date: row.next_class_date || null
     };
   });
+}
+LegoData.studentsRoster = async function(){
+  var r = await db.from('student_registry').select('*').order('full_name');
+  if (r.error) { throw new Error('[LegoData.studentsRoster] ' + r.error.message); }
+  return normalizeStudentRegistryRows(r.data || []);
+};
+LegoData.studentsOverviewSummary = async function(){
+  var r = await db.rpc('students_overview_summary');
+  if (r.error) { throw new Error('[LegoData.studentsOverviewSummary] ' + r.error.message); }
+  var data = r.data || {};
+  return {
+    students: normalizeStudentRegistryRows(data.students || []),
+    progress: Array.isArray(data.progress) ? data.progress : []
+  };
+};
+LegoData.vocabularyOverviewSummary = async function(opts){
+  opts = opts || {};
+  var popularLimit = Math.max(1, Math.min(Number(opts.popularLimit) || 8, 20));
+  var leaderLimit = Math.max(1, Math.min(Number(opts.leaderLimit) || 10, 20));
+  var r = await db.rpc('vocabulary_overview_summary', {
+    p_popular_limit: popularLimit,
+    p_leader_limit: leaderLimit
+  });
+  if (r.error) { throw new Error('[LegoData.vocabularyOverviewSummary] ' + r.error.message); }
+  var data = r.data || {};
+  return {
+    uniqueTerms: Number(data.uniqueTerms) || 0,
+    popularOrganic: Array.isArray(data.popularOrganic) ? data.popularOrganic : [],
+    practiceLeaders: Array.isArray(data.practiceLeaders) ? data.practiceLeaders : [],
+    recent: data.recent || { newWords7d: 0, newExpressions7d: 0, totalNew7d: 0 }
+  };
 };
 LegoData.upcomingSessions = async function(opts){
   opts = opts || {};
@@ -1913,6 +2076,8 @@ LegoData.adminClassPrepBySession = async function(sessionId, opts){
       student: null,
       assignments: [],
       responses: [],
+      goals: [],
+      goalLinks: [],
       vocabulary: [],
       practiceEvents: [],
       classSessions: [],
@@ -1930,12 +2095,20 @@ LegoData.adminClassPrepBySession = async function(sessionId, opts){
     LegoData.unreviewedResponsesByStudent(studentId),
     LegoData.studentVocabularyByStudent(studentId),
     LegoData.vocabularyPracticeEventsByStudent(studentId),
+    LegoData.studentGoalsByStudent(studentId).catch(function(e){
+      console.warn('[LegoData.adminClassPrepBySession:goals] ' + (e.message || e));
+      return [];
+    }),
+    LegoData.studentGoalAssignmentLinksByStudent(studentId).catch(function(e){
+      console.warn('[LegoData.adminClassPrepBySession:goalLinks] ' + (e.message || e));
+      return [];
+    }),
     ledgerSessionsPromise,
     ledgerCreditsPromise,
     boardPromise,
     libraryPromise
   ]);
-  var board = results[7];
+  var board = results[9];
   return {
     session: session,
     student: results[0],
@@ -1943,11 +2116,13 @@ LegoData.adminClassPrepBySession = async function(sessionId, opts){
     responses: results[2] || [],
     vocabulary: results[3] || [],
     practiceEvents: results[4] || [],
-    classSessions: results[5] || [],
-    classCredits: results[6] || [],
+    goals: results[5] || [],
+    goalLinks: results[6] || [],
+    classSessions: results[7] || [],
+    classCredits: results[8] || [],
     board: board && !board._boardError ? board : null,
     boardError: board && board._boardError ? board._boardError : '',
-    library: results[8] || [],
+    library: results[10] || [],
     libraryLoaded: !!opts.includeLibrary,
     ledgerLoaded: !!opts.includeLedger
   };
