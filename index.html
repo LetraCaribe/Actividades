@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -181,7 +181,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <div id="screen-login" class="screen active">
   <div class="login-bg"></div>
   <div class="login-box">
-    <div class="login-logo"><img src="logo.png" alt="Letra Caribe"></div>
+    <div class="login-logo"><img src="website%20logo%20sin%20fondo.png" alt="Letra Caribe"></div>
     <div class="login-tabs">
       <button class="ltab active" id="ltab-login" type="button" onclick="switchAuthTab('login')">Ingresar</button>
       <button class="ltab" id="ltab-register" type="button" onclick="switchAuthTab('register')">Registrarse</button>
@@ -240,7 +240,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <!-- ============ PLATFORM ============ -->
 <div id="screen-platform" class="screen">
   <div class="topnav">
-    <div class="topnav-logo"><img src="logo.png" alt="Letra Caribe"></div>
+    <div class="topnav-logo"><img src="website%20logo%20sin%20fondo.png" alt="Letra Caribe"></div>
     <div class="topnav-right">
       <div class="topnav-greeting" id="nav-greeting"></div>
       <div class="topnav-avatar" id="nav-avatar"></div>
@@ -345,7 +345,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <script src="legodata.js"></script>
 <script>
 // ============================================================
-// Portal de estudiantes — motor construido al docs/contrato-datos.md
+// Portal de estudiantes — motor construido al contrato-datos.md
 // ============================================================
 const SUPABASE_URL = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_7NB3dpFRBnwAnFEk2SC_Jw_Vve-Ay0E';
@@ -485,15 +485,8 @@ async function doLogin(){
   $('login-btn').disabled = false;
   if (error) { err.textContent = 'No se pudo ingresar: ' + error.message; err.classList.add('show'); return; }
   currentUser = data.user;
-  try {
-    await loadProfile();
-    await showPlatform();
-  } catch(e) {
-    await db.auth.signOut();
-    currentUser = null; currentProfile = null;
-    err.textContent = 'La cuenta no tiene una identidad de estudiante válida.';
-    err.classList.add('show');
-  }
+  await loadProfile();
+  await showPlatform();
 }
 async function sendPasswordReset(){
   const email = $('reset-email').value.trim();
@@ -535,23 +528,15 @@ async function doRegister(){
   const err = $('reg-err'); err.classList.remove('show');
   if (!name || !email || pass.length < 6) { err.textContent = 'Revisa: nombre, correo y contraseña de 6+ caracteres.'; err.classList.add('show'); return; }
   $('reg-btn').disabled = true;
-  const { data, error } = await db.auth.signUp({ email: email, password: pass, options: { data: { full_name: name, level: level } } });
+  const { data, error } = await db.auth.signUp({ email: email, password: pass, options: { data: { full_name: name } } });
   if (error) { $('reg-btn').disabled = false; err.textContent = 'No se pudo registrar: ' + error.message; err.classList.add('show'); return; }
   currentUser = data.user;
-  try {
-    if (currentUser) {
-      await LegoData.registerCurrentStudent({ full_name: name, email: email, level: level });
-    }
-    $('reg-btn').disabled = false;
-    await loadProfile();
-    await showPlatform();
-  } catch(e) {
-    $('reg-btn').disabled = false;
-    await db.auth.signOut();
-    currentUser = null; currentProfile = null;
-    err.textContent = 'La cuenta se creó, pero no pudo vincularse con el estudiante.';
-    err.classList.add('show');
+  if (currentUser) {
+    await LegoData.upsertProfile({ id: currentUser.id, full_name: name, email: email, level: level, score: 0 });
   }
+  $('reg-btn').disabled = false;
+  await loadProfile();
+  await showPlatform();
 }
 async function doLogout(){
   await db.auth.signOut();
@@ -560,22 +545,8 @@ async function doLogout(){
 }
 async function loadProfile(){
   if (!currentUser) return;
-  try {
-    currentProfile = await LegoData.studentByAuthUserId(currentUser.id);
-    if (!currentProfile) {
-      const meta = currentUser.user_metadata || {};
-      const fullName = String(meta.full_name || currentUser.email || '').trim();
-      if (!fullName) throw new Error('La cuenta no contiene un nombre para crear su identidad.');
-      currentProfile = await LegoData.registerCurrentStudent({
-        full_name: fullName,
-        email: currentUser.email || '',
-        level: meta.level || 'A1'
-      });
-    }
-    if (!currentProfile) throw new Error('La cuenta no está vinculada a una identidad de estudiante.');
-  } catch(e){ console.error('loadProfile', e); currentProfile = null; throw e; }
+  try { currentProfile = await LegoData.profileById(currentUser.id); } catch(e){ console.error('loadProfile', e); currentProfile = null; }
 }
-function currentStudentId(){ return currentProfile && currentProfile.id ? currentProfile.id : null; }
 
 async function showPlatform(){
   showScreen('screen-platform');
@@ -598,8 +569,8 @@ async function showPlatform(){
 
 // -- actividades --
 async function loadAssignments(){
-  if (!currentStudentId()) return;
-  try { allAssignments = await LegoData.assignmentsByStudent(currentStudentId()); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
+  if (!currentUser) return;
+  try { allAssignments = await LegoData.assignmentsByStudent(currentUser.id); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
 
   renderActivities();
 }
@@ -774,7 +745,7 @@ async function submitActivity(asgn, res){
   // Final: practica siempre, o calificado que aprobo / agoto intentos
   const rows = (res.answers || []).map(function(a, i){
     return {
-      student_id: currentStudentId(),
+      student_id: currentUser.id,
       activity_slug: act.slug,
       assignment_id: asgn.id,
       question_num: i + 1,
@@ -791,7 +762,7 @@ async function submitActivity(asgn, res){
     await LegoData.insertResponses(rows);
     await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo, progress: null });
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
-    await LegoData.updateCurrentStudentScore(newScore);
+    await LegoData.updateProfile(currentUser.id, { score: newScore });
     if (currentProfile) currentProfile.score = newScore;
     await loadAssignments();
     renderProfile();
@@ -856,15 +827,7 @@ async function openReview(asgn){
   const mount = $('player-mount');
   mount.replaceChildren(LegoEmpty({ text: 'Cargando…' }));
   $('player-overlay').classList.add('open');
-  let data = [];
-  try {
-    if (asgn && asgn.id) {
-      data = await LegoData.responsesByAssignment(asgn.id);
-      data = (data || []).filter(function(r){ return String(r.activity_slug) === String(act.slug); });
-    } else {
-      data = await LegoData.responsesLatestAttempt(currentStudentId(), act.slug);
-    }
-  } catch(e){ console.error('review responses', e); }
+  let data = []; try { data = await LegoData.responsesByStudentSlug(currentUser.id, act.slug); } catch(e){ console.error('review responses', e); }
   const saved = (data || []).map(function(r){ return { answer: r.answer, isCorrect: r.is_correct, questionText: r.question_text }; });
   const node = LegoPlayer(act, { mode: 'review', saved: saved });
   mount.replaceChildren(node);
@@ -877,42 +840,6 @@ function _lessonFromAsgn(asgn){
   if (!Array.isArray(les.activity_ids)) les.activity_ids = [];
   return les;
 }
-async function _lessonPlayableActivities(les){
-  const steps = LegoData.lessonSteps(les);
-  const activityIds = steps.filter(function(step){ return step.kind === 'activity'; }).map(function(step){ return step.id; });
-  const activities = activityIds.length ? await LegoData.activitiesByIds(activityIds) : [];
-  const byId = {};
-  activities.forEach(function(activity){ byId[String(activity.id)] = activity; });
-  const wordCache = {};
-  const resolved = [];
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
-    if (step.kind === 'activity') {
-      const activity = byId[String(step.id)];
-      if (activity) resolved.push(activity);
-      else console.warn('Paso de actividad no disponible:', step.id);
-      continue;
-    }
-    const bankIds = (step.bank_ids || []).slice();
-    const cacheKey = bankIds.map(String).join('|');
-    if (!wordCache[cacheKey]) wordCache[cacheKey] = await LegoData.bankWordsByIds(bankIds);
-    const words = wordCache[cacheKey] || [];
-    const kind = step.format || 'match';
-    const pairs = vocabularyPracticePairs(words, words.length, kind);
-    if (!pairs.length) {
-      console.warn('Paso de vocabulario sin palabras jugables:', step.title || kind);
-      continue;
-    }
-    resolved.push({
-      type: kind,
-      title: step.title || (words[0] && words[0].tema) || 'Vocabulario',
-      level: (words[0] && words[0].nivel) || '',
-      content: { version: 2, task: kind, instructions: '', pairs: pairs },
-      _warmup: true
-    });
-  }
-  return resolved;
-}
 async function openLesson(asgn){
   const les = _lessonFromAsgn(asgn);
   if (!les) { showToast('Lección no encontrada.'); return; }
@@ -921,7 +848,7 @@ async function openLesson(asgn){
   $('player-mount').replaceChildren(LegoEmpty({ text: 'Cargando…' }));
   $('player-overlay').classList.add('open');
   let acts = [];
-  try { acts = await _lessonPlayableActivities(les); }
+  try { acts = await LegoData.activitiesByIds(les.activity_ids); }
   catch(e){ console.error('openLesson', e); $('player-mount').replaceChildren(LegoEmpty({ text: 'Error al cargar la lección.' })); return; }
   if (!acts.length) { $('player-mount').replaceChildren(LegoEmpty({ text: 'La lección no tiene pasos.' })); return; }
   let lessonProg = asgn.progress;
@@ -936,10 +863,9 @@ async function openLesson(asgn){
     resumeAnswers: resume ? resume.stepAnswers : null,
     onPause: function(p){ pauseLesson(asgn, p); },
     onStepResult: function(i, act, res){
-      if (act && act._warmup === true) return;
       const rows = (res.answers || []).map(function(a, k){
         return {
-          student_id: currentStudentId(),
+          student_id: currentUser.id,
           activity_slug: act.slug,
           assignment_id: asgn.id,
           question_num: k + 1,
@@ -958,7 +884,7 @@ async function openLesson(asgn){
       try {
         await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1, progress: null });
         const newScore = ((currentProfile && currentProfile.score) || 0) + (agg.score || 0) * 10;
-        await LegoData.updateCurrentStudentScore(newScore);
+        await LegoData.updateProfile(currentUser.id, { score: newScore });
         if (currentProfile) currentProfile.score = newScore;
         await loadAssignments();
         renderProfile();
@@ -1053,7 +979,7 @@ async function loadLeaderboard(){
   frag.appendChild(head);
   if (!rows.length) { frag.appendChild(LegoEmpty({ text: 'Sin puntajes todavía.' })); }
   else {
-    const myId = currentStudentId();
+    const myId = (currentUser && currentUser.id) || null;
     rows.forEach(function(p, i){
       const rank = mk('span', null, (i + 1) + '.'); rank.style.cssText = 'font-weight:700;color:var(--muted);min-width:24px';
       const isMe = myId && p.id === myId;
@@ -1125,86 +1051,73 @@ function vocabSourceLabel(source){
 async function loadVocabulary(){
   if (!currentUser) return;
   try {
-    allVocabulary = await LegoData.studentVocabularyByStudent(currentStudentId());
+    allVocabulary = await LegoData.studentVocabularyByStudent(currentUser.id);
   } catch(e) {
     console.error('loadVocabulary', e);
     allVocabulary = [];
   }
 }
-function vocabularyEntrySenses(entry){
-  if (entry && Array.isArray(entry.senses) && entry.senses.length) return entry.senses;
-  if (entry && entry.meaning) {
-    return [{
-      id: null,
-      bank_sense_id: null,
-      meaning: entry.meaning,
-      meaning_key: vocabKey(entry.meaning),
-      context: '',
-      example: '',
-      accepted_answers: [],
-      locked: !!entry.bank_id
-    }];
-  }
-  return [];
+function vocabInput(labelTxt, input){
+  const lab = mk('label');
+  lab.style.cssText = 'display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--ink-soft)';
+  lab.appendChild(mk('span', null, labelTxt));
+  lab.appendChild(input);
+  return lab;
 }
-async function saveVocabularyEntry(existing, value, form){
-  const term = String(value && value.term || '').trim();
-  const entryType = value && value.entry_type || 'word';
-  const senses = (value && value.senses || []).map(function(s){
-    const meaning = String(s.meaning || '').trim();
-    const seen = {};
-    const accepted = (s.accepted_answers || []).map(function(a){ return String(a || '').trim(); }).filter(function(a){
-      const key = vocabKey(a);
-      if (!key || key === vocabKey(meaning) || seen[key]) return false;
-      seen[key] = true;
-      return true;
-    });
-    return {
-      meaning: meaning,
-      meaning_key: vocabKey(meaning),
-      context: String(s.context || '').trim(),
-      example: String(s.example || '').trim(),
-      accepted_answers: accepted
-    };
-  });
-  const termKey = vocabKey(term);
-  function fail(message){ if (form && form.setError) form.setError(message); showToast(message); }
-  if (!term || !termKey) { fail('La palabra necesita letras o números.'); return; }
-  if (!senses.length || senses.some(function(s){ return !s.meaning_key; })) { fail('Añade al menos un significado válido.'); return; }
-  const localKeys = {};
-  if (senses.some(function(s){ if (localKeys[s.meaning_key]) return true; localKeys[s.meaning_key] = true; return false; })) {
-    fail('La misma traducción aparece más de una vez.'); return;
+function vocabField(tag, value, placeholder){
+  const el = mk(tag);
+  el.className = tag === 'textarea' ? 'results-note' : 'fi';
+  el.value = value || '';
+  el.placeholder = placeholder || '';
+  if (tag === 'textarea') {
+    el.rows = 2;
+    el.style.minHeight = '70px';
   }
+  return el;
+}
+async function saveVocabularyEntry(existing, termEl, meaningEl, typeEl){
+  const term = termEl.value.trim();
+  const meaning = meaningEl.value.trim();
+  const entryType = typeEl.value || 'word';
+  const termKey = vocabKey(term);
+  const meaningKey = vocabKey(meaning);
+  if (!term || !meaning) { showToast('Escribe palabra y significado.'); return; }
+  if (!termKey) { showToast('La palabra necesita letras o números.'); return; }
   const duplicate = allVocabulary.find(function(v){
     if (String(v.id) === String(existing && existing.id)) return false;
     const savedTerm = String(v.term_key || vocabKey(v.term));
-    return savedTerm === termKey;
+    const savedMeaning = vocabKey(v.meaning);
+    return savedTerm === termKey || savedTerm === meaningKey || savedMeaning === termKey || savedMeaning === meaningKey;
   });
-  if (duplicate) { fail('Esta palabra en español ya existe.'); openVocabularyModal(duplicate); return; }
+  if (duplicate) { showToast('Esta palabra ya existe.'); openVocabularyModal(duplicate); return; }
+  const payload = {
+    student_id: currentUser.id,
+    term: term,
+    term_key: termKey,
+    meaning: meaning,
+    entry_type: entryType,
+    source: existing ? (existing.source || 'student') : 'student',
+    updated_at: new Date().toISOString()
+  };
   try {
-    await LegoData.saveStudentVocabularyWithSenses({
-      student_id: currentStudentId(),
-      entry_id: existing && existing.id || null,
-      term: term,
-      term_key: termKey,
-      entry_type: entryType,
-      senses: senses
-    });
+    if (existing) {
+      await LegoData.updateStudentVocabulary(existing.id, payload, currentUser.id);
+    } else {
+      await LegoData.insertStudentVocabulary(payload);
+    }
     showToast(existing ? 'Vocabulario actualizado.' : 'Entrada añadida.');
     if (window.LegoModal && LegoModal.close) LegoModal.close();
     await loadVocabulary();
     renderVocabulary();
   } catch(e) {
     console.error('saveVocabularyEntry', e);
-    const message = 'No se guardó: ' + (e && e.message ? e.message : e);
-    if (form && form.setError) form.setError(message);
-    showToast(message);
+    showToast('No se guardó: ' + (e && e.message ? e.message : e));
   }
 }
 async function deleteVocabularyEntry(entry){
   if (!entry || !entry.id) return;
   try {
-    await LegoData.deleteStudentVocabulary(entry.id, currentStudentId());
+    await LegoData.deleteStudentVocabulary(entry.id, currentUser.id);
     showToast('Entrada eliminada.');
     await loadVocabulary();
     renderVocabulary();
@@ -1213,34 +1126,60 @@ async function deleteVocabularyEntry(entry){
     showToast('No se eliminó: ' + (e && e.message ? e.message : e));
   }
 }
-function openVocabularyModal(existing){
-  const locked = !!(existing && existing.bank_id);
-  const form = LegoVocabularyEntryForm({
-    value: existing || { term: '', entry_type: 'word', senses: [{ meaning: '' }] },
-    readOnly: locked,
-    notice: locked ? 'Esta palabra fue añadida por el profesor. Puedes estudiarla o eliminarla de tu lista; sus sentidos se editan desde el Banco.' : '',
-    submitLabel: existing ? 'Guardar cambios' : 'Añadir',
-    onCancel: function(){ LegoModal.close(); },
-    onSubmit: function(value, node){ return saveVocabularyEntry(existing, value, node); }
+function vocabularyForm(existing, onCancel){
+  const box = mk('div');
+  box.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px';
+  const grid = mk('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
+  const term = vocabField('input', existing && existing.term, 'ej. actually');
+  const meaning = vocabField('input', existing && existing.meaning, 'ej. en realidad');
+  const type = LegoSelect({
+    className: 'fs',
+    value: (existing && existing.entry_type) || 'word',
+    options: [
+      { value: 'word', label: 'Palabra' },
+      { value: 'expression', label: 'Expresión' }
+    ]
   });
-  LegoModal({ M1: existing ? 'Editar vocabulario' : 'Añadir vocabulario', M3: form });
+  grid.appendChild(vocabInput('Palabra o expresión', term));
+  grid.appendChild(vocabInput('Significado', meaning));
+  grid.appendChild(vocabInput('Tipo', type));
+  const actions = mk('div');
+  actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px';
+  const save = mk('button', 'btn btn-coral btn-sm', existing ? 'Guardar cambios' : 'Añadir');
+  save.type = 'button';
+  save.onclick = function(){ saveVocabularyEntry(existing, term, meaning, type); };
+  actions.appendChild(save);
+  if (existing) {
+    const cancel = mk('button', 'btn btn-outline btn-sm', 'Cancelar');
+    cancel.type = 'button';
+    cancel.onclick = onCancel;
+    actions.appendChild(cancel);
+  }
+  box.appendChild(grid);
+  box.appendChild(actions);
+  return box;
+}
+function openVocabularyModal(existing){
+  const cancel = mk('button', 'btn btn-outline btn-sm', 'Cancelar');
+  cancel.type = 'button';
+  cancel.onclick = function(){ LegoModal.close(); };
+  const form = vocabularyForm(existing, function(){ LegoModal.close(); });
+  LegoModal({ M1: existing ? 'Editar vocabulario' : 'Añadir vocabulario', M3: form, M5: cancel });
 }
 function vocabMatchesLetter(entry, letter){
   if (!letter) return true;
-  const meanings = vocabularyEntrySenses(entry).map(function(s){ return String(s.meaning || '').trim(); });
   if (letter === '#') {
     const termFirst = String(entry.term || '').trim().charAt(0);
-    return /\d/.test(termFirst) || meanings.some(function(m){ return /\d/.test(m.charAt(0)); });
+    const meaningFirst = String(entry.meaning || '').trim().charAt(0);
+    return /\d/.test(termFirst) || /\d/.test(meaningFirst);
   }
   const l = String(letter).toLowerCase();
-  return vocabKey(entry.term).indexOf(l) === 0 || meanings.some(function(m){ return vocabKey(m).indexOf(l) === 0; });
+  return vocabKey(entry.term).indexOf(l) === 0 || vocabKey(entry.meaning).indexOf(l) === 0;
 }
 function vocabMatchesQuery(entry, q){
   if (!q) return true;
-  const senseText = vocabularyEntrySenses(entry).map(function(s){
-    return [s.meaning, s.context, s.example].concat(s.accepted_answers || []).join(' ');
-  });
-  const hay = [entry.term, vocabEntryTypeLabel(entry.entry_type), vocabSourceLabel(entry.source)].concat(senseText).join(' ');
+  const hay = [entry.term, entry.meaning, vocabEntryTypeLabel(entry.entry_type), vocabSourceLabel(entry.source)].join(' ');
   return vocabKey(hay).indexOf(vocabKey(q)) !== -1;
 }
 function vocabMatchesType(entry, type){
@@ -1264,60 +1203,27 @@ function vocabularyTermCell(entry){
 function vocabularyMeaningCell(entry){
   const wrap = mk('span');
   if (!entry) return wrap;
-  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:8px;cursor:pointer;min-height:18px';
-  const meanings = mk('span');
-  meanings.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1;min-width:0';
-  vocabularyEntrySenses(entry).forEach(function(s){
-    const line = mk('span');
-    line.textContent = '• ' + (s.meaning || '') + (s.context ? ' — ' + s.context : '');
-    meanings.appendChild(line);
-  });
+  wrap.style.cssText = 'display:block;cursor:pointer;min-height:18px';
+  const meaning = mk('span');
+  meaning.textContent = entry.meaning || '';
   const del = mk('button', 'btn btn-sm');
   del.type = 'button';
   del.setAttribute('aria-label', 'Eliminar entrada');
-  del.style.cssText = 'flex:0 0 auto;background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;padding:4px 7px';
+  del.style.cssText = 'float:right;margin-left:8px;background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;padding:4px 7px';
   del.replaceChildren(LegoIcon('ti-trash', { size: 13 }));
   del.onclick = function(e){ e.stopPropagation(); deleteVocabularyEntry(entry); };
   wrap.onclick = function(){ openVocabularyModal(entry); };
-  wrap.replaceChildren(meanings, del);
+  wrap.replaceChildren(meaning, del);
   return wrap;
 }
-function vocabularyPracticePairs(entries, limit, kind, flashMode){
-  const usable = entries.filter(function(entry){ return String(entry.term || '').trim() && vocabularyEntrySenses(entry).length; });
-  if (kind === 'flashcard' && flashMode !== 'write') {
-    return usable.sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10).map(function(entry){
-      const senses = vocabularyEntrySenses(entry);
-      return {
-        left: entry.term,
-        right: senses[0].meaning,
-        backLines: senses.map(function(s){ return { meaning: s.meaning, context: s.context || '', example: s.example || '' }; })
-      };
-    });
-  }
-  const expanded = [];
-  usable.forEach(function(entry){
-    const senses = vocabularyEntrySenses(entry);
-    senses.forEach(function(s, i){
-      const spanish = String(entry.term || '').trim();
-      if (kind === 'letter-order') {
-        if (entry.entry_type === 'expression' || /\s/.test(spanish)) return;
-        expanded.push({
-          left: s.meaning,
-          right: spanish,
-          accepted: []
-        });
-        return;
-      }
-      const example = String(s.example || '').trim();
-      const front = entry.term + (example ? ' — ' + example : (senses.length > 1 ? ' — sentido ' + (i + 1) : ''));
-      expanded.push({
-        left: front,
-        right: s.meaning,
-        accepted: (s.accepted_answers || []).slice()
-      });
-    });
+function vocabularyPracticePairs(entries, limit, kind){
+  return entries.filter(function(entry){
+    if (!(entry.term || '').trim() || !(entry.meaning || '').trim()) return false;
+    if (kind === 'letter-order') return entry.entry_type !== 'expression' && !/\s/.test(String(entry.meaning || '').trim());
+    return true;
+  }).sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10).map(function(entry){
+    return { left: entry.term, right: entry.meaning };
   });
-  return expanded.sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10);
 }
 function vocabularyPracticeType(kind, flashMode){
   if (kind === 'flashcard') return flashMode === 'write' ? 'flashcard_write' : 'flashcard_flip';
@@ -1329,7 +1235,7 @@ async function recordVocabularyPractice(kind, flashMode, entryCount){
   if (!currentUser) return;
   try {
     await LegoData.insertVocabularyPracticeEvent({
-      student_id: currentStudentId(),
+      student_id: currentUser.id,
       practice_type: vocabularyPracticeType(kind, flashMode),
       entry_count: entryCount || 0
     });
@@ -1338,7 +1244,7 @@ async function recordVocabularyPractice(kind, flashMode, entryCount){
   }
 }
 function openVocabularyPractice(kind, entries, limit, flashMode){
-  const pairs = vocabularyPracticePairs(entries, limit, kind, flashMode);
+  const pairs = vocabularyPracticePairs(entries, limit, kind);
   if (!pairs.length) { showToast('Necesitas vocabulario para practicar.'); return; }
   if ((kind === 'match' || kind === 'memory' || kind === 'true-false-vocab') && pairs.length < 2) { showToast('Necesitas al menos 2 entradas.'); return; }
   const titles = { flashcard: 'Flashcards', match: 'Emparejar', memory: 'Memory', 'true-false-vocab': 'Correcto o Incorrecto', 'letter-order': 'Ordenar Letras' };
@@ -1347,7 +1253,7 @@ function openVocabularyPractice(kind, entries, limit, flashMode){
     match: 'Conecta cada palabra con su significado.',
     memory: 'Encuentra las parejas de palabra y significado.',
     'true-false-vocab': 'Marca si cada par de palabra y significado es correcto o incorrecto.',
-    'letter-order': 'Ordena las letras para formar la palabra en español.'
+    'letter-order': 'Ordena las letras para formar el significado.'
   };
   const activity = {
     type: kind,
@@ -1697,9 +1603,9 @@ function renderVocabulary(){
 async function loadClasses(){
   if (!currentUser) return;
   const bundle = await Promise.all([
-    LegoData.classCreditsByStudent(currentStudentId()),
-    LegoData.classSessionsByStudent(currentStudentId()),
-    LegoData.studentBillingContext(currentStudentId()).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
+    LegoData.classCreditsByStudent(currentUser.id),
+    LegoData.classSessionsByStudent(currentUser.id),
+    LegoData.studentBillingContext(currentUser.id).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
   ]);
   allCredits = bundle[0] || [];
   allSessions = bundle[1] || [];
@@ -1723,9 +1629,31 @@ function clsCreditsTotal(){
 function clsActivas(){ return allSessions.filter(function(x){ return !x.cancelled; }); }
 function clsDadas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) <= hoy; }); }
 function clsProximas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) > hoy; }); }
-function clsDurationMinutes(sess){ return LegoData.sessionDurationMinutes(sess); }
-function clsUnitsFromMinutes(minutes){ return LegoData.unitsFromMinutes(minutes); }
-function clsSessionUnits(sess){ return LegoData.sessionUnits(sess); }
+function clsTimeToMin(value){
+  const t = value ? String(value).slice(0, 5) : '';
+  if (!t || t.indexOf(':') < 0) return null;
+  const p = t.split(':');
+  return (parseInt(p[0], 10) * 60) + (parseInt(p[1] || '0', 10) || 0);
+}
+function clsDurationMinutes(sess){
+  const sm = clsTimeToMin(sess && sess.class_time);
+  if (sm === null) return 0;
+  let em = clsTimeToMin(sess && sess.class_end_time);
+  if (em === null) em = sm + 60;
+  if (em <= sm) em += 24 * 60;
+  return Math.max(0, em - sm);
+}
+function clsUnitsFromMinutes(minutes){
+  const mins = Number(minutes) || 0;
+  if (mins <= 0) return 1;
+  if (Math.abs(mins - 10) < 0.001) return 0.2;
+  return Math.round((mins / 60) * 100) / 100;
+}
+function clsSessionUnits(sess){
+  const manual = Number(sess && sess.billable_units);
+  if (Number.isFinite(manual) && manual > 0) return manual;
+  return clsUnitsFromMinutes(clsDurationMinutes(sess));
+}
 function clsQty(n){
   const num = Number(n) || 0;
   return Math.abs(num - Math.round(num)) < 0.001 ? String(Math.round(num)) : num.toFixed(1);
@@ -1917,15 +1845,8 @@ function renderProfile(){
     showResetPasswordForm();
   } else if (data && data.session && data.session.user) {
     currentUser = data.session.user;
-    try {
-      await loadProfile();
-      await showPlatform();
-    } catch(e) {
-      await db.auth.signOut();
-      currentUser = null; currentProfile = null;
-      showScreen('screen-login');
-      authErr('login-err', 'La cuenta no tiene una identidad de estudiante válida.');
-    }
+    await loadProfile();
+    await showPlatform();
   } else {
     showScreen('screen-login');
   }
