@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -181,7 +181,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <div id="screen-login" class="screen active">
   <div class="login-bg"></div>
   <div class="login-box">
-    <div class="login-logo"><img src="website%20logo%20sin%20fondo.png" alt="Letra Caribe"></div>
+    <div class="login-logo"><img src="logo.png" alt="Letra Caribe"></div>
     <div class="login-tabs">
       <button class="ltab active" id="ltab-login" type="button" onclick="switchAuthTab('login')">Ingresar</button>
       <button class="ltab" id="ltab-register" type="button" onclick="switchAuthTab('register')">Registrarse</button>
@@ -240,7 +240,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <!-- ============ PLATFORM ============ -->
 <div id="screen-platform" class="screen">
   <div class="topnav">
-    <div class="topnav-logo"><img src="website%20logo%20sin%20fondo.png" alt="Letra Caribe"></div>
+    <div class="topnav-logo"><img src="logo.png" alt="Letra Caribe"></div>
     <div class="topnav-right">
       <div class="topnav-greeting" id="nav-greeting"></div>
       <div class="topnav-avatar" id="nav-avatar"></div>
@@ -251,6 +251,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
     <nav class="side-nav">
       <button class="snav-item active" id="snav-dashboard" type="button" onclick="showTab('dashboard')"><span class="sni">🏠</span> Inicio</button>
       <button class="snav-item" id="snav-actividades" type="button" onclick="showTab('actividades')"><span class="sni">📝</span> Actividades</button>
+      <button class="snav-item" id="snav-objetivos" type="button" onclick="showTab('objetivos')"><span class="sni">🎯</span> Objetivos</button>
       <button class="snav-item" id="snav-biblioteca" type="button" onclick="showTab('biblioteca')"><span class="sni">📚</span> Biblioteca</button>
       <button class="snav-item" id="snav-vocabulario" type="button" onclick="showTab('vocabulario')"><span class="sni">📖</span> Vocabulario</button>
       <button class="snav-item" id="snav-puntajes" type="button" onclick="showTab('puntajes')"><span class="sni">🏆</span> Puntajes</button>
@@ -266,6 +267,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
         </div>
         <div id="dash-clases"></div>
         <div id="wotd-mount"></div>
+        <div id="dash-goals"></div>
         <div class="section-head"><div class="section-title">Pendientes</div></div>
         <div id="dash-activities"></div>
       </section>
@@ -278,6 +280,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
           <button class="archive-toggle" type="button" onclick="toggleArchive()"><span id="archive-caret">▸</span> Completadas</button>
           <div id="act-archive" class="hidden" style="margin-top:12px"></div>
         </div>
+      </section>
+
+      <!-- OBJETIVOS -->
+      <section class="tab-panel" id="tab-objetivos">
+        <div class="section-head"><div class="section-title">Mis objetivos</div></div>
+        <div id="goals-mount"></div>
       </section>
 
       <!-- BIBLIOTECA -->
@@ -345,7 +353,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <script src="legodata.js"></script>
 <script>
 // ============================================================
-// Portal de estudiantes — motor construido al contrato-datos.md
+// Portal de estudiantes — motor construido al docs/contrato-datos.md
 // ============================================================
 const SUPABASE_URL = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_7NB3dpFRBnwAnFEk2SC_Jw_Vve-Ay0E';
@@ -355,6 +363,8 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let currentUser = null;
 let currentProfile = null;
 let allAssignments = [];
+let studentGoals = [];
+let studentGoalLinks = [];
 let allCredits = [], allSessions = [];
 let allClassBoards = [];
 let studentBillingContext = null;
@@ -485,8 +495,15 @@ async function doLogin(){
   $('login-btn').disabled = false;
   if (error) { err.textContent = 'No se pudo ingresar: ' + error.message; err.classList.add('show'); return; }
   currentUser = data.user;
-  await loadProfile();
-  await showPlatform();
+  try {
+    await loadProfile();
+    await showPlatform();
+  } catch(e) {
+    await db.auth.signOut();
+    currentUser = null; currentProfile = null;
+    err.textContent = 'La cuenta no tiene una identidad de estudiante válida.';
+    err.classList.add('show');
+  }
 }
 async function sendPasswordReset(){
   const email = $('reset-email').value.trim();
@@ -528,25 +545,47 @@ async function doRegister(){
   const err = $('reg-err'); err.classList.remove('show');
   if (!name || !email || pass.length < 6) { err.textContent = 'Revisa: nombre, correo y contraseña de 6+ caracteres.'; err.classList.add('show'); return; }
   $('reg-btn').disabled = true;
-  const { data, error } = await db.auth.signUp({ email: email, password: pass, options: { data: { full_name: name } } });
+  const { data, error } = await db.auth.signUp({ email: email, password: pass, options: { data: { full_name: name, level: level } } });
   if (error) { $('reg-btn').disabled = false; err.textContent = 'No se pudo registrar: ' + error.message; err.classList.add('show'); return; }
   currentUser = data.user;
-  if (currentUser) {
-    await LegoData.upsertProfile({ id: currentUser.id, full_name: name, email: email, level: level, score: 0 });
+  try {
+    if (currentUser) {
+      await LegoData.registerCurrentStudent({ full_name: name, email: email, level: level });
+    }
+    $('reg-btn').disabled = false;
+    await loadProfile();
+    await showPlatform();
+  } catch(e) {
+    $('reg-btn').disabled = false;
+    await db.auth.signOut();
+    currentUser = null; currentProfile = null;
+    err.textContent = 'La cuenta se creó, pero no pudo vincularse con el estudiante.';
+    err.classList.add('show');
   }
-  $('reg-btn').disabled = false;
-  await loadProfile();
-  await showPlatform();
 }
 async function doLogout(){
   await db.auth.signOut();
-  currentUser = null; currentProfile = null; allAssignments = [];
+  currentUser = null; currentProfile = null; allAssignments = []; studentGoals = []; studentGoalLinks = [];
   showScreen('screen-login');
 }
 async function loadProfile(){
   if (!currentUser) return;
-  try { currentProfile = await LegoData.profileById(currentUser.id); } catch(e){ console.error('loadProfile', e); currentProfile = null; }
+  try {
+    currentProfile = await LegoData.studentByAuthUserId(currentUser.id);
+    if (!currentProfile) {
+      const meta = currentUser.user_metadata || {};
+      const fullName = String(meta.full_name || currentUser.email || '').trim();
+      if (!fullName) throw new Error('La cuenta no contiene un nombre para crear su identidad.');
+      currentProfile = await LegoData.registerCurrentStudent({
+        full_name: fullName,
+        email: currentUser.email || '',
+        level: meta.level || 'A1'
+      });
+    }
+    if (!currentProfile) throw new Error('La cuenta no está vinculada a una identidad de estudiante.');
+  } catch(e){ console.error('loadProfile', e); currentProfile = null; throw e; }
 }
+function currentStudentId(){ return currentProfile && currentProfile.id ? currentProfile.id : null; }
 
 async function showPlatform(){
   showScreen('screen-platform');
@@ -561,18 +600,36 @@ async function showPlatform(){
   $('wb-greeting').textContent = '¡Hola, ' + name.split(/\s+/)[0] + '!';
   $('wb-sub').textContent = g.sub;
   // cargar datos en paralelo
-  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary(), loadClasses(), loadVocabulary() ]);
+  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary(), loadClasses(), loadVocabulary(), loadStudentGoals() ]);
   renderDashClasses();
   renderVocabulary();
+  renderStudentGoals();
+  renderGoalsDashboard();
   renderProfile();
 }
 
 // -- actividades --
 async function loadAssignments(){
-  if (!currentUser) return;
-  try { allAssignments = await LegoData.assignmentsByStudent(currentUser.id); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
+  if (!currentStudentId()) return;
+  try { allAssignments = await LegoData.assignmentsByStudent(currentStudentId()); } catch(e) { console.error('loadAssignments', e); allAssignments = []; }
 
   renderActivities();
+  renderGoalsDashboard();
+}
+async function loadStudentGoals(){
+  if (!currentStudentId()) return;
+  try {
+    const rows = await Promise.all([
+      LegoData.studentGoalsByStudent(currentStudentId()),
+      LegoData.studentGoalAssignmentLinksByStudent(currentStudentId())
+    ]);
+    studentGoals = rows[0] || [];
+    studentGoalLinks = rows[1] || [];
+  } catch(e) {
+    console.error('loadStudentGoals', e);
+    studentGoals = [];
+    studentGoalLinks = [];
+  }
 }
 function pendingCard(asgn){
   const les = asgn.lessons || null;
@@ -745,7 +802,7 @@ async function submitActivity(asgn, res){
   // Final: practica siempre, o calificado que aprobo / agoto intentos
   const rows = (res.answers || []).map(function(a, i){
     return {
-      student_id: currentUser.id,
+      student_id: currentStudentId(),
       activity_slug: act.slug,
       assignment_id: asgn.id,
       question_num: i + 1,
@@ -762,7 +819,7 @@ async function submitActivity(asgn, res){
     await LegoData.insertResponses(rows);
     await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo, progress: null });
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
-    await LegoData.updateProfile(currentUser.id, { score: newScore });
+    await LegoData.updateCurrentStudentScore(newScore);
     if (currentProfile) currentProfile.score = newScore;
     await loadAssignments();
     renderProfile();
@@ -827,7 +884,15 @@ async function openReview(asgn){
   const mount = $('player-mount');
   mount.replaceChildren(LegoEmpty({ text: 'Cargando…' }));
   $('player-overlay').classList.add('open');
-  let data = []; try { data = await LegoData.responsesByStudentSlug(currentUser.id, act.slug); } catch(e){ console.error('review responses', e); }
+  let data = [];
+  try {
+    if (asgn && asgn.id) {
+      data = await LegoData.responsesByAssignment(asgn.id);
+      data = (data || []).filter(function(r){ return String(r.activity_slug) === String(act.slug); });
+    } else {
+      data = await LegoData.responsesLatestAttempt(currentStudentId(), act.slug);
+    }
+  } catch(e){ console.error('review responses', e); }
   const saved = (data || []).map(function(r){ return { answer: r.answer, isCorrect: r.is_correct, questionText: r.question_text }; });
   const node = LegoPlayer(act, { mode: 'review', saved: saved });
   mount.replaceChildren(node);
@@ -840,6 +905,42 @@ function _lessonFromAsgn(asgn){
   if (!Array.isArray(les.activity_ids)) les.activity_ids = [];
   return les;
 }
+async function _lessonPlayableActivities(les){
+  const steps = LegoData.lessonSteps(les);
+  const activityIds = steps.filter(function(step){ return step.kind === 'activity'; }).map(function(step){ return step.id; });
+  const activities = activityIds.length ? await LegoData.activitiesByIds(activityIds) : [];
+  const byId = {};
+  activities.forEach(function(activity){ byId[String(activity.id)] = activity; });
+  const wordCache = {};
+  const resolved = [];
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (step.kind === 'activity') {
+      const activity = byId[String(step.id)];
+      if (activity) resolved.push(activity);
+      else console.warn('Paso de actividad no disponible:', step.id);
+      continue;
+    }
+    const bankIds = (step.bank_ids || []).slice();
+    const cacheKey = bankIds.map(String).join('|');
+    if (!wordCache[cacheKey]) wordCache[cacheKey] = await LegoData.bankWordsByIds(bankIds);
+    const words = wordCache[cacheKey] || [];
+    const kind = step.format || 'match';
+    const pairs = vocabularyPracticePairs(words, words.length, kind);
+    if (!pairs.length) {
+      console.warn('Paso de vocabulario sin palabras jugables:', step.title || kind);
+      continue;
+    }
+    resolved.push({
+      type: kind,
+      title: step.title || (words[0] && words[0].tema) || 'Vocabulario',
+      level: (words[0] && words[0].nivel) || '',
+      content: { version: 2, task: kind, instructions: '', pairs: pairs },
+      _warmup: true
+    });
+  }
+  return resolved;
+}
 async function openLesson(asgn){
   const les = _lessonFromAsgn(asgn);
   if (!les) { showToast('Lección no encontrada.'); return; }
@@ -848,7 +949,7 @@ async function openLesson(asgn){
   $('player-mount').replaceChildren(LegoEmpty({ text: 'Cargando…' }));
   $('player-overlay').classList.add('open');
   let acts = [];
-  try { acts = await LegoData.activitiesByIds(les.activity_ids); }
+  try { acts = await _lessonPlayableActivities(les); }
   catch(e){ console.error('openLesson', e); $('player-mount').replaceChildren(LegoEmpty({ text: 'Error al cargar la lección.' })); return; }
   if (!acts.length) { $('player-mount').replaceChildren(LegoEmpty({ text: 'La lección no tiene pasos.' })); return; }
   let lessonProg = asgn.progress;
@@ -863,9 +964,10 @@ async function openLesson(asgn){
     resumeAnswers: resume ? resume.stepAnswers : null,
     onPause: function(p){ pauseLesson(asgn, p); },
     onStepResult: function(i, act, res){
+      if (act && act._warmup === true) return;
       const rows = (res.answers || []).map(function(a, k){
         return {
-          student_id: currentUser.id,
+          student_id: currentStudentId(),
           activity_slug: act.slug,
           assignment_id: asgn.id,
           question_num: k + 1,
@@ -884,7 +986,7 @@ async function openLesson(asgn){
       try {
         await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1, progress: null });
         const newScore = ((currentProfile && currentProfile.score) || 0) + (agg.score || 0) * 10;
-        await LegoData.updateProfile(currentUser.id, { score: newScore });
+        await LegoData.updateCurrentStudentScore(newScore);
         if (currentProfile) currentProfile.score = newScore;
         await loadAssignments();
         renderProfile();
@@ -979,7 +1081,7 @@ async function loadLeaderboard(){
   frag.appendChild(head);
   if (!rows.length) { frag.appendChild(LegoEmpty({ text: 'Sin puntajes todavía.' })); }
   else {
-    const myId = (currentUser && currentUser.id) || null;
+    const myId = currentStudentId();
     rows.forEach(function(p, i){
       const rank = mk('span', null, (i + 1) + '.'); rank.style.cssText = 'font-weight:700;color:var(--muted);min-width:24px';
       const isMe = myId && p.id === myId;
@@ -1051,73 +1153,86 @@ function vocabSourceLabel(source){
 async function loadVocabulary(){
   if (!currentUser) return;
   try {
-    allVocabulary = await LegoData.studentVocabularyByStudent(currentUser.id);
+    allVocabulary = await LegoData.studentVocabularyByStudent(currentStudentId());
   } catch(e) {
     console.error('loadVocabulary', e);
     allVocabulary = [];
   }
 }
-function vocabInput(labelTxt, input){
-  const lab = mk('label');
-  lab.style.cssText = 'display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--ink-soft)';
-  lab.appendChild(mk('span', null, labelTxt));
-  lab.appendChild(input);
-  return lab;
-}
-function vocabField(tag, value, placeholder){
-  const el = mk(tag);
-  el.className = tag === 'textarea' ? 'results-note' : 'fi';
-  el.value = value || '';
-  el.placeholder = placeholder || '';
-  if (tag === 'textarea') {
-    el.rows = 2;
-    el.style.minHeight = '70px';
+function vocabularyEntrySenses(entry){
+  if (entry && Array.isArray(entry.senses) && entry.senses.length) return entry.senses;
+  if (entry && entry.meaning) {
+    return [{
+      id: null,
+      bank_sense_id: null,
+      meaning: entry.meaning,
+      meaning_key: vocabKey(entry.meaning),
+      context: '',
+      example: '',
+      accepted_answers: [],
+      locked: !!entry.bank_id
+    }];
   }
-  return el;
+  return [];
 }
-async function saveVocabularyEntry(existing, termEl, meaningEl, typeEl){
-  const term = termEl.value.trim();
-  const meaning = meaningEl.value.trim();
-  const entryType = typeEl.value || 'word';
+async function saveVocabularyEntry(existing, value, form){
+  const term = String(value && value.term || '').trim();
+  const entryType = value && value.entry_type || 'word';
+  const senses = (value && value.senses || []).map(function(s){
+    const meaning = String(s.meaning || '').trim();
+    const seen = {};
+    const accepted = (s.accepted_answers || []).map(function(a){ return String(a || '').trim(); }).filter(function(a){
+      const key = vocabKey(a);
+      if (!key || key === vocabKey(meaning) || seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+    return {
+      meaning: meaning,
+      meaning_key: vocabKey(meaning),
+      context: String(s.context || '').trim(),
+      example: String(s.example || '').trim(),
+      accepted_answers: accepted
+    };
+  });
   const termKey = vocabKey(term);
-  const meaningKey = vocabKey(meaning);
-  if (!term || !meaning) { showToast('Escribe palabra y significado.'); return; }
-  if (!termKey) { showToast('La palabra necesita letras o números.'); return; }
+  function fail(message){ if (form && form.setError) form.setError(message); showToast(message); }
+  if (!term || !termKey) { fail('La palabra necesita letras o números.'); return; }
+  if (!senses.length || senses.some(function(s){ return !s.meaning_key; })) { fail('Añade al menos un significado válido.'); return; }
+  const localKeys = {};
+  if (senses.some(function(s){ if (localKeys[s.meaning_key]) return true; localKeys[s.meaning_key] = true; return false; })) {
+    fail('La misma traducción aparece más de una vez.'); return;
+  }
   const duplicate = allVocabulary.find(function(v){
     if (String(v.id) === String(existing && existing.id)) return false;
     const savedTerm = String(v.term_key || vocabKey(v.term));
-    const savedMeaning = vocabKey(v.meaning);
-    return savedTerm === termKey || savedTerm === meaningKey || savedMeaning === termKey || savedMeaning === meaningKey;
+    return savedTerm === termKey;
   });
-  if (duplicate) { showToast('Esta palabra ya existe.'); openVocabularyModal(duplicate); return; }
-  const payload = {
-    student_id: currentUser.id,
-    term: term,
-    term_key: termKey,
-    meaning: meaning,
-    entry_type: entryType,
-    source: existing ? (existing.source || 'student') : 'student',
-    updated_at: new Date().toISOString()
-  };
+  if (duplicate) { fail('Esta palabra en español ya existe.'); openVocabularyModal(duplicate); return; }
   try {
-    if (existing) {
-      await LegoData.updateStudentVocabulary(existing.id, payload, currentUser.id);
-    } else {
-      await LegoData.insertStudentVocabulary(payload);
-    }
+    await LegoData.saveStudentVocabularyWithSenses({
+      student_id: currentStudentId(),
+      entry_id: existing && existing.id || null,
+      term: term,
+      term_key: termKey,
+      entry_type: entryType,
+      senses: senses
+    });
     showToast(existing ? 'Vocabulario actualizado.' : 'Entrada añadida.');
     if (window.LegoModal && LegoModal.close) LegoModal.close();
     await loadVocabulary();
     renderVocabulary();
   } catch(e) {
     console.error('saveVocabularyEntry', e);
-    showToast('No se guardó: ' + (e && e.message ? e.message : e));
+    const message = 'No se guardó: ' + (e && e.message ? e.message : e);
+    if (form && form.setError) form.setError(message);
+    showToast(message);
   }
 }
 async function deleteVocabularyEntry(entry){
   if (!entry || !entry.id) return;
   try {
-    await LegoData.deleteStudentVocabulary(entry.id, currentUser.id);
+    await LegoData.deleteStudentVocabulary(entry.id, currentStudentId());
     showToast('Entrada eliminada.');
     await loadVocabulary();
     renderVocabulary();
@@ -1126,60 +1241,34 @@ async function deleteVocabularyEntry(entry){
     showToast('No se eliminó: ' + (e && e.message ? e.message : e));
   }
 }
-function vocabularyForm(existing, onCancel){
-  const box = mk('div');
-  box.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px';
-  const grid = mk('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
-  const term = vocabField('input', existing && existing.term, 'ej. actually');
-  const meaning = vocabField('input', existing && existing.meaning, 'ej. en realidad');
-  const type = LegoSelect({
-    className: 'fs',
-    value: (existing && existing.entry_type) || 'word',
-    options: [
-      { value: 'word', label: 'Palabra' },
-      { value: 'expression', label: 'Expresión' }
-    ]
-  });
-  grid.appendChild(vocabInput('Palabra o expresión', term));
-  grid.appendChild(vocabInput('Significado', meaning));
-  grid.appendChild(vocabInput('Tipo', type));
-  const actions = mk('div');
-  actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px';
-  const save = mk('button', 'btn btn-coral btn-sm', existing ? 'Guardar cambios' : 'Añadir');
-  save.type = 'button';
-  save.onclick = function(){ saveVocabularyEntry(existing, term, meaning, type); };
-  actions.appendChild(save);
-  if (existing) {
-    const cancel = mk('button', 'btn btn-outline btn-sm', 'Cancelar');
-    cancel.type = 'button';
-    cancel.onclick = onCancel;
-    actions.appendChild(cancel);
-  }
-  box.appendChild(grid);
-  box.appendChild(actions);
-  return box;
-}
 function openVocabularyModal(existing){
-  const cancel = mk('button', 'btn btn-outline btn-sm', 'Cancelar');
-  cancel.type = 'button';
-  cancel.onclick = function(){ LegoModal.close(); };
-  const form = vocabularyForm(existing, function(){ LegoModal.close(); });
-  LegoModal({ M1: existing ? 'Editar vocabulario' : 'Añadir vocabulario', M3: form, M5: cancel });
+  const locked = !!(existing && existing.bank_id);
+  const form = LegoVocabularyEntryForm({
+    value: existing || { term: '', entry_type: 'word', senses: [{ meaning: '' }] },
+    readOnly: locked,
+    notice: locked ? 'Esta palabra fue añadida por el profesor. Puedes estudiarla o eliminarla de tu lista; sus sentidos se editan desde el Banco.' : '',
+    submitLabel: existing ? 'Guardar cambios' : 'Añadir',
+    onCancel: function(){ LegoModal.close(); },
+    onSubmit: function(value, node){ return saveVocabularyEntry(existing, value, node); }
+  });
+  LegoModal({ M1: existing ? 'Editar vocabulario' : 'Añadir vocabulario', M3: form });
 }
 function vocabMatchesLetter(entry, letter){
   if (!letter) return true;
+  const meanings = vocabularyEntrySenses(entry).map(function(s){ return String(s.meaning || '').trim(); });
   if (letter === '#') {
     const termFirst = String(entry.term || '').trim().charAt(0);
-    const meaningFirst = String(entry.meaning || '').trim().charAt(0);
-    return /\d/.test(termFirst) || /\d/.test(meaningFirst);
+    return /\d/.test(termFirst) || meanings.some(function(m){ return /\d/.test(m.charAt(0)); });
   }
   const l = String(letter).toLowerCase();
-  return vocabKey(entry.term).indexOf(l) === 0 || vocabKey(entry.meaning).indexOf(l) === 0;
+  return vocabKey(entry.term).indexOf(l) === 0 || meanings.some(function(m){ return vocabKey(m).indexOf(l) === 0; });
 }
 function vocabMatchesQuery(entry, q){
   if (!q) return true;
-  const hay = [entry.term, entry.meaning, vocabEntryTypeLabel(entry.entry_type), vocabSourceLabel(entry.source)].join(' ');
+  const senseText = vocabularyEntrySenses(entry).map(function(s){
+    return [s.meaning, s.context, s.example].concat(s.accepted_answers || []).join(' ');
+  });
+  const hay = [entry.term, vocabEntryTypeLabel(entry.entry_type), vocabSourceLabel(entry.source)].concat(senseText).join(' ');
   return vocabKey(hay).indexOf(vocabKey(q)) !== -1;
 }
 function vocabMatchesType(entry, type){
@@ -1203,27 +1292,60 @@ function vocabularyTermCell(entry){
 function vocabularyMeaningCell(entry){
   const wrap = mk('span');
   if (!entry) return wrap;
-  wrap.style.cssText = 'display:block;cursor:pointer;min-height:18px';
-  const meaning = mk('span');
-  meaning.textContent = entry.meaning || '';
+  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:8px;cursor:pointer;min-height:18px';
+  const meanings = mk('span');
+  meanings.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1;min-width:0';
+  vocabularyEntrySenses(entry).forEach(function(s){
+    const line = mk('span');
+    line.textContent = '• ' + (s.meaning || '') + (s.context ? ' — ' + s.context : '');
+    meanings.appendChild(line);
+  });
   const del = mk('button', 'btn btn-sm');
   del.type = 'button';
   del.setAttribute('aria-label', 'Eliminar entrada');
-  del.style.cssText = 'float:right;margin-left:8px;background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;padding:4px 7px';
+  del.style.cssText = 'flex:0 0 auto;background:none;border:1px solid var(--red);color:var(--red);display:inline-flex;align-items:center;cursor:pointer;padding:4px 7px';
   del.replaceChildren(LegoIcon('ti-trash', { size: 13 }));
   del.onclick = function(e){ e.stopPropagation(); deleteVocabularyEntry(entry); };
   wrap.onclick = function(){ openVocabularyModal(entry); };
-  wrap.replaceChildren(meaning, del);
+  wrap.replaceChildren(meanings, del);
   return wrap;
 }
-function vocabularyPracticePairs(entries, limit, kind){
-  return entries.filter(function(entry){
-    if (!(entry.term || '').trim() || !(entry.meaning || '').trim()) return false;
-    if (kind === 'letter-order') return entry.entry_type !== 'expression' && !/\s/.test(String(entry.meaning || '').trim());
-    return true;
-  }).sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10).map(function(entry){
-    return { left: entry.term, right: entry.meaning };
+function vocabularyPracticePairs(entries, limit, kind, flashMode){
+  const usable = entries.filter(function(entry){ return String(entry.term || '').trim() && vocabularyEntrySenses(entry).length; });
+  if (kind === 'flashcard' && flashMode !== 'write') {
+    return usable.sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10).map(function(entry){
+      const senses = vocabularyEntrySenses(entry);
+      return {
+        left: entry.term,
+        right: senses[0].meaning,
+        backLines: senses.map(function(s){ return { meaning: s.meaning, context: s.context || '', example: s.example || '' }; })
+      };
+    });
+  }
+  const expanded = [];
+  usable.forEach(function(entry){
+    const senses = vocabularyEntrySenses(entry);
+    senses.forEach(function(s, i){
+      const spanish = String(entry.term || '').trim();
+      if (kind === 'letter-order') {
+        if (entry.entry_type === 'expression' || /\s/.test(spanish)) return;
+        expanded.push({
+          left: s.meaning,
+          right: spanish,
+          accepted: []
+        });
+        return;
+      }
+      const example = String(s.example || '').trim();
+      const front = entry.term + (example ? ' — ' + example : (senses.length > 1 ? ' — sentido ' + (i + 1) : ''));
+      expanded.push({
+        left: front,
+        right: s.meaning,
+        accepted: (s.accepted_answers || []).slice()
+      });
+    });
   });
+  return expanded.sort(function(){ return Math.random() - 0.5; }).slice(0, limit || 10);
 }
 function vocabularyPracticeType(kind, flashMode){
   if (kind === 'flashcard') return flashMode === 'write' ? 'flashcard_write' : 'flashcard_flip';
@@ -1235,7 +1357,7 @@ async function recordVocabularyPractice(kind, flashMode, entryCount){
   if (!currentUser) return;
   try {
     await LegoData.insertVocabularyPracticeEvent({
-      student_id: currentUser.id,
+      student_id: currentStudentId(),
       practice_type: vocabularyPracticeType(kind, flashMode),
       entry_count: entryCount || 0
     });
@@ -1244,7 +1366,7 @@ async function recordVocabularyPractice(kind, flashMode, entryCount){
   }
 }
 function openVocabularyPractice(kind, entries, limit, flashMode){
-  const pairs = vocabularyPracticePairs(entries, limit, kind);
+  const pairs = vocabularyPracticePairs(entries, limit, kind, flashMode);
   if (!pairs.length) { showToast('Necesitas vocabulario para practicar.'); return; }
   if ((kind === 'match' || kind === 'memory' || kind === 'true-false-vocab') && pairs.length < 2) { showToast('Necesitas al menos 2 entradas.'); return; }
   const titles = { flashcard: 'Flashcards', match: 'Emparejar', memory: 'Memory', 'true-false-vocab': 'Correcto o Incorrecto', 'letter-order': 'Ordenar Letras' };
@@ -1253,7 +1375,7 @@ function openVocabularyPractice(kind, entries, limit, flashMode){
     match: 'Conecta cada palabra con su significado.',
     memory: 'Encuentra las parejas de palabra y significado.',
     'true-false-vocab': 'Marca si cada par de palabra y significado es correcto o incorrecto.',
-    'letter-order': 'Ordena las letras para formar el significado.'
+    'letter-order': 'Ordena las letras para formar la palabra en español.'
   };
   const activity = {
     type: kind,
@@ -1289,6 +1411,20 @@ function vocabularyPackages(){
 function renderVocabulary(){
   const mount = $('vocab-mount');
   if (!mount) return;
+  mount.replaceChildren(LegoStudentVocabulary({
+    title: 'Vocabulario (' + allVocabulary.length + ')',
+    rows: allVocabulary,
+    normalize: vocabKey,
+    getSenses: vocabularyEntrySenses,
+    packageName: vocabularyPackageName,
+    onAdd: function(){ openVocabularyModal(null); },
+    renderTerm: vocabularyTermCell,
+    renderMeaning: vocabularyMeaningCell,
+    onPractice: openVocabularyPractice,
+    onNoLooseEntries: function(){ showToast('Estas palabras viven en paquetes. Practícalas desde la pestaña Paquetes.'); },
+    emptyText: 'Aún no tienes vocabulario guardado.'
+  }));
+  return;
   if (!document.getElementById('vocab-package-layout-styles')) {
     const st = document.createElement('style');
     st.id = 'vocab-package-layout-styles';
@@ -1603,9 +1739,9 @@ function renderVocabulary(){
 async function loadClasses(){
   if (!currentUser) return;
   const bundle = await Promise.all([
-    LegoData.classCreditsByStudent(currentUser.id),
-    LegoData.classSessionsByStudent(currentUser.id),
-    LegoData.studentBillingContext(currentUser.id).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
+    LegoData.classCreditsByStudent(currentStudentId()),
+    LegoData.classSessionsByStudent(currentStudentId()),
+    LegoData.studentBillingContext(currentStudentId()).catch(function(e){ console.warn('No se cargó contexto de bolsa familiar:', e.message || e); return null; })
   ]);
   allCredits = bundle[0] || [];
   allSessions = bundle[1] || [];
@@ -1622,49 +1758,27 @@ function clsFmt(iso){ if (!iso) return ''; const p = String(iso).slice(0, 10).sp
 function clsHora(sess){ const t = sess.class_time ? String(sess.class_time).slice(0, 5) : ''; if (!t) return ''; const e = sess.class_end_time ? String(sess.class_end_time).slice(0, 5) : ''; return e ? (t + ' - ' + e) : t; }
 function clsBillingRole(){ return studentBillingContext && studentBillingContext.billing_role ? studentBillingContext.billing_role : 'individual'; }
 function clsCreditsTotal(){
-  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.group_paid_units) || 0;
-  if (clsBillingRole() === 'group_member') return 0;
+  if (clsBillingRole() === 'responsible') return Number(studentBillingContext.group_paid_units) || 0;
+  if (clsBillingRole() === 'member') return 0;
   return allCredits.reduce(function(sum, c){ return sum + (Number(c.credits) || 0); }, 0);
 }
 function clsActivas(){ return allSessions.filter(function(x){ return !x.cancelled; }); }
 function clsDadas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) <= hoy; }); }
 function clsProximas(){ const hoy = clsToday(); return clsActivas().filter(function(x){ return x.class_date && String(x.class_date).slice(0, 10) > hoy; }); }
-function clsTimeToMin(value){
-  const t = value ? String(value).slice(0, 5) : '';
-  if (!t || t.indexOf(':') < 0) return null;
-  const p = t.split(':');
-  return (parseInt(p[0], 10) * 60) + (parseInt(p[1] || '0', 10) || 0);
-}
-function clsDurationMinutes(sess){
-  const sm = clsTimeToMin(sess && sess.class_time);
-  if (sm === null) return 0;
-  let em = clsTimeToMin(sess && sess.class_end_time);
-  if (em === null) em = sm + 60;
-  if (em <= sm) em += 24 * 60;
-  return Math.max(0, em - sm);
-}
-function clsUnitsFromMinutes(minutes){
-  const mins = Number(minutes) || 0;
-  if (mins <= 0) return 1;
-  if (Math.abs(mins - 10) < 0.001) return 0.2;
-  return Math.round((mins / 60) * 100) / 100;
-}
-function clsSessionUnits(sess){
-  const manual = Number(sess && sess.billable_units);
-  if (Number.isFinite(manual) && manual > 0) return manual;
-  return clsUnitsFromMinutes(clsDurationMinutes(sess));
-}
+function clsDurationMinutes(sess){ return LegoData.sessionDurationMinutes(sess); }
+function clsUnitsFromMinutes(minutes){ return LegoData.unitsFromMinutes(minutes); }
+function clsSessionUnits(sess){ return LegoData.sessionUnits(sess); }
 function clsQty(n){
   const num = Number(n) || 0;
   return Math.abs(num - Math.round(num)) < 0.001 ? String(Math.round(num)) : num.toFixed(1);
 }
 function clsDadasTotal(){
-  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.group_given_units) || 0;
+  if (clsBillingRole() === 'responsible') return Number(studentBillingContext.group_given_units) || 0;
   return clsDadas().reduce(function(sum, sess){ return sum + clsSessionUnits(sess); }, 0);
 }
 function clsRestantes(){
-  if (clsBillingRole() === 'group_responsible') return Number(studentBillingContext.visible_remaining_units) || 0;
-  if (clsBillingRole() === 'group_member') return 0;
+  if (clsBillingRole() === 'responsible') return Number(studentBillingContext.visible_remaining_units) || 0;
+  if (clsBillingRole() === 'member') return 0;
   return clsCreditsTotal() - clsDadasTotal();
 }
 function studentBoardForSession(sessionId){
@@ -1692,13 +1806,13 @@ function renderDashClasses(){
   num.style.cssText = 'font-size:32px;font-weight:800;line-height:1;color:' + (rest <= 0 ? 'var(--red)' : 'var(--coral)');
   const info = mk('div');
   info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
-  const t1 = mk('div', null, clsBillingRole() === 'group_member' ? 'cubierto por bolsa familiar' : (rest === 1 ? 'clase restante' : 'clases restantes'));
+  const t1 = mk('div', null, clsBillingRole() === 'member' ? 'cubierto por bolsa familiar' : (rest === 1 ? 'clase restante' : 'clases restantes'));
   t1.style.cssText = 'font-size:14px;font-weight:700;color:var(--ink)';
   info.appendChild(t1);
   const prox = clsProximas().slice().sort(function(a, b){ return String(a.class_date).localeCompare(String(b.class_date)); });
   const t2 = mk('div');
   t2.style.cssText = 'font-size:12px;color:var(--muted)';
-  if (clsBillingRole() === 'group_member') {
+  if (clsBillingRole() === 'member') {
     t2.textContent = studentBillingContext && studentBillingContext.group_name ? studentBillingContext.group_name : 'Bolsa familiar';
   } else if (prox.length) {
     const p = prox[0];
@@ -1768,7 +1882,7 @@ function renderClasesCard(){
   stats.appendChild(stat(clsQty(clsCreditsTotal()), 'Pagadas'));
   stats.appendChild(stat(clsQty(clsDadasTotal()), 'Dadas'));
   card.appendChild(stats);
-  if (clsBillingRole() === 'group_member') {
+  if (clsBillingRole() === 'member') {
     const family = mk('div');
     family.style.cssText = 'font-size:12px;color:var(--muted);background:var(--sand);border-radius:var(--r);padding:9px 11px;margin-bottom:12px';
     family.textContent = 'Cubierto por ' + ((studentBillingContext && studentBillingContext.group_name) || 'bolsa familiar') + '.';
@@ -1779,6 +1893,260 @@ function renderClasesCard(){
   card.appendChild(_clsCollapsible('Próximas', prox));
   card.appendChild(_clsCollapsible('Pasadas', pas));
   return card;
+}
+
+function studentGoalAssignmentTitle(a){
+  const act = a && a.activities;
+  const lesson = a && a.lessons;
+  let vocab = a && a.vocab_task;
+  if (typeof vocab === 'string') {
+    try { vocab = JSON.parse(vocab); } catch(e) { vocab = null; }
+  }
+  return (act && act.title) || (lesson && lesson.title) || (vocab && vocab.title) || 'Tarea';
+}
+
+function openStudentGoalHistory(goal){
+  const ids = {};
+  studentGoalLinks.forEach(function(link){
+    if (String(link.goal_id) === String(goal.id)) ids[String(link.assignment_id)] = true;
+  });
+  const wrap = mk('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  const rows = allAssignments.filter(function(a){ return ids[String(a.id)]; });
+  if (!rows.length) wrap.appendChild(LegoEmpty({ text: 'Todavía no hay tareas relacionadas.' }));
+  rows.forEach(function(a){
+    const status = a.reviewed ? 'Revisada' : (a.completed ? 'Por revisar' : 'Pendiente');
+    const action = mk('button', 'btn btn-sm', a.reviewed ? 'Revisar' : (a.completed ? 'Esperando revisión' : 'Abrir'));
+    action.disabled = !!(a.completed && !a.reviewed);
+    action.onclick = function(e){
+      e.stopPropagation();
+      openGoalAssignment(a);
+    };
+    wrap.appendChild(LegoCard({
+      L2: studentGoalAssignmentTitle(a),
+      L5: LegoChip(status),
+      L6: a.assigned_at ? fmtDate(a.assigned_at) : '',
+      L8: action,
+      onclick: function(){ openGoalAssignment(a); }
+    }));
+  });
+  LegoModal({ M1: goal.text, M2: goal.completed ? 'Objetivo cumplido' : 'Objetivo activo', M3: wrap });
+}
+
+function openGoalAssignment(assignment){
+  if (!assignment.completed) {
+    if (window.LegoModal && LegoModal.close) LegoModal.close();
+    openActivity(assignment);
+    return;
+  }
+  if (!assignment.reviewed) {
+    showToast('Tu profesor todavía no ha revisado esta tarea.');
+    return;
+  }
+  if (window.LegoModal && LegoModal.close) LegoModal.close();
+  openReview(assignment);
+}
+
+function editStudentGoal(goal){
+  const input = mk('input');
+  input.className = 'fi';
+  input.value = goal.text || '';
+  input.maxLength = 500;
+  const cancel = mk('button', 'btn btn-sm', 'Cancelar');
+  cancel.onclick = function(){ if (window.LegoModal && LegoModal.close) LegoModal.close(); };
+  const save = mk('button', 'btn btn-sm btn-coral', 'Guardar');
+  save.onclick = async function(){
+    const text = input.value.trim();
+    if (!text) { showToast('El objetivo no puede quedar vacío.'); return; }
+    save.disabled = true;
+    try {
+      const updated = await LegoData.updateStudentGoal(goal.id, { text: text });
+      Object.assign(goal, updated);
+      if (window.LegoModal && LegoModal.close) LegoModal.close();
+      renderStudentGoals();
+      renderGoalsDashboard();
+    } catch(e) {
+      save.disabled = false;
+      showToast('No se editó el objetivo: ' + (e.message || e));
+    }
+  };
+  LegoModal({ M1: 'Editar objetivo', M3: input, M5: cancel, M7: save });
+}
+
+async function deleteStudentGoal(goal){
+  if (!confirm('¿Eliminar este objetivo? Las tareas seguirán intactas.')) return;
+  try {
+    await LegoData.deleteStudentGoal(goal.id);
+    studentGoals = studentGoals.filter(function(row){ return String(row.id) !== String(goal.id); });
+    studentGoalLinks = studentGoalLinks.filter(function(link){ return String(link.goal_id) !== String(goal.id); });
+    renderStudentGoals();
+    renderGoalsDashboard();
+  } catch(e) {
+    showToast('No se eliminó el objetivo: ' + (e.message || e));
+  }
+}
+
+function renderStudentGoalsCard(){
+  const card = mk('div', 'profile-card');
+  card.style.maxWidth = 'none';
+  const head = mk('div', 'profile-head');
+  head.style.padding = '16px 20px';
+  const info = mk('div');
+  info.appendChild(mk('div', 'profile-name', 'Mis objetivos'));
+  info.appendChild(mk('div', 'profile-level', 'Lista compartida con tu profesor'));
+  head.appendChild(info);
+  const body = mk('div', 'profile-body');
+  const form = mk('div');
+  form.style.cssText = 'display:flex;gap:7px;margin-bottom:14px';
+  const input = mk('input');
+  input.className = 'fi';
+  input.placeholder = '¿Qué quieres lograr?';
+  input.maxLength = 500;
+  const add = mk('button', 'btn btn-sm', 'Añadir');
+  add.onclick = async function(){
+    const text = input.value.trim();
+    if (!text) return;
+    add.disabled = true;
+    try {
+      const goal = await LegoData.insertStudentGoal(currentStudentId(), text);
+      studentGoals.unshift(goal);
+      renderStudentGoals();
+      renderGoalsDashboard();
+    } catch(e) {
+      showToast('No se añadió el objetivo: ' + (e.message || e));
+      add.disabled = false;
+    }
+  };
+  form.appendChild(input);
+  form.appendChild(add);
+  body.appendChild(form);
+  const activeGoals = studentGoals.filter(function(goal){ return !goal.completed; });
+  const achievedGoals = studentGoals.filter(function(goal){ return !!goal.completed; });
+  if (!activeGoals.length) {
+    body.appendChild(LegoEmpty({ text: studentGoals.length ? 'No tienes objetivos en progreso.' : 'Escribe el primer objetivo que quieras alcanzar.' }));
+  }
+  function appendGoalRow(container, goal){
+    const row = mk('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--sand)';
+    const open = mk('button');
+    open.type = 'button';
+    open.style.cssText = 'border:0;background:none;padding:0;text-align:left;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;flex:1;min-width:180px';
+    open.textContent = goal.text;
+    open.onclick = function(){ openStudentGoalHistory(goal); };
+    const status = mk('select', 'fs');
+    status.style.cssText = 'width:auto;padding:6px 8px;font-size:12px';
+    [['false', 'En progreso'], ['true', 'Logrado']].forEach(function(pair){
+      const option = mk('option', null, pair[1]);
+      option.value = pair[0];
+      status.appendChild(option);
+    });
+    status.value = goal.completed ? 'true' : 'false';
+    status.onchange = async function(){
+      status.disabled = true;
+      try {
+        const updated = await LegoData.updateStudentGoal(goal.id, { completed: status.value === 'true' });
+        Object.assign(goal, updated);
+        renderStudentGoals();
+        renderGoalsDashboard();
+      } catch(e) {
+        status.value = goal.completed ? 'true' : 'false';
+        status.disabled = false;
+        showToast('No se actualizó el objetivo: ' + (e.message || e));
+      }
+    };
+    const edit = mk('button', 'btn btn-sm', 'Editar');
+    edit.onclick = function(){ editStudentGoal(goal); };
+    const del = mk('button', 'btn btn-sm', 'Eliminar');
+    del.style.color = 'var(--red)';
+    del.onclick = function(){ deleteStudentGoal(goal); };
+    row.appendChild(open);
+    row.appendChild(status);
+    row.appendChild(edit);
+    row.appendChild(del);
+    container.appendChild(row);
+  }
+  activeGoals.forEach(function(goal){ appendGoalRow(body, goal); });
+  if (achievedGoals.length) {
+    const achievedBox = mk('div');
+    achievedBox.style.cssText = 'border:1px dashed var(--border);border-radius:var(--r);padding:9px;margin-top:10px';
+    const toggle = mk('button', 'btn btn-sm', 'Ver objetivos logrados (' + achievedGoals.length + ')');
+    const achievedList = mk('div');
+    achievedList.style.display = 'none';
+    toggle.onclick = function(){
+      const open = achievedList.style.display !== 'none';
+      achievedList.style.display = open ? 'none' : 'block';
+      toggle.textContent = (open ? 'Ver' : 'Ocultar') + ' objetivos logrados (' + achievedGoals.length + ')';
+    };
+    achievedBox.appendChild(toggle);
+    achievedGoals.forEach(function(goal){ appendGoalRow(achievedList, goal); });
+    achievedBox.appendChild(achievedList);
+    body.appendChild(achievedBox);
+  }
+  card.appendChild(head);
+  card.appendChild(body);
+  return card;
+}
+
+function goalAssignmentCounts(goalId){
+  const ids = {};
+  studentGoalLinks.forEach(function(link){
+    if (String(link.goal_id) === String(goalId)) ids[String(link.assignment_id)] = true;
+  });
+  return allAssignments.reduce(function(counts, assignment){
+    if (!ids[String(assignment.id)]) return counts;
+    counts.total++;
+    if (assignment.reviewed) counts.reviewed++;
+    else if (assignment.completed) counts.waiting++;
+    return counts;
+  }, { total: 0, reviewed: 0, waiting: 0 });
+}
+
+function renderStudentGoals(){
+  const mount = $('goals-mount');
+  if (!mount) return;
+  mount.replaceChildren(renderStudentGoalsCard());
+}
+
+function renderGoalsDashboard(){
+  const mount = $('dash-goals');
+  if (!mount) return;
+  const active = studentGoals.filter(function(goal){ return !goal.completed; });
+  const achieved = studentGoals.filter(function(goal){ return !!goal.completed; });
+  const card = mk('div');
+  card.style.cssText = 'background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:18px';
+  const head = mk('div');
+  head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px';
+  const info = mk('div');
+  info.appendChild(mk('div', 'section-title', 'Mis objetivos'));
+  info.appendChild(mk('div', null, active.length + ' en progreso · ' + achieved.length + ' logrados'));
+  info.lastChild.style.cssText = 'font-size:12px;color:var(--muted);margin-top:2px';
+  const open = mk('button', 'btn btn-sm', 'Ver mis objetivos');
+  open.onclick = function(){ showTab('objetivos'); };
+  head.appendChild(info);
+  head.appendChild(open);
+  card.appendChild(head);
+  if (!active.length) {
+    const empty = mk('div');
+    empty.style.cssText = 'font-size:13px;color:var(--muted)';
+    empty.textContent = studentGoals.length ? 'Todos tus objetivos están logrados.' : 'Todavía no has escrito objetivos.';
+    card.appendChild(empty);
+  } else {
+    active.slice(0, 2).forEach(function(goal){
+      const counts = goalAssignmentCounts(goal.id);
+      const row = mk('button');
+      row.type = 'button';
+      row.style.cssText = 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;border:0;border-top:1px solid var(--sand);background:none;padding:10px 0;text-align:left;font:inherit;cursor:pointer;color:var(--ink)';
+      const text = mk('span', null, goal.text);
+      text.style.fontWeight = '600';
+      const meta = mk('span', null, counts.total + (counts.total === 1 ? ' tarea' : ' tareas'));
+      meta.style.cssText = 'font-size:12px;color:var(--muted);white-space:nowrap';
+      row.appendChild(text);
+      row.appendChild(meta);
+      row.onclick = function(){ showTab('objetivos'); openStudentGoalHistory(goal); };
+      card.appendChild(row);
+    });
+  }
+  mount.replaceChildren(card);
 }
 
 function renderProfile(){
@@ -1845,8 +2213,15 @@ function renderProfile(){
     showResetPasswordForm();
   } else if (data && data.session && data.session.user) {
     currentUser = data.session.user;
-    await loadProfile();
-    await showPlatform();
+    try {
+      await loadProfile();
+      await showPlatform();
+    } catch(e) {
+      await db.auth.signOut();
+      currentUser = null; currentProfile = null;
+      showScreen('screen-login');
+      authErr('login-err', 'La cuenta no tiene una identidad de estudiante válida.');
+    }
   } else {
     showScreen('screen-login');
   }
