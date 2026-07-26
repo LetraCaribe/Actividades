@@ -1,3 +1,4 @@
+// Fuente canónica pública en UPLOAD_WEB.
 // ============================================================
 // LegoData — el Lego de los DATOS de Letra Caribe
 // ============================================================
@@ -218,11 +219,24 @@ var LegoData = (function(){
       return wanted;
     },
 
-    insertResponses: async function(rows){
-      if (!rows || !rows.length) return true;
-      var r = await db.from('responses').insert(rows);
+    insertResponses: async function(rows, opts){
+      opts = opts || {};
+      if (!Array.isArray(rows)) _throw('insertResponses', { message: 'Las respuestas deben ser un arreglo' });
+      if (!rows.length) {
+        if (opts.requireRows) _throw('insertResponses', { message: 'La entrega no contiene respuestas' });
+        return [];
+      }
+      rows.forEach(function(row, index){
+        if (!row || !row.student_id || !row.assignment_id || !row.activity_slug || !row.question_num) {
+          _throw('insertResponses', { message: 'Respuesta incompleta en la posición ' + (index + 1) });
+        }
+      });
+      var r = await db.from('responses').insert(rows).select('id,assignment_id');
       if (r.error) _throw('insertResponses', r.error);
-      return true;
+      if (!r.data || r.data.length !== rows.length) {
+        _throw('insertResponses', { message: 'Supabase confirmó ' + ((r.data || []).length) + ' de ' + rows.length + ' respuestas' });
+      }
+      return r.data;
     },
 
     responsesAll: async function(){

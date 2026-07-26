@@ -1,9 +1,11 @@
 <!DOCTYPE html>
+<!-- Fuente pública canónica: subir el contenido completo de UPLOAD_WEB. -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Letra Caribe — Portal de Estudiantes</title>
+<link rel="icon" type="image/jpeg" href="Favicon.jpg">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -348,8 +350,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 
 <div class="toast" id="toast"></div>
 
-<script src="components.js?v=20260723-1"></script>
-<script src="legodata.js?v=20260723-1"></script>
+<script src="components.js?v=20260723-7"></script>
+<script src="legodata.js?v=20260723-3"></script>
 <script>
 // ============================================================
 // Portal de estudiantes — motor construido al docs/contrato-datos.md
@@ -370,19 +372,6 @@ let studentBillingContext = null;
 let allVocabulary = [];
 let resultsAsgnId = null;
 let authRecoveryMode = false;
-
-// ── mapa de iconos por tipo (reusado de admin: ti-* + colores) ──
-const ACTIVITY_ICONS = {
-  'fill-blank': { icon: 'ti-pencil',         bg: '#E6F1FB', color: '#185FA5' },
-  'dropdown':   { icon: 'ti-selector',       bg: '#E6F1FB', color: '#185FA5' },
-  'mc':         { icon: 'ti-list-check',     bg: '#EEEDFE', color: '#534AB7' },
-  'reading':    { icon: 'ti-book-2',         bg: '#FAECE7', color: '#993C1D' },
-  'audio':      { icon: 'ti-headphones',     bg: '#E1F5EE', color: '#0F6E56' },
-  'match':      { icon: 'ti-arrows-shuffle', bg: '#FBEAF0', color: '#993556' },
-  'true-false-vocab': { icon: 'ti-checklist', bg: '#E6F4EA', color: '#1A7A3C' },
-  'drag-drop':  { icon: 'ti-hand-move',      bg: '#FAEEDA', color: '#854F0B' },
-  'mixed':      { icon: 'ti-layout-grid',    bg: '#EAF3DE', color: '#3B6D11' }
-};
 
 // ── helpers DOM ──
 function $(id){ return document.getElementById(id); }
@@ -723,7 +712,7 @@ async function openVocabTask(asgn){
   $('player-level').textContent = activity.level || '';
   var node;
   try {
-    node = LegoPlayer(activity, { mode: 'play', feedback: true, fcMode: vt.fc_mode || 'flip', onResult: function(res){ finishVocabTask(asgn, res); } });
+    node = LegoPlayer(activity, { mode: 'play', feedback: true, fcMode: vt.fc_mode || 'flip', onResult: function(res){ return finishVocabTask(asgn, res); } });
   } catch(e){
     console.error('LegoPlayer vocab task:', e);
     node = LegoEmpty({ text: 'Error al abrir: ' + (e && e.message ? e.message : e) });
@@ -732,13 +721,11 @@ async function openVocabTask(asgn){
   $('player-overlay').classList.add('open');
 }
 async function finishVocabTask(asgn, res){
-  closePlayer();
   if (asgn.completed) { showToast('¡Buena práctica!'); return; }
-  try {
-    await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), attempts: (asgn.attempts || 0) + 1, progress: null });
-    await loadAssignments();
-    showToast('¡Tarea de vocabulario completada!');
-  } catch(e){ console.error('finishVocabTask', e); showToast('Error al guardar: ' + (e && e.message ? e.message : e)); }
+  await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), attempts: (asgn.attempts || 0) + 1, progress: null });
+  await loadAssignments();
+  closePlayer();
+  showToast('¡Tarea de vocabulario completada!');
 }
 function openActivity(asgn){
   if (_vtOf(asgn)) { openVocabTask(asgn); return; }
@@ -748,7 +735,7 @@ function openActivity(asgn){
   $('player-level').textContent = act.level || '';
   let node;
   try {
-    node = LegoPlayer(act, { mode: 'play', feedback: (asgn.eval_mode !== 'calificado'), saved: _asgnSavedAnswers(asgn), onResult: function(res){ submitActivity(asgn, res); }, onPause: function(answers){ pauseActivity(asgn, answers); } });
+    node = LegoPlayer(act, { mode: 'play', feedback: (asgn.eval_mode !== 'calificado'), saved: _asgnSavedAnswers(asgn), onResult: function(res){ return submitActivity(asgn, res); }, onPause: function(answers){ pauseActivity(asgn, answers); } });
   } catch (e) {
     console.error('LegoPlayer error:', e, act);
     node = LegoEmpty({ text: 'Error al abrir: ' + (e && e.message ? e.message : e) });
@@ -810,20 +797,20 @@ async function submitActivity(asgn, res){
       is_correct: a.isCorrect
     };
   });
-  closePlayer();
-  showResults(asgn, res, scorePct, mode, passPct);
+  await LegoData.insertResponses(rows, { requireRows: true });
+  await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo, progress: null });
   try {
-    await LegoData.insertResponses(rows);
-    await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: scorePct, attempts: attemptNo, progress: null });
     const newScore = ((currentProfile && currentProfile.score) || 0) + (res.score || 0) * 10;
     await LegoData.updateCurrentStudentScore(newScore);
     if (currentProfile) currentProfile.score = newScore;
-    await loadAssignments();
-    renderProfile();
   } catch (e) {
-    console.error('submitActivity error:', e);
-    showToast('No se guardó: ' + (e && e.message ? e.message : e));
+    console.error('submitActivity score:', e);
+    showToast('Entrega guardada; el puntaje no pudo actualizarse.');
   }
+  await loadAssignments();
+  renderProfile();
+  closePlayer();
+  showResults(asgn, res, scorePct, mode, passPct);
 }
 function showResults(asgn, res, scorePct, mode, passPct){
   resultsAsgnId = asgn.id;
@@ -960,7 +947,7 @@ async function openLesson(asgn){
     baseTotal: resume ? resume.total : 0,
     resumeAnswers: resume ? resume.stepAnswers : null,
     onPause: function(p){ pauseLesson(asgn, p); },
-    onStepResult: function(i, act, res){
+    onStepResult: async function(i, act, res){
       if (act && act._warmup === true) return;
       const rows = (res.answers || []).map(function(a, k){
         return {
@@ -975,19 +962,22 @@ async function openLesson(asgn){
           is_correct: a.isCorrect
         };
       });
-      LegoData.insertResponses(rows).catch(function(e){ console.error('paso de lección', e); showToast('No se guardó el paso: ' + (e.message || e)); });
+      await LegoData.insertResponses(rows, { requireRows: true });
     },
     onFinish: async function(agg){
-      closePlayer();
-      showResults(asgn, { score: agg.score, total: agg.total }, agg.pct, asgn.eval_mode || 'practica', asgn.pass_pct || 70);
+      await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1, progress: null });
       try {
-        await LegoData.updateAssignment(asgn.id, { completed: true, completed_at: new Date().toISOString(), score_pct: agg.pct, attempts: (asgn.attempts || 0) + 1, progress: null });
         const newScore = ((currentProfile && currentProfile.score) || 0) + (agg.score || 0) * 10;
         await LegoData.updateCurrentStudentScore(newScore);
         if (currentProfile) currentProfile.score = newScore;
-        await loadAssignments();
-        renderProfile();
-      } catch(e){ console.error('lesson finish', e); showToast('No se guardó: ' + (e.message || e)); }
+      } catch(e) {
+        console.error('lesson score:', e);
+        showToast('Lección guardada; el puntaje no pudo actualizarse.');
+      }
+      await loadAssignments();
+      renderProfile();
+      closePlayer();
+      showResults(asgn, { score: agg.score, total: agg.total }, agg.pct, asgn.eval_mode || 'practica', asgn.pass_pct || 70);
     }
   });
   $('player-mount').replaceChildren(node);

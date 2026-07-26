@@ -1,6 +1,30 @@
 // ============================================================
-// components.js — Letra Caribe universal components
+// components.js — Letra Caribe universal components (fuente canónica en UPLOAD_WEB)
 // ============================================================
+
+// ── Catálogo compartido de actividades ─────────────────────
+// Fuente única para filtros e iconos usados por admin y portal.
+var ACTIVITY_CATALOG = [
+  { value: 'fill-blank', label: 'Completar', icon: 'ti-pencil', bg: '#E6F1FB', color: '#185FA5' },
+  { value: 'dropdown', label: 'Desplegable', icon: 'ti-selector', bg: '#E6F1FB', color: '#185FA5', filterable: false },
+  { value: 'mc', label: 'Opción múltiple', icon: 'ti-list-check', bg: '#EEEDFE', color: '#534AB7' },
+  { value: 'reading', label: 'Lectura', icon: 'ti-book-2', bg: '#FAECE7', color: '#993C1D' },
+  { value: 'audio', label: 'Audio', icon: 'ti-headphones', bg: '#E1F5EE', color: '#0F6E56' },
+  { value: 'match', label: 'Emparejar', icon: 'ti-arrows-shuffle', bg: '#FBEAF0', color: '#993556' },
+  { value: 'true-false-vocab', label: 'Correcto o Incorrecto', icon: 'ti-checklist', bg: '#E6F4EA', color: '#1A7A3C' },
+  { value: 'letter-order', label: 'Ordenar Letras', icon: 'ti-abc', bg: '#EEF2FF', color: '#534AB7' },
+  { value: 'drag-drop', label: 'Drag & Drop', icon: 'ti-hand-move', bg: '#FAEEDA', color: '#854F0B' },
+  { value: 'mixed', label: 'Mixta', icon: 'ti-layout-grid', bg: '#EAF3DE', color: '#3B6D11' }
+];
+var ACTIVITY_TYPES = ACTIVITY_CATALOG.filter(function(item) {
+  return item.filterable !== false;
+}).map(function(item) {
+  return { value: item.value, label: item.label };
+});
+var ACTIVITY_ICONS = ACTIVITY_CATALOG.reduce(function(map, item) {
+  map[item.value] = { icon: item.icon, bg: item.bg, color: item.color };
+  return map;
+}, {});
 
 // ── LegoCard CSS ───────────────────────────────────────────
 (function injectLegoStyles() {
@@ -2549,7 +2573,8 @@ function _lpCompose(activity, content, opts){
     submit.style.marginTop = '16px';
     submit.style.flexShrink = '0';
     submit.textContent = opts.submitLabel || 'Enviar respuestas';
-    submit.onclick = function(){
+    submit.onclick = async function(){
+      if (submit.disabled) return;
       var c = 0, t = 0, all = [];
       pieces.forEach(function(p){
         var s = p.score();
@@ -2562,9 +2587,22 @@ function _lpCompose(activity, content, opts){
         if (lpBody && lpBody.scrollIntoView) lpBody.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
-      submitMsg.textContent = '';
+      if (!all.length) {
+        submitMsg.textContent = 'Esta actividad no produjo respuestas. Avísale a tu profesor.';
+        return;
+      }
+      submitMsg.textContent = 'Guardando…';
       submit.disabled = true;
-      if (onResult) onResult({ type: activity.type || 'v2', score: c, total: t, answers: all });
+      try {
+        if (!onResult) throw new Error('La actividad no tiene un manejador de envío');
+        await onResult({ type: activity.type || 'v2', score: c, total: t, answers: all });
+        submitMsg.textContent = '';
+      } catch(e) {
+        console.error('LegoPlayer submit:', e);
+        submitMsg.textContent = 'No se pudo guardar. Intenta nuevamente.';
+        submit.disabled = false;
+        throw e;
+      }
     };
     if (typeof opts.onPause === 'function') {
       var pauseBtn = document.createElement('button');
@@ -3391,6 +3429,7 @@ function LegoLesson(lesson, activities, opts){
   }
   var feedback = opts.feedback !== false;
   var results = [];
+  var persistedSteps = {};
   var idx = opts.startStep || 0;
   if (idx < 0) idx = 0; if (idx > activities.length) idx = activities.length;
   var baseScore = Number(opts.baseScore) || 0;
@@ -3446,10 +3485,25 @@ function LegoLesson(lesson, activities, opts){
       saved: (savedForStep && savedForStep.length) ? savedForStep : undefined,
       onPause: (typeof opts.onPause === 'function') ? function(partial){ var acc = accProgress(); opts.onPause({ step: idx, score: acc.score, total: acc.total, stepAnswers: partial || [] }); } : undefined,
       submitLabel: (idx + 1 < activities.length) ? 'Siguiente paso →' : 'Ver resultado',
-      onResult: function(res){
-        results[idx] = { title: act.title || ('Paso ' + (idx + 1)), type: res.type, score: res.score, total: res.total, answers: res.answers, warmup: act._warmup === true };
-        if (typeof opts.onStepResult === 'function') { try { opts.onStepResult(idx, act, res); } catch(e){} }
-        idx++; showStep();
+      onResult: async function(res){
+        var stepIndex = idx;
+        var stepResult = { title: act.title || ('Paso ' + (stepIndex + 1)), type: res.type, score: res.score, total: res.total, answers: res.answers, warmup: act._warmup === true };
+        if (!persistedSteps[stepIndex] && typeof opts.onStepResult === 'function') {
+          await opts.onStepResult(stepIndex, act, res);
+        }
+        persistedSteps[stepIndex] = true;
+        results[stepIndex] = stepResult;
+        if (stepIndex + 1 >= activities.length && typeof opts.onFinish === 'function') {
+          var finalAcc = accProgress();
+          await opts.onFinish({
+            score: finalAcc.score,
+            total: finalAcc.total,
+            pct: finalAcc.total ? Math.round((finalAcc.score / finalAcc.total) * 100) : 0,
+            steps: results.slice()
+          });
+        }
+        idx = stepIndex + 1;
+        showStep();
       }
     });
     body.replaceChildren(node);
@@ -3478,9 +3532,6 @@ function LegoLesson(lesson, activities, opts){
       box.appendChild(rows);
     }
     body.replaceChildren(box); foot.style.display = 'none';
-    if (typeof opts.onFinish === 'function') {
-      try { opts.onFinish({ score: score, total: total, pct: pct, steps: results.slice() }); } catch(e){}
-    }
   }
 
   if (lesson.cover && idx === 0 && !pendingResume) showCover(); else showStep();
@@ -4431,23 +4482,35 @@ function LegoStudentVocabulary(opts) {
   }
   var packageNames = Object.keys(packageMap).sort(function(a, b){ return a.localeCompare(b, 'es', { sensitivity: 'base' }); });
   if (!packageNames.length || typeof opts.onPractice !== 'function') return root;
+  if (!document.getElementById('lsv-package-styles')) {
+    var lsvStyles = document.createElement('style');
+    lsvStyles.id = 'lsv-package-styles';
+    lsvStyles.textContent = '@media(max-width:720px){.lsv-package-layout{grid-template-columns:1fr!important;max-height:none!important}}';
+    document.head.appendChild(lsvStyles);
+  }
   var packagePanel = document.createElement('div');
-  var packageSelect = LegoSelect({
-    className: opts.selectClass || 'fs',
-    value: packageNames[0],
-    options: packageNames.map(function(name){ return { value: name, label: name + ' (' + packageMap[name].length + ')' }; }),
-    onChange: renderPackage
-  });
-  packagePanel.appendChild(packageSelect);
-  var packageBody = document.createElement('div');
-  packageBody.style.marginTop = '10px';
-  packagePanel.appendChild(packageBody);
-  var packagePracticeState = { limit: 10, flashMode: 'flip' };
-  function renderPackage(name) {
-    var selectedName = name || packageNames[0];
-    var entries = packageMap[selectedName] || [];
-    var actions = document.createElement('div');
-    actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px';
+  var packageView = { name: packageNames[0], query: '' };
+  var packagePracticeState = { kind: '', limit: 10, flashMode: 'flip' };
+  if (packageNames.length > 6) {
+    var packageSearch = document.createElement('input');
+    packageSearch.className = opts.inputClass || 'fi';
+    packageSearch.placeholder = 'Buscar paquete...';
+    packageSearch.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:10px';
+    packageSearch.addEventListener('input', function(){ packageView.query = packageSearch.value; renderPackageCards(); });
+    packagePanel.appendChild(packageSearch);
+  }
+  var practiceWrap = document.createElement('div');
+  practiceWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px';
+  var practiceChoices = document.createElement('div');
+  practiceChoices.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+  var practiceControls = document.createElement('div');
+  practiceControls.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;align-items:center';
+  var packagePracticeButtons = [];
+  function renderPackagePractice() {
+    practiceControls.replaceChildren();
+    packagePracticeButtons.forEach(function(item){ item.node.className = item.kind === packagePracticeState.kind ? 'btn btn-coral btn-sm' : 'btn btn-outline btn-sm'; });
+    if (!packagePracticeState.kind) { practiceControls.style.display = 'none'; return; }
+    practiceControls.style.display = 'flex';
     var packageLimit = LegoSelect({
       className: opts.selectClass || 'fs',
       value: String(packagePracticeState.limit),
@@ -4455,24 +4518,80 @@ function LegoStudentVocabulary(opts) {
       onChange: function(value){ packagePracticeState.limit = parseInt(value, 10) || 10; }
     });
     packageLimit.style.width = 'auto';
-    actions.appendChild(packageLimit);
-    var packageMode = LegoSelect({
-      className: opts.selectClass || 'fs',
-      value: packagePracticeState.flashMode,
-      options: [{ value: 'flip', label: 'Flashcards: estudiar' }, { value: 'write', label: 'Flashcards: escribir' }],
-      onChange: function(value){ packagePracticeState.flashMode = value || 'flip'; }
+    practiceControls.appendChild(packageLimit);
+    if (packagePracticeState.kind === 'flashcard') {
+      var packageMode = LegoSelect({
+        className: opts.selectClass || 'fs',
+        value: packagePracticeState.flashMode,
+        options: [{ value: 'flip', label: 'Estudiar' }, { value: 'write', label: 'Escribir' }],
+        onChange: function(value){ packagePracticeState.flashMode = value || 'flip'; }
+      });
+      packageMode.style.width = 'auto';
+      practiceControls.appendChild(packageMode);
+    }
+    var start = document.createElement('button');
+    start.type = 'button';
+    start.className = 'btn btn-coral btn-sm';
+    start.textContent = 'Empezar';
+    start.onclick = function(){ opts.onPractice(packagePracticeState.kind, packageMap[packageView.name] || [], packagePracticeState.limit, packagePracticeState.flashMode); };
+    practiceControls.appendChild(start);
+  }
+  [['flashcard', 'Flashcards'], ['match', 'Emparejar'], ['memory', 'Memory'], ['true-false-vocab', 'Correcto / Incorrecto'], ['letter-order', 'Ordenar Letras']].forEach(function(definition){
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-outline btn-sm';
+    button.textContent = definition[1];
+    button.onclick = function(){ packagePracticeState.kind = definition[0]; renderPackagePractice(); };
+    packagePracticeButtons.push({ kind: definition[0], node: button });
+    practiceChoices.appendChild(button);
+  });
+  practiceWrap.appendChild(practiceChoices);
+  practiceWrap.appendChild(practiceControls);
+  packagePanel.appendChild(practiceWrap);
+  var packageLayout = document.createElement('div');
+  packageLayout.className = 'lsv-package-layout';
+  packageLayout.style.cssText = 'display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:10px;align-items:start;max-height:56vh;overflow-y:auto;padding-right:2px';
+  var packageList = document.createElement('div');
+  packageList.className = 'lsv-package-list';
+  packageList.style.cssText = 'display:grid;grid-template-columns:1fr;gap:8px;align-content:start';
+  var packageBody = document.createElement('div');
+  packageLayout.appendChild(packageList);
+  packageLayout.appendChild(packageBody);
+  packagePanel.appendChild(packageLayout);
+  function packageCard(name) {
+    var icon = document.createElement('div');
+    icon.style.cssText = 'width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--orange-lt);color:var(--orange-dk);flex-shrink:0';
+    icon.replaceChildren(LegoIcon('ti-package', { size: 19 }));
+    var active = name === packageView.name;
+    var card = LegoCard({
+      L1: icon,
+      L2: name,
+      L4: LegoChip(String(packageMap[name].length) + ' entradas', { bg: 'var(--sand)', color: 'var(--ink-soft)' }),
+      onclick: function(){ packageView.name = name; renderPackageCards(); renderPackage(); }
     });
-    packageMode.style.width = 'auto';
-    actions.appendChild(packageMode);
-    [['flashcard', 'Flashcards'], ['match', 'Emparejar'], ['memory', 'Memory'], ['true-false-vocab', 'Correcto / Incorrecto'], ['letter-order', 'Ordenar Letras']].forEach(function(definition){
-      var button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'btn btn-outline btn-sm';
-      button.textContent = definition[1];
-      button.onclick = function(){ opts.onPractice(definition[0], entries, packagePracticeState.limit, packagePracticeState.flashMode); };
-      actions.appendChild(button);
-    });
-    packageBody.replaceChildren(actions, LegoTable({
+    card.style.cursor = 'pointer';
+    card.style.borderColor = active ? 'var(--coral)' : 'var(--border)';
+    card.style.background = active ? 'var(--orange-lt)' : 'var(--white)';
+    return card;
+  }
+  function renderPackageCards() {
+    var q = key(packageView.query);
+    var names = q ? packageNames.filter(function(name){ return key(name).indexOf(q) !== -1; }) : packageNames;
+    packageList.replaceChildren();
+    if (!names.length) {
+      var none = document.createElement('div');
+      none.style.cssText = 'font-size:12px;color:var(--muted);padding:8px';
+      none.textContent = 'Sin paquetes con ese nombre.';
+      packageList.appendChild(none);
+      return;
+    }
+    names.forEach(function(name){ packageList.appendChild(packageCard(name)); });
+  }
+  function renderPackage() {
+    var selectedName = packageMap[packageView.name] ? packageView.name : packageNames[0];
+    packageView.name = selectedName;
+    var entries = packageMap[selectedName] || [];
+    packageBody.replaceChildren(LegoTable({
       minWidth: 760,
       emptyText: 'Este paquete no tiene entradas.',
       columns: [
@@ -4484,7 +4603,8 @@ function LegoStudentVocabulary(opts) {
       rows: pairs(entries)
     }));
   }
-  renderPackage(packageNames[0]);
+  renderPackageCards();
+  renderPackage();
   return LegoInnerHub({
     tabs: [
       { id: 'todo', label: 'Todo', content: root, onShow: renderList },
