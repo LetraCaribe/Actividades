@@ -170,9 +170,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .toast.show{opacity:1}
 
 @media(max-width:640px){
-  .platform-body{flex-direction:column;padding:14px 12px 60px}
-  .side-nav{width:100%;display:flex;flex-wrap:wrap;gap:4px}
-  .side-nav .snav-item{padding:7px 11px;font-size:12px;flex:0 0 auto}
+  .platform-body{flex-direction:column;padding:14px 12px 76px}
+  .side-nav{position:fixed;left:0;right:0;bottom:0;width:100%;display:flex;flex-wrap:nowrap;gap:0;margin:0;padding:4px 2px calc(4px + env(safe-area-inset-bottom));background:var(--white);border-top:1px solid var(--border);box-shadow:0 -2px 8px rgba(0,0,0,.06);z-index:150}
+  .side-nav .snav-item{flex:1 1 0;min-width:0;flex-direction:column;align-items:center;gap:2px;padding:6px 1px;margin:0;font-size:9px;font-weight:600;text-align:center;border-radius:8px}
+  .side-nav .snav-item .sni{font-size:20px}
+  .side-nav .snav-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.1;letter-spacing:-.2px}
   .topnav-greeting{display:none}
 }
 </style>
@@ -251,13 +253,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
   </div>
   <div class="platform-body">
     <nav class="side-nav">
-      <button class="snav-item active" id="snav-dashboard" type="button" onclick="showTab('dashboard')"><span class="sni">🏠</span> Inicio</button>
-      <button class="snav-item" id="snav-actividades" type="button" onclick="showTab('actividades')"><span class="sni">📝</span> Actividades</button>
-      <button class="snav-item" id="snav-objetivos" type="button" onclick="showTab('objetivos')"><span class="sni">🎯</span> Objetivos</button>
-      <button class="snav-item" id="snav-biblioteca" type="button" onclick="showTab('biblioteca')"><span class="sni">📚</span> Biblioteca</button>
-      <button class="snav-item" id="snav-vocabulario" type="button" onclick="showTab('vocabulario')"><span class="sni">📖</span> Vocabulario</button>
-      <button class="snav-item" id="snav-puntajes" type="button" onclick="showTab('puntajes')"><span class="sni">🏆</span> Puntajes</button>
-      <button class="snav-item" id="snav-perfil" type="button" onclick="showTab('perfil')"><span class="sni">👤</span> Perfil</button>
+      <button class="snav-item active" id="snav-dashboard" type="button" onclick="showTab('dashboard')"><span class="sni">🏠</span><span class="snav-label">Inicio</span></button>
+      <button class="snav-item" id="snav-actividades" type="button" onclick="showTab('actividades')"><span class="sni">📝</span><span class="snav-label">Actividades</span></button>
+      <button class="snav-item" id="snav-objetivos" type="button" onclick="showTab('objetivos')"><span class="sni">🎯</span><span class="snav-label">Objetivos</span></button>
+      <button class="snav-item" id="snav-biblioteca" type="button" onclick="showTab('biblioteca')"><span class="sni">📚</span><span class="snav-label">Biblioteca</span></button>
+      <button class="snav-item" id="snav-vocabulario" type="button" onclick="showTab('vocabulario')"><span class="sni">📖</span><span class="snav-label">Vocabulario</span></button>
+      <button class="snav-item" id="snav-puntajes" type="button" onclick="showTab('puntajes')"><span class="sni">🏆</span><span class="snav-label">Puntajes</span></button>
+      <button class="snav-item" id="snav-perfil" type="button" onclick="showTab('perfil')"><span class="sni">👤</span><span class="snav-label">Perfil</span></button>
     </nav>
     <main class="main-content">
       <!-- DASHBOARD -->
