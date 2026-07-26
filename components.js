@@ -4592,15 +4592,13 @@ function LegoStudentVocabulary(opts) {
     packageView.name = selectedName;
     var entries = packageMap[selectedName] || [];
     packageBody.replaceChildren(LegoTable({
-      minWidth: 760,
+      minWidth: 320,
       emptyText: 'Este paquete no tiene entradas.',
       columns: [
-        { label: 'Palabra', width: '22%', render: function(row){ return opts.renderTerm(row.left); } },
-        { label: 'Significado', width: '28%', render: function(row){ return opts.renderMeaning(row.left); } },
-        { label: 'Palabra', width: '22%', render: function(row){ return opts.renderTerm(row.right); } },
-        { label: 'Significado', width: '28%', render: function(row){ return opts.renderMeaning(row.right); } }
+        { label: 'Palabra', width: '45%', render: function(row){ return opts.renderTerm(row); } },
+        { label: 'Significado', width: '55%', render: function(row){ return opts.renderMeaning(row); } }
       ],
-      rows: pairs(entries)
+      rows: entries
     }));
   }
   renderPackageCards();
