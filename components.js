@@ -4485,7 +4485,7 @@ function LegoStudentVocabulary(opts) {
   if (!document.getElementById('lsv-package-styles')) {
     var lsvStyles = document.createElement('style');
     lsvStyles.id = 'lsv-package-styles';
-    lsvStyles.textContent = '@media(max-width:720px){.lsv-package-layout{grid-template-columns:1fr!important;max-height:none!important}}';
+    lsvStyles.textContent = '@media(max-width:720px){.lsv-package-layout{grid-template-columns:1fr!important;max-height:48vh!important}}';
     document.head.appendChild(lsvStyles);
   }
   var packagePanel = document.createElement('div');
