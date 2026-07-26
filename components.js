@@ -4423,10 +4423,10 @@ function LegoStudentVocabulary(opts) {
     var entrySenses = senses(entry);
     if (state.type && (state.type === 'word' ? entry.entry_type === 'expression' : entry.entry_type !== state.type)) return false;
     if (state.letter) {
-      var values = [entry.term].concat(entrySenses.map(function(s){ return s.meaning; }));
+      var termValue = entry.term;
       var letterMatch = state.letter === '#'
-        ? values.some(function(value){ return /\d/.test(String(value || '').trim().charAt(0)); })
-        : values.some(function(value){ return key(value).indexOf(String(state.letter).toLowerCase()) === 0; });
+        ? /\d/.test(String(termValue || '').trim().charAt(0))
+        : key(termValue).indexOf(String(state.letter).toLowerCase()) === 0;
       if (!letterMatch) return false;
     }
     if (state.q) {
