@@ -4499,18 +4499,18 @@ function LegoStudentVocabulary(opts) {
     packageSearch.addEventListener('input', function(){ packageView.query = packageSearch.value; renderPackageCards(); });
     packagePanel.appendChild(packageSearch);
   }
-  var practiceWrap = document.createElement('div');
-  practiceWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px';
-  var practiceChoices = document.createElement('div');
-  practiceChoices.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
-  var practiceControls = document.createElement('div');
-  practiceControls.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;align-items:center';
+  var pkgPracticeWrap = document.createElement('div');
+  pkgPracticeWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:12px';
+  var pkgPracticeChoices = document.createElement('div');
+  pkgPracticeChoices.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+  var pkgPracticeControls = document.createElement('div');
+  pkgPracticeControls.style.cssText = 'display:none;gap:8px;flex-wrap:wrap;align-items:center';
   var packagePracticeButtons = [];
   function renderPackagePractice() {
-    practiceControls.replaceChildren();
+    pkgPracticeControls.replaceChildren();
     packagePracticeButtons.forEach(function(item){ item.node.className = item.kind === packagePracticeState.kind ? 'btn btn-coral btn-sm' : 'btn btn-outline btn-sm'; });
-    if (!packagePracticeState.kind) { practiceControls.style.display = 'none'; return; }
-    practiceControls.style.display = 'flex';
+    if (!packagePracticeState.kind) { pkgPracticeControls.style.display = 'none'; return; }
+    pkgPracticeControls.style.display = 'flex';
     var packageLimit = LegoSelect({
       className: opts.selectClass || 'fs',
       value: String(packagePracticeState.limit),
@@ -4518,7 +4518,7 @@ function LegoStudentVocabulary(opts) {
       onChange: function(value){ packagePracticeState.limit = parseInt(value, 10) || 10; }
     });
     packageLimit.style.width = 'auto';
-    practiceControls.appendChild(packageLimit);
+    pkgPracticeControls.appendChild(packageLimit);
     if (packagePracticeState.kind === 'flashcard') {
       var packageMode = LegoSelect({
         className: opts.selectClass || 'fs',
@@ -4527,14 +4527,14 @@ function LegoStudentVocabulary(opts) {
         onChange: function(value){ packagePracticeState.flashMode = value || 'flip'; }
       });
       packageMode.style.width = 'auto';
-      practiceControls.appendChild(packageMode);
+      pkgPracticeControls.appendChild(packageMode);
     }
     var start = document.createElement('button');
     start.type = 'button';
     start.className = 'btn btn-coral btn-sm';
     start.textContent = 'Empezar';
     start.onclick = function(){ opts.onPractice(packagePracticeState.kind, packageMap[packageView.name] || [], packagePracticeState.limit, packagePracticeState.flashMode); };
-    practiceControls.appendChild(start);
+    pkgPracticeControls.appendChild(start);
   }
   [['flashcard', 'Flashcards'], ['match', 'Emparejar'], ['memory', 'Memory'], ['true-false-vocab', 'Correcto / Incorrecto'], ['letter-order', 'Ordenar Letras']].forEach(function(definition){
     var button = document.createElement('button');
@@ -4543,11 +4543,11 @@ function LegoStudentVocabulary(opts) {
     button.textContent = definition[1];
     button.onclick = function(){ packagePracticeState.kind = definition[0]; renderPackagePractice(); };
     packagePracticeButtons.push({ kind: definition[0], node: button });
-    practiceChoices.appendChild(button);
+    pkgPracticeChoices.appendChild(button);
   });
-  practiceWrap.appendChild(practiceChoices);
-  practiceWrap.appendChild(practiceControls);
-  packagePanel.appendChild(practiceWrap);
+  pkgPracticeWrap.appendChild(pkgPracticeChoices);
+  pkgPracticeWrap.appendChild(pkgPracticeControls);
+  packagePanel.appendChild(pkgPracticeWrap);
   var packageLayout = document.createElement('div');
   packageLayout.className = 'lsv-package-layout';
   packageLayout.style.cssText = 'display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:10px;align-items:start;max-height:56vh;overflow-y:auto;padding-right:2px';
