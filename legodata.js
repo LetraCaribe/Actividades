@@ -2185,3 +2185,87 @@ LegoData.sessionUnits = function(sess){
   if (isFinite(manual) && manual > 0) return manual;
   return LegoData.sessionSuggestedUnits(sess && sess.class_time, sess && sess.class_end_time);
 };
+
+// ── Monitor de errores del cliente ──────────────────────────────
+// Captura errores JS (window/promesas/console.error) y los guarda en
+// client_errors con migas de las ultimas acciones. Silencioso: el
+// monitor jamas lanza ni muestra toasts. Max 10 envios por sesion.
+LegoData.installErrorMonitor = function(opts){
+  opts = opts || {};
+  var page = String(opts.page || '');
+  var version = String(opts.version || '');
+  var getStudentId = typeof opts.getStudentId === 'function' ? opts.getStudentId : function(){ return null; };
+  var crumbs = [];
+  var sent = 0;
+  var lastMsg = '', lastAt = 0;
+  var sending = false;
+  function crumb(text){
+    var t = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!t) return;
+    crumbs.push(new Date().toISOString().slice(11, 19) + ' ' + t);
+    if (crumbs.length > 20) crumbs.shift();
+  }
+  document.addEventListener('click', function(ev){
+    var el = ev.target && ev.target.closest ? ev.target.closest('button, a, [onclick], .lego-card, .snav-item, .sb-item') : null;
+    if (el) crumb('click: ' + (el.textContent || el.className || el.tagName));
+  }, true);
+  async function send(source, message, stack){
+    var msg = String(message || '').slice(0, 500);
+    if (!msg || sending) return;
+    var now = Date.now();
+    if (msg === lastMsg && (now - lastAt) < 30000) return;  // dedupe rafagas
+    if (sent >= 10) return;
+    lastMsg = msg; lastAt = now; sent++;
+    sending = true;
+    try {
+      var sid = null;
+      try { sid = getStudentId() || null; } catch(e){}
+      await db.from('client_errors').insert({
+        student_id: sid,
+        page: page,
+        app_version: version,
+        message: msg,
+        source: source,
+        stack: String(stack || '').slice(0, 2000),
+        context: JSON.stringify({ url: location.hash || location.pathname, acciones: crumbs.slice() }),
+        user_agent: navigator.userAgent.slice(0, 200)
+      });
+    } catch(e) { /* silencioso: el monitor nunca rompe la app */ }
+    sending = false;
+  }
+  window.addEventListener('error', function(ev){
+    send('window', ev.message || (ev.error && ev.error.message) || 'error', ev.error && ev.error.stack);
+  });
+  window.addEventListener('unhandledrejection', function(ev){
+    var r = ev.reason;
+    send('promise', (r && r.message) || String(r || 'rechazo'), r && r.stack);
+  });
+  var origError = console.error;
+  console.error = function(){
+    try {
+      var parts = [];
+      for (var i = 0; i < arguments.length; i++) {
+        var a = arguments[i];
+        parts.push(a instanceof Error ? a.message : (typeof a === 'object' ? JSON.stringify(a).slice(0, 200) : String(a)));
+      }
+      var firstErr = null;
+      for (var j = 0; j < arguments.length; j++) if (arguments[j] instanceof Error) { firstErr = arguments[j]; break; }
+      send('console', parts.join(' '), firstErr && firstErr.stack);
+    } catch(e){}
+    return origError.apply(console, arguments);
+  };
+  LegoData._errorCrumb = crumb;
+};
+
+LegoData.clientErrorsRecent = async function(days){
+  var since = new Date(Date.now() - (Number(days) || 7) * 86400000).toISOString();
+  var r = await db.from('client_errors').select('*').gte('created_at', since).order('created_at', { ascending: false }).limit(200);
+  if (r.error) { throw new Error('[LegoData.clientErrorsRecent] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.deleteClientErrors = async function(ids){
+  if (!ids || !ids.length) return 0;
+  var r = await db.from('client_errors').delete().in('id', ids).select('id');
+  if (r.error) { throw new Error('[LegoData.deleteClientErrors] ' + r.error.message); }
+  return (r.data || []).length;
+};

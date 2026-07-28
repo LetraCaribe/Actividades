@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Letra Caribe — Portal de Estudiantes</title>
+<meta name="google" content="notranslate">
 <link rel="icon" type="image/jpeg" href="Favicon.jpg">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -353,7 +354,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <div class="toast" id="toast"></div>
 
 <script src="components.js?v=20260728-2"></script>
-<script src="legodata.js?v=20260723-3"></script>
+<script src="legodata.js?v=20260728-2"></script>
 <script>
 // ============================================================
 // Portal de estudiantes — motor construido al docs/contrato-datos.md
@@ -361,6 +362,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 const SUPABASE_URL = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_7NB3dpFRBnwAnFEk2SC_Jw_Vve-Ay0E';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+if (window.LegoData && LegoData.installErrorMonitor) {
+  LegoData.installErrorMonitor({ page: 'portal', version: '20260728-2', getStudentId: function(){
+    return (typeof currentStudentId === 'function' && currentUser) ? currentStudentId() : null;
+  } });
+}
 
 // ── estado global ──
 let currentUser = null;
@@ -1131,15 +1137,6 @@ function vocabKey(term){
     .replace(/\s+/g, ' ')
     .trim();
 }
-function vocabEntryTypeLabel(type){
-  return type === 'expression' ? 'Expresión' : 'Palabra';
-}
-function vocabSourceLabel(source){
-  if (source === 'teacher') return 'Profesor';
-  if (source === 'selection') return 'Selección';
-  if (source === 'import') return 'Importado';
-  return 'Estudiante';
-}
 async function loadVocabulary(){
   if (!currentUser) return;
   try {
@@ -1242,34 +1239,6 @@ function openVocabularyModal(existing){
     onSubmit: function(value, node){ return saveVocabularyEntry(existing, value, node); }
   });
   LegoModal({ M1: existing ? 'Editar vocabulario' : 'Añadir vocabulario', M3: form });
-}
-function vocabMatchesLetter(entry, letter){
-  if (!letter) return true;
-  const meanings = vocabularyEntrySenses(entry).map(function(s){ return String(s.meaning || '').trim(); });
-  if (letter === '#') {
-    const termFirst = String(entry.term || '').trim().charAt(0);
-    return /\d/.test(termFirst) || meanings.some(function(m){ return /\d/.test(m.charAt(0)); });
-  }
-  const l = String(letter).toLowerCase();
-  return vocabKey(entry.term).indexOf(l) === 0 || meanings.some(function(m){ return vocabKey(m).indexOf(l) === 0; });
-}
-function vocabMatchesQuery(entry, q){
-  if (!q) return true;
-  const senseText = vocabularyEntrySenses(entry).map(function(s){
-    return [s.meaning, s.context, s.example].concat(s.accepted_answers || []).join(' ');
-  });
-  const hay = [entry.term, vocabEntryTypeLabel(entry.entry_type), vocabSourceLabel(entry.source)].concat(senseText).join(' ');
-  return vocabKey(hay).indexOf(vocabKey(q)) !== -1;
-}
-function vocabMatchesType(entry, type){
-  if (!type) return true;
-  if (type === 'word') return entry.entry_type !== 'expression';
-  return entry.entry_type === type;
-}
-function vocabularyTablePairs(entries){
-  const pairs = [];
-  for (let i = 0; i < entries.length; i += 2) pairs.push({ left: entries[i], right: entries[i + 1] || null });
-  return pairs;
 }
 function vocabularyTermCell(entry){
   const wrap = mk('span');
