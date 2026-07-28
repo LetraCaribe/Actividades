@@ -1291,7 +1291,7 @@ function LegoPlayer(activity, opts) {
     document.head.appendChild(st);
   }
   var content = {};
-  try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) {}
+  try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) { console.error('contenido de actividad inválido', activity.slug || activity.id || '', e); }
   var type = activity.type || content.type || 'mc';
   if (content.version === 2) return _lpCompose(activity, content, opts);
   return _lpCompose(activity, _lpAdapt(activity), opts);
@@ -2217,7 +2217,7 @@ function _lpEditVocab(content){
 function _lpAdapt(activity) {
   activity = activity || {};
   var content = {};
-  try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) {}
+  try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) { console.error('contenido de actividad inválido', activity.slug || activity.id || '', e); }
   if (content.version === 2) return content;
   var type = activity.type || content.type || 'mc';
   var n = 0;
@@ -2479,7 +2479,7 @@ function _lpCompose(activity, content, opts){
     var c = 0, t = 0;
     pieces.forEach(function(p){ var s = p.score(); c += s.correct; t += s.total; });
     scoreEl.textContent = c + '/' + (t || '?');
-    if (typeof opts.onProgress === 'function') { try { opts.onProgress(); } catch(e){} }
+    if (typeof opts.onProgress === 'function') { try { opts.onProgress(); } catch(e){ console.error('onProgress', e); } }
   }
   var cfg = { feedback: feedback };
   var inner = document.createElement('div');
@@ -2609,7 +2609,7 @@ function _lpCompose(activity, content, opts){
       pauseBtn.type = 'button';
       pauseBtn.textContent = 'Pausar';
       pauseBtn.style.cssText = 'flex:1;padding:11px;border-radius:10px;border:1px solid var(--red);background:var(--red-lt);color:var(--red);font:inherit;font-size:15px;font-weight:700;cursor:pointer';
-      pauseBtn.onclick = function(){ try { opts.onPause(root.getProgress()); } catch(e){} };
+      pauseBtn.onclick = function(){ try { opts.onPause(root.getProgress()); } catch(e){ console.error('onPause', e); } };
       submit.className = '';
       submit.style.cssText = 'flex:1;padding:11px;border-radius:10px;border:none;background:var(--green);color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer';
       var bar = document.createElement('div');
@@ -2724,7 +2724,7 @@ function _lpRestorePiece(el, saved, type){
       });
       return;
     }
-  } catch(e) {}
+  } catch(e) { console.error('restaurar respuestas guardadas', e); }
 }
 
 

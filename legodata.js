@@ -157,6 +157,12 @@ var LegoData = (function(){
       return r.data || [];
     },
 
+    studentGoalsAll: async function(){
+      var r = await db.from('student_goals').select('*').order('completed', { ascending: true }).order('created_at', { ascending: false });
+      if (r.error) _throw('studentGoalsAll', r.error);
+      return r.data || [];
+    },
+
     insertStudentGoal: async function(studentId, text){
       var clean = String(text || '').trim();
       if (!studentId) _throw('insertStudentGoal', { message: 'Falta studentId' });
