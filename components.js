@@ -731,6 +731,29 @@ function _llpImgSrc(url) {
   return url;
 }
 
+// -- _llpMark -----------------------------------------------
+// Resalte parcial dentro de una celda o linea: *texto* se pinta en rojo.
+// Misma convencion que ya usaban las formulas, ahora compartida por tabla y formula
+// para poder marcar la terminacion de un verbo dentro de la palabra.
+// Sellado: createTextNode + createElement, cero HTML crudo. Un asterisco literal
+// no es representable, igual que antes en formula.
+function _llpMark(el, value) {
+  var text = (value === null || value === undefined) ? '' : String(value);
+  if (text.indexOf('*') === -1) { el.textContent = text; return el; }
+  text.split('*').forEach(function(seg, i) {
+    if (seg === '') return;
+    if (i % 2 === 1) {
+      var hi = document.createElement('span');
+      hi.className = 'llp-hi';
+      hi.textContent = seg;
+      el.appendChild(hi);
+    } else {
+      el.appendChild(document.createTextNode(seg));
+    }
+  });
+  return el;
+}
+
 function LegoLibraryViewer(item) {
   item = item || {};
   var content = item.content || {};
@@ -757,13 +780,13 @@ function LegoLibraryViewer(item) {
       '.llp-h{font-family:Georgia,"Times New Roman",serif;font-size:18px;color:#1C1A17;margin:18px 0 8px}',
       '.llp-body>.llp-h:first-child{margin-top:0}',
       '.llp-p{font-size:14px;line-height:1.65;color:#4A4540;margin:0 0 12px;white-space:pre-wrap;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;border-radius:12px;padding:12px 14px;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
-      '.llp-ex{font-size:14px;line-height:1.6;color:#4A4540;font-style:italic;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;border-radius:12px;padding:12px 14px;margin:0 0 12px;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-ex{font-size:14px;line-height:1.6;color:#4A4540;font-style:italic;white-space:pre-wrap;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;border-radius:12px;padding:12px 14px;margin:0 0 12px;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
       '.llp-table{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13.5px;margin:0 0 12px}',
       '.llp-table td{padding:9px 12px;background:linear-gradient(180deg,#fff,#F5F0E8);border:1px solid #E0DAD2;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
       '.llp-table tr:first-child td{background:#A83E1E;color:#fff;font-weight:700}',
       '.llp-table tr:not(:first-child) td.llp-c0{background:linear-gradient(180deg,#fff,#E4F5E8)}.llp-table tr:not(:first-child) td.llp-c1{background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-table tr:not(:first-child) td.llp-c2{background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-table tr:not(:first-child) td.llp-c3{background:linear-gradient(180deg,#fff,#E6F5FB)}.llp-table tr:not(:first-child) td.llp-c4{background:linear-gradient(180deg,#fff,#FBE8FA)}',
       '.llp-tbl-rayada tr:not(:first-child):nth-child(odd) td{background:#fff}.llp-tbl-rayada tr:not(:first-child):nth-child(even) td{background:#F5F0E8}',
-      '.llp-conj{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}.llp-conj-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.llp-conj-p{border-radius:11px;padding:9px 12px;text-align:center;font-weight:700;font-size:14px;background:linear-gradient(180deg,#fff,#E4F5E8);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-conj-f{border-radius:11px;padding:9px 12px;text-align:center;font-weight:800;font-size:15px;color:#C41E1E;background:linear-gradient(180deg,#fff,#FDF0E4);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-conj{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}.llp-conj-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.llp-conj-p{border-radius:11px;padding:9px 12px;text-align:center;font-weight:700;font-size:14px;background:linear-gradient(180deg,#fff,#E4F5E8);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-conj-f{border-radius:11px;padding:9px 12px;text-align:center;font-weight:800;font-size:15px;color:#1C1A17;background:linear-gradient(180deg,#fff,#FDF0E4);border:1px solid #E0DAD2;box-shadow:0 6px 14px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}',
       '.llp-vcards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 14px}.llp-vcard{border-radius:16px;padding:14px;text-align:center;border:2px solid #E0DAD2;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-vc0{border-color:#E8670A;background:linear-gradient(180deg,#fff,#FDF0E4)}.llp-vc1{border-color:#1E6B72;background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-vc2{border-color:#7AB010;background:linear-gradient(180deg,#fff,#F0F7DC)}.llp-vc3{border-color:#C49A2A;background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-vcard-name{font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.02em;color:#1C1A17;margin-bottom:6px}.llp-vcard-ex{font-size:13px;color:#4A4540;line-height:1.35}',
       '.llp-formula{background:linear-gradient(180deg,#fff,#FBE8FA);border:2px solid #EFA7E9;border-radius:16px;padding:14px 16px;text-align:center;font-size:18px;font-weight:800;line-height:1.4;color:#1C1A17;box-shadow:0 8px 18px rgba(28,26,23,.05);margin:0 0 10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-formula .hi{color:#C41E1E}.llp-tokens{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:0 0 14px}.llp-token{border-radius:10px;padding:6px 11px;font-size:13px;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-tk0{background:linear-gradient(180deg,#fff,#FEECEC);color:#C41E1E;border:1px solid rgba(196,30,30,.18)}.llp-tk1{background:linear-gradient(180deg,#fff,#F8EBC5);color:#854F0B;border:1px solid rgba(196,154,42,.22)}.llp-tk2{background:linear-gradient(180deg,#fff,#E6F5FB);color:#185FA5;border:1px solid rgba(145,211,240,.45)}.llp-tk3{background:linear-gradient(180deg,#fff,#E4F5E8);color:#1A7A2A;border:1px solid rgba(26,122,42,.2)}.llp-tk4{background:linear-gradient(180deg,#fff,#E4F2F4);color:#0F6E56;border:1px solid rgba(30,107,114,.2)}',
       '.llp-excards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 14px}.llp-excard{border:2px solid #E0DAD2;border-radius:14px;overflow:hidden;box-shadow:0 8px 18px rgba(28,26,23,.05);-webkit-print-color-adjust:exact;print-color-adjust:exact}.llp-excard-h{padding:11px 14px;font-family:Georgia,"Times New Roman",serif;font-size:15px;font-weight:700;border-bottom:1px solid rgba(28,26,23,.08);color:#1C1A17}.llp-exc0{border-color:#E8670A;background:linear-gradient(180deg,#fff,#FDF0E4)}.llp-exc1{border-color:#1E6B72;background:linear-gradient(180deg,#fff,#E4F2F4)}.llp-exc2{border-color:#7AB010;background:linear-gradient(180deg,#fff,#F0F7DC)}.llp-exc3{border-color:#C49A2A;background:linear-gradient(180deg,#fff,#F8EBC5)}.llp-excard-list{margin:0;padding:12px 14px 14px 30px}.llp-excard-list li{font-size:13px;line-height:1.45;color:#4A4540;margin:0 0 8px}.llp-excard-list li:last-child{margin-bottom:0}',
@@ -774,6 +797,9 @@ function LegoLibraryViewer(item) {
       '.llp-cap{font-size:12px;color:#8C8479;text-align:center;margin:0 0 12px}',
       '.llp-foot{display:flex;justify-content:space-between;color:#8C8479;font-size:11px;border-top:1px solid #E0DAD2;padding-top:14px;margin-top:20px}',
       '.llp-foot b{color:#A83E1E}',
+      '.llp-hi{color:#C41E1E;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+      '.llp-unknown{font-size:13px;line-height:1.5;color:#8A3A12;background:#FDF0E4;border:1.5px dashed #E8670A;border-radius:12px;padding:11px 14px;margin:0 0 12px}',
+      '@media print{.llp-unknown{display:none!important}}',
       '@media print{body.printing-lib>*:not(.lego-modal-overlay){display:none!important}body.printing-lib .lego-modal-overlay{position:static!important;background:#fff!important;padding:0!important;display:block!important}body.printing-lib .lego-modal{box-shadow:none!important;max-width:none!important;width:100%!important;max-height:none!important;border:0!important;border-radius:0!important}body.printing-lib .lego-modal-header,body.printing-lib .lego-modal-actions{display:none!important}body.printing-lib .lego-modal-m3{padding:0!important;overflow:visible!important}@page{size:letter;margin:0.4in}}'
     ].join('');
     document.head.appendChild(st);
@@ -840,7 +866,7 @@ function LegoLibraryViewer(item) {
       if (section.title) body.appendChild(heading(section.title));
       var p = document.createElement('p');
       p.className = 'llp-p';
-      p.textContent = section.body || '';
+      _llpMark(p, section.body);
       body.appendChild(p);
     } else if (section.type === 'table') {
       if (section.title) body.appendChild(heading(section.title));
@@ -851,7 +877,7 @@ function LegoLibraryViewer(item) {
         var tr = document.createElement('tr');
         (Array.isArray(rowArr) ? rowArr : Object.values(rowArr || {})).forEach(function(val, cIdx) {
           var td = document.createElement('td');
-          td.textContent = (val === null || val === undefined) ? '' : val;
+          _llpMark(td, val);
           if (rIdx > 0 && tblModel === 'colorida') td.className = 'llp-c' + (cIdx % 5);
           tr.appendChild(td);
         });
@@ -862,7 +888,7 @@ function LegoLibraryViewer(item) {
       if (section.title) body.appendChild(heading(section.title));
       var ex = document.createElement('p');
       ex.className = 'llp-ex';
-      ex.textContent = section.text || '';
+      _llpMark(ex, section.text);
       body.appendChild(ex);
     } else if (section.type === 'conjugation') {
       if (section.title) body.appendChild(heading(section.title));
@@ -873,10 +899,10 @@ function LegoLibraryViewer(item) {
         cr.className = 'llp-conj-row';
         var cp = document.createElement('div');
         cp.className = 'llp-conj-p';
-        cp.textContent = (pair && pair[0]) || '';
+        _llpMark(cp, (pair && pair[0]) || '');
         var cf = document.createElement('div');
         cf.className = 'llp-conj-f';
-        cf.textContent = (pair && pair[1]) || '';
+        _llpMark(cf, (pair && pair[1]) || '');
         cr.appendChild(cp); cr.appendChild(cf);
         cj.appendChild(cr);
       });
@@ -890,10 +916,10 @@ function LegoLibraryViewer(item) {
         card.className = 'llp-vcard llp-vc' + (i % 4);
         var nm = document.createElement('div');
         nm.className = 'llp-vcard-name';
-        nm.textContent = (pair && pair[0]) || '';
+        _llpMark(nm, (pair && pair[0]) || '');
         var ex = document.createElement('div');
         ex.className = 'llp-vcard-ex';
-        ex.textContent = (pair && pair[1]) || '';
+        _llpMark(ex, (pair && pair[1]) || '');
         card.appendChild(nm); card.appendChild(ex);
         vc.appendChild(card);
       });
@@ -903,17 +929,7 @@ function LegoLibraryViewer(item) {
       if (section.formula) {
         var fb = document.createElement('div');
         fb.className = 'llp-formula';
-        String(section.formula).split('*').forEach(function(seg, i) {
-          if (seg === '') return;
-          if (i % 2 === 1) {
-            var hi = document.createElement('span');
-            hi.className = 'hi';
-            hi.textContent = seg;
-            fb.appendChild(hi);
-          } else {
-            fb.appendChild(document.createTextNode(seg));
-          }
-        });
+        _llpMark(fb, section.formula);
         body.appendChild(fb);
       }
       if (section.tokens && section.tokens.length) {
@@ -937,14 +953,14 @@ function LegoLibraryViewer(item) {
         c.className = 'llp-excard llp-exc' + (ci % 4);
         var h = document.createElement('div');
         h.className = 'llp-excard-h';
-        h.textContent = (card && card.heading) || '';
+        _llpMark(h, (card && card.heading) || '');
         c.appendChild(h);
         var ol = document.createElement('ol');
         ol.className = 'llp-excard-list';
         ((card && card.items) || []).forEach(function(it) {
           if (it === '' || it == null) return;
           var li = document.createElement('li');
-          li.textContent = it;
+          _llpMark(li, it);
           ol.appendChild(li);
         });
         c.appendChild(ol);
@@ -965,13 +981,13 @@ function LegoLibraryViewer(item) {
         if (row && row[1]) {
           var w = document.createElement('div');
           w.className = 'llp-db-word';
-          w.textContent = row[1];
+          _llpMark(w, row[1]);
           b.appendChild(w);
         }
         if (row && row[2]) {
           var e = document.createElement('div');
           e.className = 'llp-db-ex';
-          e.textContent = row[2];
+          _llpMark(e, row[2]);
           b.appendChild(e);
         }
         dg.appendChild(b);
@@ -991,6 +1007,14 @@ function LegoLibraryViewer(item) {
         cap.textContent = section.caption;
         body.appendChild(cap);
       }
+    } else {
+      // Tipo no reconocido: antes caia en un div vacio y la seccion desaparecia sin rastro.
+      // El aviso se ve en pantalla para quien redacta y se oculta al imprimir.
+      console.warn('[LegoLibraryViewer] tipo de seccion desconocido:', section.type);
+      var unk = document.createElement('div');
+      unk.className = 'llp-unknown';
+      unk.textContent = 'Sección no reconocida: "' + (section.type || '(sin tipo)') + '". Revisa el campo type en el contenido del material.';
+      body.appendChild(unk);
     }
     secsBox.appendChild(secEl);
   });
@@ -1085,6 +1109,269 @@ function LegoLibraryFilters(opts) {
   bar.appendChild(search); bar.appendChild(levelSel); bar.appendChild(catSel);
   return bar;
 }
+
+// -- LegoLibraryBrowser -------------------------------------
+// Navegacion de Biblioteca: busqueda arriba, tarjetas de nivel como entrada, y dentro de
+// un nivel breadcrumb + pildoras de categoria. La lista de cards NO la pinta esta pieza:
+// la delega en onList(items) para no conocer el dominio de quien la usa.
+// Carga por intencion, como el Banco de vocabulario: no recibe la biblioteca entera,
+// recibe tres funciones de datos y pide solo lo que va a mostrar.
+//   LegoLibraryBrowser({ counts, byLevel, search, onCountsError, catName, onList, levels }) -> nodo con .refresh()
+//   counts()       -> [{level, total}]         parrilla de niveles
+//   byLevel(level) -> filas del nivel          sin content
+//   search(q)      -> filas de toda la biblioteca
+// La busqueda cruza todos los niveles a proposito: quien no sabe en que nivel cae un tema
+// no debe tener que entrar nivel por nivel a buscarlo.
+function LegoLibraryBrowser(opts) {
+  opts = opts || {};
+  var fetchCounts = typeof opts.counts === 'function' ? opts.counts : function(){ return Promise.resolve([]); };
+  var fetchLevel = typeof opts.byLevel === 'function' ? opts.byLevel : function(){ return Promise.resolve([]); };
+  var fetchSearch = typeof opts.search === 'function' ? opts.search : function(){ return Promise.resolve([]); };
+  var onCountsError = typeof opts.onCountsError === 'function' ? opts.onCountsError : function(){};
+  var catName = opts.catName || function(it){ return (it && it.grammar_categories && it.grammar_categories.name) || ''; };
+  var onList = opts.onList || function(){};
+  var canon = opts.levels || ['A1', 'A2', 'B1', 'B2', 'C1'];
+
+  if (!document.getElementById('lego-libbrowser-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-libbrowser-styles';
+    st.textContent = [
+      '.llb{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}',
+      '.llb-search{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r);font-size:14px;font-family:inherit;background:var(--white,#fff);color:var(--ink)}',
+      '.llb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}',
+      '.llb-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;background:var(--white,#fff);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .15s,box-shadow .15s}',
+      '.llb-card:hover{border-color:var(--coral);box-shadow:0 2px 10px rgba(28,26,23,.08)}',
+      '.llb-card__lvl{font-size:20px;font-weight:800;color:var(--ink)}',
+      '.llb-card__n{font-size:12px;color:var(--muted)}',
+      '.llb-crumb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}',
+      '.llb-back{border:1px solid var(--border);background:var(--white,#fff);color:var(--ink-soft,#4A4540);font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;cursor:pointer}',
+      '.llb-back:hover{border-color:var(--coral);color:var(--coral)}',
+      '.llb-here{color:var(--ink);font-weight:700}',
+      '.llb-pills{display:flex;gap:6px;flex-wrap:wrap}',
+      '.llb-pill{font-size:12px;padding:5px 13px;border-radius:99px;border:1px solid var(--border);background:var(--sand,#F7F3ED);color:var(--muted);cursor:pointer;font-family:inherit;font-weight:500}',
+      '.llb-pill.active{background:var(--coral);border-color:var(--coral);color:#fff}',
+      '.llb-status{font-size:12px;color:var(--muted);font-weight:600}',
+      '@media(max-width:520px){.llb-grid{grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:8px}.llb-card{padding:11px 12px}}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+
+  var state = { level: null, cat: '', q: '' };
+  var counts = [];      // [{level,total}] de la vista de conteos
+  var levelRows = [];   // filas del nivel abierto, sin content
+  var searchRows = [];  // filas de la busqueda vigente
+  var countsToken = 0;  // descartan respuestas tardias al cambiar de scope
+  var listToken = 0;
+  var searchTimer = null;
+
+  var wrap = document.createElement('div');
+  wrap.className = 'llb';
+
+  var search = document.createElement('input');
+  search.type = 'text';
+  search.className = 'llb-search';
+  search.placeholder = 'Buscar en toda la biblioteca...';
+
+  var status = document.createElement('div');
+  status.className = 'llb-status';
+  status.style.display = 'none';
+  function setStatus(text) {
+    status.textContent = text || '';
+    status.style.display = text ? 'block' : 'none';
+  }
+
+  var nav = document.createElement('div');
+
+  // Niveles canonicos primero, mas cualquier otro que devuelva la vista: asi un nivel
+  // inesperado nunca esconde material.
+  function levelsPresent() {
+    var found = counts.map(function(c){ return c.level || ''; });
+    var out = [];
+    canon.forEach(function(l){ if (found.indexOf(l) !== -1) out.push(l); });
+    found.forEach(function(l){ if (out.indexOf(l) === -1) out.push(l); });
+    return out;
+  }
+  function levelLabel(l) { return l || 'Sin nivel'; }
+  function totalOf(level) {
+    for (var i = 0; i < counts.length; i++) {
+      if ((counts[i].level || '') === level) return counts[i].total || 0;
+    }
+    return 0;
+  }
+  function catsOfRows(rows) {
+    var out = [];
+    (rows || []).forEach(function(it){ var n = catName(it); if (n && out.indexOf(n) === -1) out.push(n); });
+    return out.sort();
+  }
+  function hits() {
+    if (state.q) return searchRows;
+    // null = no hay lista que mostrar porque estamos en la parrilla de niveles.
+    // Distinto de [] , que significa "este nivel no tiene material".
+    if (state.level === null) return null;
+    return levelRows.filter(function(it){ return !state.cat || catName(it) === state.cat; });
+  }
+
+  // Cargas por intencion. Token propio para la parrilla y otro para la lista: refrescar
+  // conteos tras guardar no debe invalidar la lista que se esta viendo.
+  async function loadCounts(silent) {
+    var my = ++countsToken;
+    if (!silent) setStatus('Cargando...');
+    try {
+      var rows = await fetchCounts();
+      if (my !== countsToken) return;
+      counts = (rows || []).map(function(r){ return { level: (r && r.level) || '', total: Number(r && r.total) || 0 }; });
+      if (!silent) { setStatus(''); render(); }
+      else if (state.level === null && !state.q) render();
+    } catch (e) {
+      if (my !== countsToken) return;
+      console.error('LegoLibraryBrowser counts', e);
+      onCountsError(e);
+      if (!silent) setStatus('No se pudo cargar la biblioteca.');
+    }
+  }
+  async function openLevel(level) {
+    var my = ++listToken;
+    state.level = level;
+    state.cat = '';
+    levelRows = [];
+    renderNav();
+    onList([]);
+    setStatus('Cargando...');
+    try {
+      var rows = await fetchLevel(level);
+      if (my !== listToken) return;
+      levelRows = rows || [];
+      setStatus('');
+      render();
+    } catch (e) {
+      if (my !== listToken) return;
+      console.error('LegoLibraryBrowser byLevel', e);
+      setStatus('No se pudo cargar el nivel ' + levelLabel(level) + '.');
+    }
+  }
+  async function runSearch(q) {
+    var my = ++listToken;
+    setStatus('Buscando...');
+    try {
+      var rows = await fetchSearch(q);
+      if (my !== listToken) return;
+      searchRows = rows || [];
+      setStatus('');
+      render();
+    } catch (e) {
+      if (my !== listToken) return;
+      console.error('LegoLibraryBrowser search', e);
+      setStatus('No se pudo buscar.');
+    }
+  }
+
+  function pill(label, active, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'llb-pill' + (active ? ' active' : '');
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function goHome() { state.level = null; state.cat = ''; render(); }
+
+  function renderNav() {
+    nav.replaceChildren();
+
+    if (state.q) {
+      var crumbQ = document.createElement('div');
+      crumbQ.className = 'llb-crumb';
+      crumbQ.appendChild(pill('Todos los niveles', true, function(){}));
+      var n = searchRows.length;
+      var info = document.createElement('span');
+      info.textContent = n + (n === 1 ? ' resultado' : ' resultados') + ' en toda la biblioteca';
+      crumbQ.appendChild(info);
+      nav.appendChild(crumbQ);
+      return;
+    }
+
+    if (state.level === null) {
+      var grid = document.createElement('div');
+      grid.className = 'llb-grid';
+      levelsPresent().forEach(function(l){
+        var card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'llb-card';
+        var lvl = document.createElement('span');
+        lvl.className = 'llb-card__lvl';
+        lvl.textContent = levelLabel(l);
+        var cnt = totalOf(l);
+        var num = document.createElement('span');
+        num.className = 'llb-card__n';
+        num.textContent = cnt + (cnt === 1 ? ' guía' : ' guías');
+        card.appendChild(lvl); card.appendChild(num);
+        card.addEventListener('click', function(){ openLevel(l); });
+        grid.appendChild(card);
+      });
+      nav.appendChild(grid);
+      return;
+    }
+
+    var crumb = document.createElement('div');
+    crumb.className = 'llb-crumb';
+    var back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'llb-back';
+    back.textContent = '← Niveles';
+    back.addEventListener('click', goHome);
+    var sep = document.createElement('span');
+    sep.textContent = 'Biblioteca ›';
+    var here = document.createElement('span');
+    here.className = 'llb-here';
+    here.textContent = levelLabel(state.level);
+    crumb.appendChild(back); crumb.appendChild(sep); crumb.appendChild(here);
+    nav.appendChild(crumb);
+
+    var cats = catsOfRows(levelRows);
+    if (cats.length) {
+      var pills = document.createElement('div');
+      pills.className = 'llb-pills';
+      pills.appendChild(pill('Todas', !state.cat, function(){ state.cat = ''; render(); }));
+      cats.forEach(function(c){
+        pills.appendChild(pill(c, state.cat === c, function(){ state.cat = c; render(); }));
+      });
+      nav.appendChild(pills);
+    }
+  }
+
+  function render() { renderNav(); onList(hits()); }
+
+  // Debounce: escribir no debe disparar una consulta por tecla.
+  search.addEventListener('input', function(){
+    var q = search.value || '';
+    state.q = q;
+    if (searchTimer) clearTimeout(searchTimer);
+    if (!q.trim()) {
+      listToken++;            // ignora la busqueda en vuelo
+      searchRows = [];
+      setStatus('');
+      render();
+      return;
+    }
+    searchTimer = setTimeout(function(){ runSearch(q); }, 250);
+  });
+
+  wrap.appendChild(search);
+  wrap.appendChild(status);
+  wrap.appendChild(nav);
+
+  // Vuelve a pedir lo que se esta viendo. Se llama tras guardar o borrar, para no
+  // devolver al usuario a la parrilla de niveles.
+  wrap.refresh = function() {
+    if (state.q) return Promise.all([loadCounts(true), runSearch(state.q)]);
+    if (state.level !== null) return Promise.all([loadCounts(true), openLevel(state.level)]);
+    return loadCounts(false);
+  };
+
+  loadCounts(false);
+  return wrap;
+}
+
 
 // -- LegoActionGrid -----------------------------------------
 // Agrupa botones de accion en una grilla compacta. No crea botones: ordena nodos existentes.
@@ -1574,7 +1861,7 @@ function _lpOrderVocabStyles() {
   if (document.getElementById('lego-orderv-styles')) return;
   var st = document.createElement('style');
   st.id = 'lego-orderv-styles';
-  st.textContent = '.lp-ov-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:8px 0 6px}.lp-order-bank{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.lp-order-item{padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-order-item.placed{opacity:.4;cursor:default}.lp-order-slot{padding:9px 12px;border:1px dashed var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;color:var(--muted)}.lp-order-slot.filled{border-style:solid;color:var(--ink);background:var(--sand)}.lp-vocab-word{padding:7px 12px;border:1px solid var(--border);border-radius:99px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-vocab-word.selected{background:var(--coral);color:#fff;border-color:var(--coral)}';
+  st.textContent = '.lp-ov-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:8px 0 6px}.lp-order-help{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;color:var(--muted);font-size:12px}.lp-order-list{display:flex;flex-direction:column;gap:8px}.lp-order-card{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:10px;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:var(--white,#fff);box-shadow:0 1px 3px rgba(28,26,23,.05);transition:border-color .15s}.lp-order-input{width:52px;height:38px;box-sizing:border-box;text-align:center;border:1.5px solid var(--border);border-radius:8px;background:var(--white,#fff);color:var(--ink);font:inherit;font-size:15px;font-weight:700}.lp-order-input:focus{outline:none;border-color:var(--orange)}.lp-order-text{min-width:0;color:var(--ink);font-size:14px;line-height:1.45;overflow-wrap:anywhere}.lp-order-reset{display:block;margin:10px 0 0 auto;padding:7px 11px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--white,#fff);color:var(--ink-soft);font-family:inherit;cursor:pointer}.lp-order-reset:hover{border-color:var(--orange);color:var(--orange)}.lp-vocab-word{padding:7px 12px;border:1px solid var(--border);border-radius:99px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-vocab-word.selected{background:var(--coral);color:#fff;border-color:var(--coral)}@media(max-width:520px){.lp-order-help{align-items:flex-start;flex-direction:column}.lp-order-card{grid-template-columns:46px minmax(0,1fr);gap:8px}.lp-order-input{width:46px}}';
   document.head.appendChild(st);
 }
 
@@ -1585,45 +1872,84 @@ function _lpOrder(content, state, refreshScore) {
   var wrap = document.createElement('div');
   var instr = document.createElement('div'); instr.className = 'lp-instr'; instr.textContent = content.instructions || 'Ordena los eventos en el orden en que ocurren.';
   wrap.appendChild(instr);
-  var slots = [];
-  var bankItems = [];
-  function fillNext(text, itemEl) {
-    for (var si = 0; si < slots.length; si++) {
-      if (!slots[si].dataset.filled) {
-        slots[si].dataset.filled = text;
-        slots[si].textContent = (si+1) + '. ' + text;
-        slots[si].classList.add('filled');
-        itemEl.classList.add('placed');
-        answers['order-' + si] = { answer: text, correct: text === events[si] };
-        refreshScore();
-        return;
-      }
+  var help = document.createElement('div'); help.className = 'lp-order-help';
+  var helpText = document.createElement('span'); helpText.textContent = 'Escribe el número de la posición de cada evento.';
+  var count = document.createElement('span'); count.textContent = events.length + ' evento' + (events.length === 1 ? '' : 's');
+  help.appendChild(helpText); help.appendChild(count); wrap.appendChild(help);
+  var list = document.createElement('div'); list.className = 'lp-order-list'; wrap.appendChild(list);
+  var arranged = events.map(function(text, sourceIndex){ return { text: text, sourceIndex: sourceIndex }; });
+
+  function shuffleArranged() {
+    for (var i = arranged.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = arranged[i]; arranged[i] = arranged[j]; arranged[j] = temp;
     }
+    if (arranged.length > 1 && arranged.every(function(item, index){ return item.sourceIndex === index; })) arranged.push(arranged.shift());
   }
-  var bankLabel = document.createElement('div'); bankLabel.className = 'lp-ov-label'; bankLabel.textContent = 'Banco de eventos';
-  var bank = document.createElement('div'); bank.className = 'lp-order-bank';
-  var shuffled = events.map(function(e){ return e; }).sort(function(){ return Math.random() - 0.5; });
-  shuffled.forEach(function(ev){
-    var it = document.createElement('button'); it.type = 'button'; it.className = 'lp-order-item'; it.textContent = ev;
-    it.addEventListener('click', function(){ if (it.classList.contains('placed')) return; fillNext(ev, it); });
-    bankItems.push(it); bank.appendChild(it);
-  });
-  var slotsLabel = document.createElement('div'); slotsLabel.className = 'lp-ov-label'; slotsLabel.textContent = 'Orden correcto';
-  var slotsWrap = document.createElement('div');
-  events.forEach(function(ev, i){
-    var slot = document.createElement('div'); slot.className = 'lp-order-slot'; slot.textContent = (i+1) + '. (vacio)';
-    slot.addEventListener('click', function(){
-      if (!slot.dataset.filled) return;
-      var text = slot.dataset.filled;
-      delete slot.dataset.filled; slot.classList.remove('filled'); slot.textContent = (i+1) + '. (vacio)';
-      bankItems.forEach(function(b){ if (b.textContent === text) b.classList.remove('placed'); });
-      delete answers['order-' + i]; refreshScore();
+  function syncAnswers(shouldRefresh) {
+    Object.keys(answers).forEach(function(key){ if (key.indexOf('order-') === 0) delete answers[key]; });
+    arranged.forEach(function(item, index){
+      answers['order-' + index] = { answer: item.text, correct: item.sourceIndex === index };
     });
-    slots.push(slot); slotsWrap.appendChild(slot);
-  });
-  wrap.appendChild(bankLabel); wrap.appendChild(bank); wrap.appendChild(slotsLabel); wrap.appendChild(slotsWrap);
+    if (shouldRefresh) refreshScore();
+  }
+  function moveEvent(from, to) {
+    if (from === to || from < 0 || to < 0 || from >= arranged.length || to >= arranged.length) return;
+    var moved = arranged.splice(from, 1)[0];
+    arranged.splice(to, 0, moved);
+    renderList();
+    syncAnswers(true);
+  }
+  // El numero es la posicion: al escribirlo la tarjeta se inserta ahi y el
+  // resto se recorre, asi nunca hay numeros repetidos ni huecos.
+  function renderList() {
+    list.replaceChildren();
+    arranged.forEach(function(item, index){
+      var card = document.createElement('div'); card.className = 'lp-order-card';
+      var input = document.createElement('input');
+      input.type = 'number'; input.className = 'lp-order-input';
+      input.min = '1'; input.max = String(arranged.length); input.step = '1';
+      input.value = String(index + 1);
+      input.setAttribute('aria-label', 'Posición de: ' + item.text);
+      input.addEventListener('focus', function(){ input.select(); });
+      input.addEventListener('change', function(){
+        var wanted = parseInt(input.value, 10);
+        if (!isFinite(wanted)) { input.value = String(index + 1); return; }
+        wanted = Math.min(Math.max(wanted, 1), arranged.length);
+        if (wanted - 1 === index) { input.value = String(index + 1); return; }
+        moveEvent(index, wanted - 1);
+      });
+      var text = document.createElement('div'); text.className = 'lp-order-text'; text.textContent = item.text;
+      card.appendChild(input); card.appendChild(text); list.appendChild(card);
+    });
+  }
+
+  // Reanudar: _lpRestorePiece reordena por los textos guardados; el hook vive en la lista
+  // porque las tarjetas se re-crean en cada renderList y no sobreviven al replay de clicks.
+  list._lpApplyOrder = function(texts) {
+    var pool = arranged.slice();
+    var slots = new Array(arranged.length);
+    var placed = 0;
+    (texts || []).forEach(function(text, position){
+      if (!text || position >= slots.length) return;
+      for (var i = 0; i < pool.length; i++) {
+        if (pool[i].text === text) { slots[position] = pool.splice(i, 1)[0]; placed++; return; }
+      }
+    });
+    if (!placed) return;
+    var next = [];
+    for (var s = 0; s < slots.length; s++) next.push(slots[s] || pool.shift());
+    arranged = next;
+    renderList();
+    syncAnswers(true);
+  };
+
+  var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'lp-order-reset'; reset.textContent = '↻ Mezclar de nuevo';
+  reset.addEventListener('click', function(){ shuffleArranged(); renderList(); syncAnswers(true); });
+  wrap.appendChild(reset);
   state.score = function(){ var t = events.length, c = 0; for (var i = 0; i < events.length; i++) { var a = answers['order-'+i]; if (a && a.correct) c++; } return { correct: c, total: t }; };
   state.detail = function(){ return events.map(function(ev, i){ var a = answers['order-'+i] || {}; return { key:'order-'+i, questionText: 'Posición ' + (i+1), answer: a.answer || '', isCorrect: a.correct === undefined ? false : a.correct }; }); };
+  shuffleArranged(); renderList(); syncAnswers(false);
   return wrap;
 }
 
@@ -2677,12 +3003,9 @@ function _lpRestorePiece(el, saved, type){
       return;
     }
     if (type === 'order') {
-      saved.slice().sort(function(a, b){ return (a.part || 0) - (b.part || 0); }).forEach(function(row){
-        var items = el.querySelectorAll('.lp-order-item');
-        for (var i = 0; i < items.length; i++) {
-          if (items[i].textContent === row.answer && !items[i].classList.contains('placed')) { items[i].click(); break; }
-        }
-      });
+      var orderList = el.querySelector('.lp-order-list');
+      if (!orderList || !orderList._lpApplyOrder) return;
+      orderList._lpApplyOrder(saved.slice().sort(function(a, b){ return (a.part || 0) - (b.part || 0); }).map(function(row){ return row.answer; }));
       return;
     }
     if (type === 'vocab') {
@@ -4618,6 +4941,8 @@ function LegoStudentVocabulary(opts) {
 // No conoce estudiante, Banco ni Supabase: entrega un value normalizado al caller.
 //   LegoVocabularyEntryForm({ value, readOnly, onSubmit, onCancel }) -> nodo DOM
 //   value: { term, entry_type, senses:[{meaning,example,locked}] }
+// El tipo es una regla de dominio unica en LegoData: una unidad espanola con
+// varias palabras se practica como expresion; una sola conserva su tipo actual.
 function LegoVocabularyEntryForm(opts) {
   opts = opts || {};
   var value = opts.value || {};
@@ -4708,7 +5033,7 @@ function LegoVocabularyEntryForm(opts) {
     var cleanTerm = term.value.trim();
     return {
       term: cleanTerm,
-      entry_type: /\s/.test(cleanTerm) ? 'expression' : (value.entry_type || 'word'),
+      entry_type: LegoData.vocabularyEntryType(cleanTerm, value.entry_type),
       senses: rows.map(function(row){
         return {
           bank_sense_id: row.bank_sense_id,

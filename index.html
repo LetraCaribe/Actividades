@@ -353,8 +353,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 
 <div class="toast" id="toast"></div>
 
-<script src="components.js?v=20260728-2"></script>
-<script src="legodata.js?v=20260728-2"></script>
+<script src="components.js?v=20260730-1"></script>
+<script src="legodata.js?v=20260730-1"></script>
 <script>
 // ============================================================
 // Portal de estudiantes — motor construido al docs/contrato-datos.md
@@ -377,6 +377,8 @@ let studentGoalLinks = [];
 let allCredits = [], allSessions = [];
 let allClassBoards = [];
 let studentBillingContext = null;
+let libraryMounted = false;   // la biblioteca se monta al abrir su pestana, una sola vez
+let libraryBrowser = null;
 let allVocabulary = [];
 let resultsAsgnId = null;
 let authRecoveryMode = false;
@@ -478,6 +480,8 @@ function showTab(name){
   document.querySelectorAll('.snav-item').forEach(function(b){ b.classList.remove('active'); });
   const panel = $('tab-' + name); if (panel) panel.classList.add('active');
   const nav = $('snav-' + name); if (nav) nav.classList.add('active');
+  // Carga por intencion: la biblioteca solo se pide si el estudiante entra.
+  if (name === 'biblioteca' && !libraryMounted) loadLibrary();
 }
 
 // ── auth ──
@@ -562,6 +566,7 @@ async function doRegister(){
 async function doLogout(){
   await db.auth.signOut();
   currentUser = null; currentProfile = null; allAssignments = []; studentGoals = []; studentGoalLinks = [];
+  libraryMounted = false; libraryBrowser = null;
   showScreen('screen-login');
 }
 async function loadProfile(){
@@ -596,7 +601,8 @@ async function showPlatform(){
   $('wb-greeting').textContent = '¡Hola, ' + name.split(/\s+/)[0] + '!';
   $('wb-sub').textContent = g.sub;
   // cargar datos en paralelo
-  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadLibrary(), loadClasses(), loadVocabulary(), loadStudentGoals() ]);
+  // Biblioteca queda fuera a proposito: se carga al abrir su pestana (showTab).
+  await Promise.all([ loadWordOfDay(), loadAssignments(), loadLeaderboard(), loadClasses(), loadVocabulary(), loadStudentGoals() ]);
   renderDashClasses();
   renderVocabulary();
   renderStudentGoals();
@@ -1089,23 +1095,29 @@ async function loadLeaderboard(){
 }
 
 // ── biblioteca ──
-async function loadLibrary(){
-  try {
-    const data = await LegoData.library();
-    const items = data || [];
-    const fb = $('library-filters');
-    if (fb) fb.replaceChildren(LegoLibraryFilters({ items: items, onFilter: renderLibrary }));
-    renderLibrary(items);
-  } catch(e) {
-    console.error('loadLibrary', e);
-    showToast('Error al cargar biblioteca');
-  }
+// Monta el navegador por niveles. No descarga la biblioteca: pide conteos, y las
+// filas del nivel o de la busqueda cuando hacen falta. El content solo al abrir.
+function loadLibrary(){
+  const fb = $('library-filters');
+  if (!fb) return;
+  libraryMounted = true;
+  libraryBrowser = LegoLibraryBrowser({
+    counts: function(){ return LegoData.libraryLevelCounts(); },
+    byLevel: function(level){ return LegoData.libraryByLevel(level); },
+    search: function(q){ return LegoData.librarySearch(q); },
+    onCountsError: function(){ libraryMounted = false; },
+    onList: renderLibrary
+  });
+  fb.replaceChildren(libraryBrowser);
 }
 
+// items === null: parrilla de niveles, no hay lista que pintar.
 function renderLibrary(items){
   const mount = $('library-mount');
+  if (!mount) return;
+  if (items === null) { mount.replaceChildren(); return; }
   if (!items.length) {
-    mount.replaceChildren(LegoEmpty({ text: 'No hay materiales disponibles.' }));
+    mount.replaceChildren(LegoEmpty({ text: 'No hay materiales en este nivel.' }));
     return;
   }
 
@@ -1120,8 +1132,16 @@ function renderLibrary(items){
   mount.replaceChildren(frag);
 }
 
-function openLibraryViewer(item){
-  LegoLibraryViewer(item);
+// La fila de la lista viene sin content: se pide al abrir.
+async function openLibraryViewer(item){
+  if (!item) return;
+  if (item.content) { LegoLibraryViewer(item); return; }
+  try {
+    LegoLibraryViewer(await LegoData.libraryItem(item.id));
+  } catch(e) {
+    console.error('openLibraryViewer', e);
+    showToast('No se pudo abrir el material.');
+  }
 }
 
 // ── vocabulario ──

@@ -421,7 +421,7 @@ LegoData.classCreditsByYear = async function(year){
   var fromDate = y + '-01-01';
   var nextDate = (y + 1) + '-01-01';
   var r = await db.from('class_credits')
-    .select('student_id,billing_group_id,credits,paid_at,created_at')
+    .select('student_id,billing_group_id,credits,paid_at,created_at,usd_rate_snapshot,trm_snapshot,cop_value_snapshot,finance_snapshot_at')
     .or('and(paid_at.gte.' + fromDate + ',paid_at.lt.' + nextDate + '),and(paid_at.is.null,created_at.gte.' + fromDate + ',created_at.lt.' + nextDate + ')')
     .order('paid_at', { ascending: false });
   if (r.error) { throw new Error('[LegoData.classCreditsByYear] ' + r.error.message); }
@@ -573,13 +573,53 @@ LegoData.classSessionsByRange = async function(fromDate, toDate){
 LegoData.financeClassSessionsByRange = async function(fromDate, toDate){
   if (!fromDate || !toDate) { throw new Error('[LegoData.financeClassSessionsByRange] Falta rango'); }
   var r = await db.from('class_sessions')
-    .select('student_id,class_date,cancelled,billable_units,class_time,class_end_time')
+    .select('student_id,class_date,cancelled,billable_units,class_time,class_end_time,usd_rate_snapshot,trm_snapshot,cop_value_snapshot,finance_snapshot_at')
     .gte('class_date', fromDate)
     .lte('class_date', toDate)
     .order('class_date', { ascending: true })
     .order('class_time', { ascending: true });
   if (r.error) { throw new Error('[LegoData.financeClassSessionsByRange] ' + r.error.message); }
   return r.data || [];
+};
+LegoData.financeExchangeRates = async function(fromDate, toDate){
+  var q = db.from('finance_exchange_rates')
+    .select('rate,valid_from,valid_to,source,synced_at')
+    .order('valid_from', { ascending: true });
+  if (fromDate) q = q.gte('valid_to', fromDate);
+  if (toDate) q = q.lte('valid_from', toDate);
+  var r = await q;
+  if (r.error) { throw new Error('[LegoData.financeExchangeRates] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.financeTariffHistory = async function(){
+  var r = await db.from('finance_tariff_history')
+    .select('id,owner_kind,owner_id,usd_per_unit,valid_from,valid_to')
+    .order('valid_from', { ascending: true });
+  if (r.error) { throw new Error('[LegoData.financeTariffHistory] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.financeSetTariffs2026 = async function(defaultUsd, overrides){
+  var r = await db.rpc('finance_set_tariffs_2026', {
+    p_default_usd: Number(defaultUsd) || 0,
+    p_overrides: overrides || {}
+  });
+  if (r.error) { throw new Error('[LegoData.financeSetTariffs2026] ' + r.error.message); }
+  return (r.data || [])[0] || null;
+};
+LegoData.financeSetTariff = async function(ownerKind, ownerId, usdPerUnit, effectiveFrom){
+  var r = await db.rpc('finance_set_tariff', {
+    p_owner_kind: ownerKind,
+    p_owner_id: ownerId || null,
+    p_usd_per_unit: Number(usdPerUnit) || 0,
+    p_effective_from: effectiveFrom || new Date().toISOString().slice(0, 10)
+  });
+  if (r.error) { throw new Error('[LegoData.financeSetTariff] ' + r.error.message); }
+  return r.data || null;
+};
+LegoData.financeApplyMissingSnapshots = async function(fromDate){
+  var r = await db.rpc('finance_apply_missing_snapshots', { p_from: fromDate || '2026-01-01' });
+  if (r.error) { throw new Error('[LegoData.financeApplyMissingSnapshots] ' + r.error.message); }
+  return (r.data || [])[0] || null;
 };
 LegoData.classPrepSessionsByDate = async function(date){
   if (!date) { throw new Error('[LegoData.classPrepSessionsByDate] Falta fecha'); }
@@ -1421,6 +1461,14 @@ LegoData.vocabularyKey = function(term){
     .replace(/\s+/g, ' ')
     .trim();
 };
+// Regla operativa compartida por formularios e importadores:
+// varias palabras se aprenden como una expresion; una sola conserva el tipo
+// explicito (por ejemplo, una expresion idiomatica de un solo token) o palabra.
+LegoData.vocabularyEntryType = function(term, current){
+  var clean = String(term || '').trim();
+  if (/\s/.test(clean)) return 'expression';
+  return current === 'expression' ? 'expression' : 'word';
+};
 LegoData.parseVocabularyEqualsText = function(text, entryType){
   var rows = [];
   var seen = {};
@@ -1432,7 +1480,7 @@ LegoData.parseVocabularyEqualsText = function(text, entryType){
     var meaning = parts.join('=').trim();
     var termKey = LegoData.vocabularyKey(term);
     var meaningKey = LegoData.vocabularyKey(meaning);
-    var type = entryType || 'word';
+    var type = LegoData.vocabularyEntryType(term, entryType);
     if (!term || !meaning || !termKey || !meaningKey) return;
     var left = type + ':' + termKey;
     var right = type + ':' + meaningKey;
@@ -1696,9 +1744,48 @@ LegoData.deleteVocabularyPracticeEventsByStudent = async function(studentId){
 };
 
 // ── biblioteca ──────────────────────────────────────────
+// Carga por intencion: la lista NO trae content (el cuerpo de la guia pesa y
+// solo lo necesita el visor). Se pide con libraryItem(id) al abrir un material.
+var LIBRARY_LIST_COLS = 'id,title,description,level,grammar_category_id,created_at, grammar_categories(name)';
+
 LegoData.library = async function(){
   var r = await db.from('library').select('*, grammar_categories(name)').order('created_at', { ascending: false });
   if (r.error) { throw new Error('[LegoData.library] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.libraryLevelCounts = async function(){
+  var r = await db.from('library_level_counts').select('level,total');
+  if (r.error) { throw new Error('[LegoData.libraryLevelCounts] ' + r.error.message); }
+  return (r.data || []).map(function(row){
+    return { level: row.level || '', total: Number(row.total) || 0 };
+  });
+};
+LegoData.libraryByLevel = async function(level){
+  if (level === undefined) { throw new Error('[LegoData.libraryByLevel] Falta level'); }
+  var q = db.from('library').select(LIBRARY_LIST_COLS);
+  if (level === null || level === '') q = q.or('level.is.null,level.eq.');
+  else q = q.eq('level', level);
+  var r = await q.order('created_at', { ascending: false });
+  if (r.error) { throw new Error('[LegoData.libraryByLevel] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.libraryItem = async function(id){
+  if (!id) { throw new Error('[LegoData.libraryItem] Falta id'); }
+  var r = await db.from('library').select('*, grammar_categories(name)').eq('id', id).maybeSingle();
+  if (r.error) { throw new Error('[LegoData.libraryItem] ' + r.error.message); }
+  if (!r.data) { throw new Error('[LegoData.libraryItem] Material no encontrado o sin permiso: ' + id); }
+  return r.data;
+};
+LegoData.librarySearch = async function(q){
+  var term = String(q || '').trim();
+  if (!term) return [];
+  var safe = term.replace(/[%,()]/g, ' ').trim();
+  if (!safe) return [];
+  var r = await db.from('library').select(LIBRARY_LIST_COLS)
+    .or('title.ilike.%' + safe + '%,description.ilike.%' + safe + '%')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (r.error) { throw new Error('[LegoData.librarySearch] ' + r.error.message); }
   return r.data || [];
 };
 LegoData.insertLibraryItem = async function(row){
@@ -1727,9 +1814,8 @@ LegoData.wordsOfDay = async function(){
 };
 LegoData.leaderboard = async function(opts){
   opts = opts || {};
-  var q = db.from('leaderboard').select('id,display_name,score,level').order('score', { ascending: false }).limit(opts.limit || 10);
-  if (opts.level) q = q.eq('level', opts.level);
-  var r = await q;
+  var limit = Math.min(Math.max(Number(opts.limit) || 10, 1), 50);
+  var r = await db.rpc('leaderboard_for_current_student', { p_limit: limit });
   if (r.error) { throw new Error('[LegoData.leaderboard] ' + r.error.message); }
   return r.data || [];
 };
