@@ -2285,6 +2285,11 @@ LegoData.installErrorMonitor = function(opts){
   var sent = 0;
   var lastMsg = '', lastAt = 0;
   var sending = false;
+  function ignoredMessage(message){
+    var msg = String(message || '').trim().toLowerCase();
+    return msg === 'resizeobserver loop limit exceeded'
+      || msg === 'resizeobserver loop completed with undelivered notifications.';
+  }
   function crumb(text){
     var t = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 60);
     if (!t) return;
@@ -2297,7 +2302,7 @@ LegoData.installErrorMonitor = function(opts){
   }, true);
   async function send(source, message, stack){
     var msg = String(message || '').slice(0, 500);
-    if (!msg || sending) return;
+    if (!msg || ignoredMessage(msg) || sending) return;
     var now = Date.now();
     if (msg === lastMsg && (now - lastAt) < 30000) return;  // dedupe rafagas
     if (sent >= 10) return;

@@ -354,7 +354,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 <div class="toast" id="toast"></div>
 
 <script src="components.js?v=20260730-1"></script>
-<script src="legodata.js?v=20260730-1"></script>
+<script src="legodata.js?v=20260730-2"></script>
 <script>
 // ============================================================
 // Portal de estudiantes — motor construido al docs/contrato-datos.md
@@ -363,7 +363,7 @@ const SUPABASE_URL = 'https://fsoyquopdsunmiakfosa.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_7NB3dpFRBnwAnFEk2SC_Jw_Vve-Ay0E';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 if (window.LegoData && LegoData.installErrorMonitor) {
-  LegoData.installErrorMonitor({ page: 'portal', version: '20260728-2', getStudentId: function(){
+  LegoData.installErrorMonitor({ page: 'portal', version: '20260730-2', getStudentId: function(){
     return (typeof currentStudentId === 'function' && currentUser) ? currentStudentId() : null;
   } });
 }
