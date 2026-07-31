@@ -1746,10 +1746,13 @@ LegoData.deleteVocabularyPracticeEventsByStudent = async function(studentId){
 // ── biblioteca ──────────────────────────────────────────
 // Carga por intencion: la lista NO trae content (el cuerpo de la guia pesa y
 // solo lo necesita el visor). Se pide con libraryItem(id) al abrir un material.
-var LIBRARY_LIST_COLS = 'id,title,description,level,grammar_category_id,created_at, grammar_categories(name)';
+// Desde que la guia tambien apunta a un subfoco hay dos caminos entre library y
+// grammar_categories, asi que el embed debe decir por cual columna va. Sin la
+// pista, PostgREST responde "more than one relationship was found".
+var LIBRARY_LIST_COLS = 'id,title,description,level,grammar_category_id,practice_subfoco_id,created_at, grammar_categories!grammar_category_id(name)';
 
 LegoData.library = async function(){
-  var r = await db.from('library').select('*, grammar_categories(name)').order('created_at', { ascending: false });
+  var r = await db.from('library').select('*, grammar_categories!grammar_category_id(name)').order('created_at', { ascending: false });
   if (r.error) { throw new Error('[LegoData.library] ' + r.error.message); }
   return r.data || [];
 };
@@ -1771,7 +1774,7 @@ LegoData.libraryByLevel = async function(level){
 };
 LegoData.libraryItem = async function(id){
   if (!id) { throw new Error('[LegoData.libraryItem] Falta id'); }
-  var r = await db.from('library').select('*, grammar_categories(name)').eq('id', id).maybeSingle();
+  var r = await db.from('library').select('*, grammar_categories!grammar_category_id(name)').eq('id', id).maybeSingle();
   if (r.error) { throw new Error('[LegoData.libraryItem] ' + r.error.message); }
   if (!r.data) { throw new Error('[LegoData.libraryItem] Material no encontrado o sin permiso: ' + id); }
   return r.data;
@@ -1804,6 +1807,415 @@ LegoData.deleteLibraryItem = async function(id){
   if (r.error) { throw new Error('[LegoData.deleteLibraryItem] ' + r.error.message); }
   if (!r.data || !r.data.length) { throw new Error('[LegoData.deleteLibraryItem] RLS bloqueo el delete (0 filas) en item ' + id); }
   return r.data;
+};
+
+// ── rastreador de biblioteca ────────────────────────────
+// Cada apertura del portal se guarda cruda. La ventana antirrebote que evita
+// contar dos veces la misma relectura vive en SQL (library_open_bucket), no
+// en el navegador: asi no depende de que la sesion siga viva.
+LegoData.withLibraryOpenLevelSnapshot = async function(row){
+  if (!row || !row.student_id || row.level_at_open) return row;
+  var levels = await LegoData.studentLevelsByIds([row.student_id]);
+  return Object.assign({}, row, { level_at_open: levels[String(row.student_id)] || null });
+};
+LegoData.insertLibraryOpenEvent = async function(row){
+  if (!row || !row.student_id) { throw new Error('[LegoData.insertLibraryOpenEvent] Falta student_id'); }
+  var payload = await LegoData.withLibraryOpenLevelSnapshot({
+    student_id: row.student_id,
+    library_id: row.library_id || null,
+    material_title: String(row.material_title || '')
+  });
+  var r = await db.from('library_open_events').insert(payload);
+  if (r.error) { throw new Error('[LegoData.insertLibraryOpenEvent] ' + r.error.message); }
+  return true;
+};
+LegoData.libraryAdminDashboardSummary = async function(opts){
+  opts = opts || {};
+  var days = Math.min(Math.max(Number(opts.days) || 30, 1), 365);
+  var limit = Math.min(Math.max(Number(opts.limit) || 10, 1), 50);
+  var r = await db.rpc('library_admin_dashboard_summary', { p_days: days, p_row_limit: limit });
+  if (r.error) { throw new Error('[LegoData.libraryAdminDashboardSummary] ' + r.error.message); }
+  var data = r.data || {};
+  return {
+    days: Number(data.days) || days,
+    windowMinutes: Number(data.windowMinutes) || 0,
+    stats: data.stats || {},
+    topMaterials: Array.isArray(data.topMaterials) ? data.topMaterials : [],
+    topStudents: Array.isArray(data.topStudents) ? data.topStudents : [],
+    recent: Array.isArray(data.recent) ? data.recent : []
+  };
+};
+LegoData.libraryOpenMaterialDetail = async function(libraryId, opts){
+  if (!libraryId) { throw new Error('[LegoData.libraryOpenMaterialDetail] Falta libraryId'); }
+  opts = opts || {};
+  var days = Math.min(Math.max(Number(opts.days) || 90, 1), 365);
+  var limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 200);
+  var r = await db.rpc('library_open_material_detail', {
+    p_library_id: String(libraryId),
+    p_days: days,
+    p_row_limit: limit
+  });
+  if (r.error) { throw new Error('[LegoData.libraryOpenMaterialDetail] ' + r.error.message); }
+  var data = r.data || {};
+  return {
+    libraryId: data.libraryId || '',
+    title: data.title || '',
+    level: data.level || '',
+    days: Number(data.days) || days,
+    visits: Number(data.visits) || 0,
+    students: Number(data.students) || 0,
+    rows: Array.isArray(data.rows) ? data.rows : []
+  };
+};
+
+// Una ronda guarda solo su resumen y las respuestas incorrectas. La identidad
+// del estudiante, el texto de la oracion y el alcance se derivan en la RPC.
+LegoData.recordLibraryPracticeRound = async function(row){
+  row = row || {};
+  if (!row.libraryId) { throw new Error('[LegoData.recordLibraryPracticeRound] Falta libraryId'); }
+  var errors = (Array.isArray(row.errors) ? row.errors : []).map(function(error){
+    return {
+      bankId: String(error.bankId || ''),
+      blankIndex: Math.max(0, Number(error.blankIndex) || 0),
+      answer: String(error.answer || '')
+    };
+  });
+  var r = await db.rpc('record_library_practice_round', {
+    p_library_id: String(row.libraryId),
+    p_game: String(row.game || ''),
+    p_question_count: Number(row.questionCount) || 0,
+    p_errors: errors
+  });
+  if (r.error) { throw new Error('[LegoData.recordLibraryPracticeRound] ' + r.error.message); }
+  return r.data;
+};
+LegoData.libraryPracticeDashboardSummary = async function(opts){
+  opts = opts || {};
+  var days = Math.min(Math.max(Number(opts.days) || 30, 1), 365);
+  var limit = Math.min(Math.max(Number(opts.limit) || 20, 1), 100);
+  var r = await db.rpc('library_practice_dashboard_summary', { p_days: days, p_row_limit: limit });
+  if (r.error) { throw new Error('[LegoData.libraryPracticeDashboardSummary] ' + r.error.message); }
+  var data = r.data || {};
+  return {
+    days: Number(data.days) || days,
+    stats: data.stats || {},
+    recentRounds: Array.isArray(data.recentRounds) ? data.recentRounds : [],
+    problemSentences: Array.isArray(data.problemSentences) ? data.problemSentences : []
+  };
+};
+LegoData.libraryPracticeErrorDetail = async function(practiceBankRef, opts){
+  if (!practiceBankRef) { throw new Error('[LegoData.libraryPracticeErrorDetail] Falta practiceBankRef'); }
+  opts = opts || {};
+  var days = Math.min(Math.max(Number(opts.days) || 90, 1), 365);
+  var limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 300);
+  var r = await db.rpc('library_practice_error_detail', {
+    p_practice_bank_ref: String(practiceBankRef),
+    p_days: days,
+    p_row_limit: limit
+  });
+  if (r.error) { throw new Error('[LegoData.libraryPracticeErrorDetail] ' + r.error.message); }
+  var data = r.data || {};
+  return {
+    practiceBankRef: data.practiceBankRef || String(practiceBankRef),
+    sentence: data.sentence || '',
+    days: Number(data.days) || days,
+    rows: Array.isArray(data.rows) ? data.rows : []
+  };
+};
+
+// ── banco de practica ───────────────────────────────────
+// El banco guarda la oracion en crudo: el texto con sus ___ y, por cada hueco,
+// respuesta, variantes aceptadas y distractores. La fila no sabe de juegos;
+// cada juego la arma a su manera, igual que Vocabulario con palabra y sentido.
+// Listar es solo del profesor (la RLS no abre la tabla al estudiante); el
+// estudiante recibe oraciones unicamente por el sorteo.
+var PRACTICE_BANK_COLS = 'id,sentence,blanks,level,grammar_category_id,subfoco_id,note,active,times_played,created_at';
+
+LegoData.practiceBank = async function(opts){
+  opts = opts || {};
+  var q = db.from('practice_bank').select(PRACTICE_BANK_COLS);
+  if (opts.categoryId) q = q.eq('grammar_category_id', opts.categoryId);
+  if (opts.subfocoId) q = q.eq('subfoco_id', opts.subfocoId);
+  if (opts.level) q = q.eq('level', opts.level);
+  if (opts.onlyActive) q = q.eq('active', true);
+  if (opts.search) {
+    var safe = String(opts.search).replace(/[%,()]/g, ' ').trim();
+    if (safe) q = q.ilike('sentence', '%' + safe + '%');
+  }
+  var limit = Math.min(Math.max(Number(opts.limit) || 200, 1), 500);
+  var r = await q.order('created_at', { ascending: false }).limit(limit);
+  if (r.error) { throw new Error('[LegoData.practiceBank] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.insertPracticeBankRows = async function(rows){
+  var list = Array.isArray(rows) ? rows : [rows];
+  if (!list.length) { throw new Error('[LegoData.insertPracticeBankRows] Sin filas'); }
+  var r = await db.from('practice_bank').insert(list).select('id');
+  if (r.error) { throw new Error('[LegoData.insertPracticeBankRows] ' + r.error.message); }
+  return r.data || [];
+};
+LegoData.updatePracticeBankRow = async function(id, patch){
+  if (!id) { throw new Error('[LegoData.updatePracticeBankRow] Falta id'); }
+  var payload = Object.assign({}, patch, { updated_at: new Date().toISOString() });
+  var r = await db.from('practice_bank').update(payload).eq('id', id).select();
+  if (r.error) { throw new Error('[LegoData.updatePracticeBankRow] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.updatePracticeBankRow] RLS bloqueo el update (0 filas) en oracion ' + id); }
+  return r.data[0];
+};
+// Reclasificar en bloque: mismo patch para las filas elegidas. Devuelve los ids
+// realmente tocados, que es como se comprueba que la RLS no bloqueo.
+LegoData.updatePracticeBankRows = async function(ids, patch){
+  var list = (Array.isArray(ids) ? ids : [ids]).filter(function(id){ return id; });
+  if (!list.length) { throw new Error('[LegoData.updatePracticeBankRows] Sin ids'); }
+  var payload = Object.assign({}, patch, { updated_at: new Date().toISOString() });
+  var r = await db.from('practice_bank').update(payload).in('id', list).select('id');
+  if (r.error) { throw new Error('[LegoData.updatePracticeBankRows] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.updatePracticeBankRows] RLS bloqueo el update (0 filas)'); }
+  return r.data;
+};
+LegoData.deletePracticeBankRow = async function(id){
+  if (!id) { throw new Error('[LegoData.deletePracticeBankRow] Falta id'); }
+  var r = await db.from('practice_bank').delete().eq('id', id).select('id');
+  if (r.error) { throw new Error('[LegoData.deletePracticeBankRow] ' + r.error.message); }
+  if (!r.data || !r.data.length) { throw new Error('[LegoData.deletePracticeBankRow] RLS bloqueo el delete (0 filas) en oracion ' + id); }
+  return r.data;
+};
+LegoData.practiceBankDraw = async function(opts){
+  opts = opts || {};
+  var count = Math.min(Math.max(Number(opts.count) || 10, 1), 15);
+  var r = await db.rpc('practice_bank_draw', {
+    p_category: opts.categoryId ? String(opts.categoryId) : null,
+    p_subfoco: opts.subfocoId ? String(opts.subfocoId) : null,
+    p_level: opts.level ? String(opts.level) : null,
+    p_count: count
+  });
+  if (r.error) { throw new Error('[LegoData.practiceBankDraw] ' + r.error.message); }
+  return Array.isArray(r.data) ? r.data : [];
+};
+// Oraciones nacidas de una guia. Es la lista que esa guia administra.
+LegoData.practiceBankByLibrary = async function(libraryId){
+  if (!libraryId) { throw new Error('[LegoData.practiceBankByLibrary] Falta libraryId'); }
+  var r = await db.from('practice_bank')
+    .select(PRACTICE_BANK_COLS + ',source_library_id')
+    .eq('source_library_id', libraryId)
+    .order('created_at', { ascending: false });
+  if (r.error) { throw new Error('[LegoData.practiceBankByLibrary] ' + r.error.message); }
+  return r.data || [];
+};
+
+// Guias cuya practica cubre un alcance. Una guia sin subfoco cubre todo su
+// foco; con subfoco, solo ese. Sirve para avisar antes de mover una oracion.
+LegoData.librariesForScope = async function(opts){
+  opts = opts || {};
+  if (!opts.categoryId) return [];
+  var q = db.from('library')
+    .select('id,title,level,grammar_category_id,practice_subfoco_id')
+    .eq('grammar_category_id', opts.categoryId);
+  if (opts.level) q = q.eq('level', opts.level);
+  var r = await q.order('title');
+  if (r.error) { throw new Error('[LegoData.librariesForScope] ' + r.error.message); }
+  var subfocoId = opts.subfocoId ? String(opts.subfocoId) : '';
+  return (r.data || []).filter(function(row){
+    if (!row.practice_subfoco_id) return true;
+    return String(row.practice_subfoco_id) === subfocoId;
+  });
+};
+
+LegoData.practiceBankScopes = async function(){
+  var r = await db.rpc('practice_bank_scopes');
+  if (r.error) { throw new Error('[LegoData.practiceBankScopes] ' + r.error.message); }
+  return (Array.isArray(r.data) ? r.data : []).map(function(row){
+    return {
+      categoryId: row.categoryId || '',
+      subfocoId: row.subfocoId || '',
+      level: row.level || '',
+      total: Number(row.total) || 0
+    };
+  });
+};
+
+// Traductor: oraciones en crudo -> actividad en memoria para LegoPlayer.
+// Aqui vive todo lo que sabe de juegos; la fila del banco no sabe ninguno.
+// No guarda nada: la partida existe mientras esta en pantalla.
+//   escribir  -> el estudiante teclea la respuesta
+//   elegir    -> desplegable con la respuesta y sus distractores
+//   arrastrar -> banco de palabras compartido por las oraciones del set
+//   ordenar   -> reconstruir la oracion completa palabra por palabra
+//   corregir  -> reemplazar una forma incorrecta por la respuesta canonica
+//   mixta     -> repartir los cinco formatos anteriores dentro de la ronda
+LegoData.PRACTICE_GAMES = [
+  { id: 'escribir', label: 'Escribir', type: 'fill-blank' },
+  { id: 'elegir', label: 'Elegir', type: 'dropdown' },
+  { id: 'arrastrar', label: 'Arrastrar', type: 'drag-drop' },
+  { id: 'ordenar', label: 'Ordenar', type: 'mixed' },
+  { id: 'corregir', label: 'Corregir', type: 'mixed' },
+  { id: 'mixta', label: 'Mixta', type: 'mixed' }
+];
+function _pbShuffle(list){
+  var out = (list || []).slice();
+  for (var i = out.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+  }
+  return out;
+}
+function _pbCompletedSentence(row){
+  var blanks = Array.isArray(row && row.blanks) ? row.blanks : [];
+  var parts = String(row && row.sentence || '').split('___');
+  var text = '';
+  parts.forEach(function(part, index){
+    text += part;
+    if (index < blanks.length) text += String(blanks[index] && blanks[index].answer || '');
+  });
+  return text.replace(/\s+/g, ' ').trim();
+}
+function _pbFillQuestion(row, index, game){
+  var blanks = Array.isArray(row && row.blanks) ? row.blanks : [];
+  return {
+    id: 'q' + (index + 1),
+    type: 'fillblank',
+    hasBlank: true,
+    parts: String(row && row.sentence || '').split('___'),
+    blanks: blanks.map(function(b){
+      var answer = String(b && b.answer || '');
+      var out = { answer: answer };
+      if (b && b.hint) out.hint = b.hint;
+      if (game === 'elegir') out.options = _pbShuffle([answer].concat(Array.isArray(b && b.distractors) ? b.distractors : []));
+      return out;
+    })
+  };
+}
+function _pbDragQuestion(row, index){
+  var blanks = Array.isArray(row && row.blanks) ? row.blanks : [];
+  var distractors = [];
+  blanks.forEach(function(b){
+    (Array.isArray(b && b.distractors) ? b.distractors : []).forEach(function(word){ distractors.push(word); });
+  });
+  return {
+    id: 'q' + (index + 1),
+    type: 'dragdrop',
+    sentence: {
+      hasBlank: true,
+      parts: String(row && row.sentence || '').split('___'),
+      blanks: blanks.map(function(b){ return { answer: String(b && b.answer || '') }; })
+    },
+    distractors: _pbShuffle(distractors).slice(0, 4)
+  };
+}
+function _pbOrderQuestion(row, index){
+  var sentence = _pbCompletedSentence(row);
+  return {
+    id: 'q' + (index + 1),
+    type: 'wordorder',
+    tokens: sentence.split(/\s+/).filter(Boolean),
+    answer: sentence,
+    part: 0
+  };
+}
+function _pbCorrectionQuestion(row, index, fallbackWords){
+  var blanks = Array.isArray(row && row.blanks) ? row.blanks : [];
+  var targetIndex = blanks.length ? Math.floor(Math.random() * blanks.length) : 0;
+  var target = blanks[targetIndex] || {};
+  var answer = String(target.answer || '');
+  var candidates = (Array.isArray(target.distractors) ? target.distractors : []).concat(fallbackWords || []).filter(function(word){
+    return String(word || '').trim() && String(word).toLowerCase() !== answer.toLowerCase();
+  });
+  var wrong = _pbShuffle(candidates)[0] || '___';
+  var parts = String(row && row.sentence || '').split('___');
+  var sentence = '';
+  parts.forEach(function(part, blankIndex){
+    sentence += part;
+    if (blankIndex < blanks.length) sentence += blankIndex === targetIndex ? wrong : String(blanks[blankIndex] && blanks[blankIndex].answer || '');
+  });
+  return {
+    id: 'q' + (index + 1),
+    type: 'correction',
+    text: sentence.replace(/\s+/g, ' ').trim(),
+    answer: answer,
+    part: targetIndex
+  };
+}
+LegoData.practiceActivity = function(rows, opts){
+  opts = opts || {};
+  var game = opts.game || 'escribir';
+  var spec = LegoData.PRACTICE_GAMES.find(function(g){ return g.id === game; }) || LegoData.PRACTICE_GAMES[0];
+  var extraWords = [];
+  var fallbackWords = [];
+
+  (rows || []).forEach(function(row){
+    (Array.isArray(row && row.blanks) ? row.blanks : []).forEach(function(b){
+      if (b && b.answer) fallbackWords.push(String(b.answer));
+      (Array.isArray(b && b.distractors) ? b.distractors : []).forEach(function(word){ fallbackWords.push(String(word)); });
+    });
+  });
+
+  if (spec.id === 'ordenar' || spec.id === 'corregir' || spec.id === 'mixta') {
+    var mixedModes = _pbShuffle(['escribir', 'elegir', 'arrastrar', 'ordenar', 'corregir']);
+    var questions = (rows || []).map(function(row, index){
+      var rowGame = spec.id === 'mixta' ? mixedModes[index % mixedModes.length] : spec.id;
+      if (rowGame === 'escribir' || rowGame === 'elegir') return _pbFillQuestion(row, index, rowGame);
+      if (rowGame === 'arrastrar') return _pbDragQuestion(row, index);
+      if (rowGame === 'ordenar') return _pbOrderQuestion(row, index);
+      return _pbCorrectionQuestion(row, index, fallbackWords);
+    });
+    return {
+      id: 'practice-' + spec.id,
+      slug: 'practica-' + spec.id,
+      title: opts.title || 'Práctica',
+      level: opts.level || '',
+      type: spec.type,
+      content: {
+        version: 2,
+        instructions: opts.instructions || '',
+        stimulus: { type: 'none' },
+        questions: questions
+      }
+    };
+  }
+
+  var sentences = (rows || []).map(function(row){
+    var blanks = Array.isArray(row.blanks) ? row.blanks : [];
+    // split deja siempre un fragmento mas que huecos: "Ella ___ hoy." -> 2 partes.
+    var parts = String(row.sentence || '').split('___');
+    return {
+      hasBlank: true,
+      parts: parts,
+      blanks: blanks.map(function(b){
+        var answer = String(b && b.answer || '');
+        var distractors = Array.isArray(b && b.distractors) ? b.distractors : [];
+        var blank = { answer: answer };
+        if (b && b.hint) blank.hint = b.hint;
+        if (spec.id === 'elegir') blank.options = _pbShuffle([answer].concat(distractors));
+        if (spec.id === 'arrastrar') distractors.forEach(function(d){ extraWords.push(d); });
+        return blank;
+      })
+    };
+  });
+
+  var content = { instructions: opts.instructions || '', sentences: sentences };
+  // Arrastrar reparte un banco comun: unos pocos senuelos bastan para que no
+  // se resuelva por descarte cuando quedan dos palabras.
+  if (spec.id === 'arrastrar') content.distractors = _pbShuffle(extraWords).slice(0, Math.min(4, extraWords.length));
+
+  return {
+    id: 'practice-' + spec.id,
+    slug: 'practica-' + spec.id,
+    title: opts.title || 'Práctica',
+    level: opts.level || '',
+    type: spec.type,
+    content: content
+  };
+};
+
+LegoData.practiceBankScopeCount = async function(opts){
+  opts = opts || {};
+  var r = await db.rpc('practice_bank_scope_count', {
+    p_category: opts.categoryId ? String(opts.categoryId) : null,
+    p_subfoco: opts.subfocoId ? String(opts.subfocoId) : null,
+    p_level: opts.level ? String(opts.level) : null
+  });
+  if (r.error) { throw new Error('[LegoData.practiceBankScopeCount] ' + r.error.message); }
+  return Number(r.data) || 0;
 };
 
 // ── palabra del dia y leaderboard ───────────────────────

@@ -1160,6 +1160,7 @@ function LegoLibraryBrowser(opts) {
   var counts = [];      // [{level,total}] de la vista de conteos
   var levelRows = [];   // filas del nivel abierto, sin content
   var searchRows = [];  // filas de la busqueda vigente
+  var levelCache = Object.create(null);
   var countsToken = 0;  // descartan respuestas tardias al cambiar de scope
   var listToken = 0;
   var searchTimer = null;
@@ -1229,10 +1230,20 @@ function LegoLibraryBrowser(opts) {
       if (!silent) setStatus('No se pudo cargar la biblioteca.');
     }
   }
-  async function openLevel(level) {
+  function levelCacheKey(level) {
+    return level === null ? '__sin_nivel__' : String(level);
+  }
+  async function openLevel(level, force) {
     var my = ++listToken;
     state.level = level;
     state.cat = '';
+    var cacheKey = levelCacheKey(level);
+    if (!force && Object.prototype.hasOwnProperty.call(levelCache, cacheKey)) {
+      levelRows = levelCache[cacheKey];
+      setStatus('');
+      render();
+      return;
+    }
     levelRows = [];
     renderNav();
     onList([]);
@@ -1241,6 +1252,7 @@ function LegoLibraryBrowser(opts) {
       var rows = await fetchLevel(level);
       if (my !== listToken) return;
       levelRows = rows || [];
+      levelCache[cacheKey] = levelRows;
       setStatus('');
       render();
     } catch (e) {
@@ -1364,11 +1376,14 @@ function LegoLibraryBrowser(opts) {
   // devolver al usuario a la parrilla de niveles.
   wrap.refresh = function() {
     if (state.q) return Promise.all([loadCounts(true), runSearch(state.q)]);
-    if (state.level !== null) return Promise.all([loadCounts(true), openLevel(state.level)]);
+    if (state.level !== null) return Promise.all([loadCounts(true), openLevel(state.level, true)]);
     return loadCounts(false);
   };
+  wrap.invalidate = function() {
+    levelCache = Object.create(null);
+  };
 
-  loadCounts(false);
+  wrap.ready = loadCounts(false);
   return wrap;
 }
 
@@ -1574,7 +1589,7 @@ function LegoPlayer(activity, opts) {
   if (!document.getElementById('lego-player-styles')) {
     var st = document.createElement('style');
     st.id = 'lego-player-styles';
-    st.textContent = '.lego-player{font-size:15px;height:100%;display:flex;flex-direction:column;min-height:0}.lp-instr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}.lp-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500}.lp-sentence{font-family:var(--serif,serif);font-size:15px;line-height:2.2;color:var(--ink);margin-bottom:10px}.lp-input{border:none;border-bottom:2px solid var(--border);background:transparent;font-family:inherit;font-size:15px;text-align:center;min-width:70px;outline:none;padding:2px 4px}.lp-input.correct{border-color:var(--green);color:var(--green)}.lp-input.tilde{border-color:#DAA520;color:#DAA520}.lp-input.wrong{border-color:var(--red);color:var(--red)}.lp-fb{font-size:11px;margin-top:2px;min-height:13px}.lp-score{font-weight:700;margin-bottom:12px;color:var(--ink-soft);flex-shrink:0}.lp-text{font-family:var(--serif,serif);font-size:15px;line-height:1.8;color:var(--ink);margin-bottom:14px}.lp-mc-block{margin-bottom:16px}.lp-mc-q{display:flex;gap:8px;font-weight:600;margin-bottom:8px;align-items:flex-start}.lp-mc-num{background:var(--coral);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}.lp-mc-opts{display:flex;flex-direction:column;gap:6px}.lp-mc-opt{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-mc-opt:disabled{cursor:default}.lp-mc-opt.correct{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-mc-opt.wrong{background:var(--red-lt);border-color:var(--red);color:var(--red)}.lp-mc-fb{font-size:12px;margin-top:6px;min-height:14px}.lp-open{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:14px}.lp-body{flex:1 1 auto;min-height:0;overflow:auto}.lp-submit-msg{font-size:12px;font-weight:700;color:var(--red);margin-top:8px;min-height:16px;flex-shrink:0}.lp-nofeedback .lp-input.correct,.lp-nofeedback .lp-input.wrong,.lp-nofeedback .lp-input.tilde{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-mc-opt.correct,.lp-nofeedback .lp-mc-opt.wrong{background:var(--white,#fff)!important;border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-fb,.lp-nofeedback .lp-mc-fb,.lp-nofeedback .lp-legend{display:none!important}.lp-mc-opt.lp-picked{background:var(--sand);border-color:var(--coral);color:var(--ink)}.lp-input.lp-picked{border-color:var(--coral)}';
+    st.textContent = '.lego-player{font-size:15px;height:100%;display:flex;flex-direction:column;min-height:0}.lp-instr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}.lp-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500}.lp-sentence{font-family:var(--serif,serif);font-size:15px;line-height:2.2;color:var(--ink);margin-bottom:10px}.lp-input{border:none;border-bottom:2px solid var(--border);background:transparent;font-family:inherit;font-size:15px;text-align:center;min-width:70px;outline:none;padding:2px 4px}.lp-input.correct{border-color:var(--green);color:var(--green)}.lp-input.tilde{border-color:#DAA520;color:#DAA520}.lp-input.wrong{border-color:var(--red);color:var(--red)}.lp-fb{font-size:11px;margin-top:2px;min-height:13px}.lp-score{font-weight:700;margin-bottom:12px;color:var(--ink-soft);flex-shrink:0}.lp-text{font-family:var(--serif,serif);font-size:15px;line-height:1.8;color:var(--ink);margin-bottom:14px}.lp-mc-block{margin-bottom:16px}.lp-mc-q{display:flex;gap:8px;font-weight:600;margin-bottom:8px;align-items:flex-start}.lp-mc-num{background:var(--coral);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}.lp-mc-opts{display:flex;flex-direction:column;gap:6px}.lp-mc-opt{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-mc-opt:disabled{cursor:default}.lp-mc-opt.correct{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-mc-opt.wrong{background:var(--red-lt);border-color:var(--red);color:var(--red)}.lp-mc-fb{font-size:12px;margin-top:6px;min-height:14px}.lp-open{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:14px}.lp-body{flex:1 1 auto;min-height:0;overflow:auto}.lp-submit-msg{font-size:12px;font-weight:700;color:var(--red);margin-top:8px;min-height:16px;flex-shrink:0}.lp-nofeedback .lp-input.correct,.lp-nofeedback .lp-input.wrong,.lp-nofeedback .lp-input.tilde{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-mc-opt.correct,.lp-nofeedback .lp-mc-opt.wrong{background:var(--white,#fff)!important;border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-dnd-blank.filled-correct,.lp-nofeedback .lp-dnd-blank.filled-wrong{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-wo-zone.correct,.lp-nofeedback .lp-wo-zone.wrong{border-color:var(--border)!important;background:var(--white,#fff)!important}.lp-nofeedback .lp-correct-input.correct,.lp-nofeedback .lp-correct-input.wrong{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-fb,.lp-nofeedback .lp-mc-fb,.lp-nofeedback .lp-legend{display:none!important}.lp-mc-opt.lp-picked{background:var(--sand);border-color:var(--coral);color:var(--ink)}.lp-input.lp-picked{border-color:var(--coral)}';
     document.head.appendChild(st);
   }
   var content = {};
@@ -1619,7 +1634,7 @@ function _lpFillBlank(content, isDropdown, state, refreshScore) {
           sel.addEventListener('change', function(){
             var val = sel.value, ans = (blank.answer||'').trim();
             if (!val) { sel.className = 'lp-input'; delete answers[key]; refreshScore(); return; }
-            if (val.toLowerCase() === ans.toLowerCase()) { sel.className = 'lp-input correct'; sel.disabled = true; answers[key] = { correct:true, answer:val }; }
+            if (val.toLowerCase() === ans.toLowerCase()) { sel.className = 'lp-input correct'; if (state.feedback) sel.disabled = true; answers[key] = { correct:true, answer:val }; }
             else { sel.className = 'lp-input wrong'; answers[key] = { correct:false, answer:val }; }
             refreshScore();
           });
@@ -2682,6 +2697,88 @@ function _lpMissingAnswers(rows){
   });
 }
 
+function _lpPracticeExtraStyles(){
+  if (document.getElementById('lego-practice-extra-styles')) return;
+  var st = document.createElement('style');
+  st.id = 'lego-practice-extra-styles';
+  st.textContent = '.lp-wo{margin-bottom:18px}.lp-wo-zone{display:flex;flex-wrap:wrap;gap:7px;min-height:48px;padding:9px;border:1.5px dashed var(--border);border-radius:10px;background:var(--sand);margin-bottom:8px}.lp-wo-zone.answer{background:var(--white,#fff);border-style:solid}.lp-wo-token{padding:7px 11px;border:1px solid var(--border);border-radius:99px;background:var(--white,#fff);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}.lp-wo-token:disabled{opacity:.28;cursor:default}.lp-wo-zone.correct{border-color:var(--green);background:var(--green-lt)}.lp-wo-zone.wrong{border-color:var(--red);background:var(--red-lt)}.lp-correct-prompt{font-family:var(--serif,serif);font-size:16px;line-height:1.7;padding:12px 14px;border-left:3px solid var(--red);background:var(--red-lt);border-radius:0 10px 10px 0;margin-bottom:10px}.lp-correct-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px}.lp-correct-label{font-size:12px;font-weight:700;color:var(--ink-soft)}.lp-correct-input{min-width:150px;flex:1;border:1.5px solid var(--border);border-radius:9px;padding:9px 11px;font:inherit;font-size:15px;outline:none}.lp-correct-input:focus{border-color:var(--coral)}.lp-correct-input.correct{border-color:var(--green);color:var(--green)}.lp-correct-input.wrong{border-color:var(--red);color:var(--red)}';
+  document.head.appendChild(st);
+}
+function _lpPracticeNorm(value){
+  return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function _lpWordOrderQuestion(b, ctx){
+  _lpPracticeExtraStyles();
+  var wrap = document.createElement('div');
+  wrap.className = 'lp-wo';
+  var tokens = (b.tokens || []).map(function(text, index){ return { text: String(text), index: index }; });
+  var shuffled = tokens.slice();
+  for (var i = shuffled.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+  }
+  if (shuffled.length > 1 && shuffled.every(function(token, index){ return token.index === index; })) shuffled.push(shuffled.shift());
+  var chosen = [];
+  var answerZone = document.createElement('div'); answerZone.className = 'lp-wo-zone answer';
+  var bank = document.createElement('div'); bank.className = 'lp-wo-zone';
+  var bankButtons = [];
+  var current = { answer: '', correct: false };
+
+  function sync(){
+    var answer = chosen.map(function(token){ return token.text; }).join(' ');
+    current.answer = answer;
+    current.correct = chosen.length === tokens.length && _lpPracticeNorm(answer) === _lpPracticeNorm(b.answer);
+    answerZone.className = 'lp-wo-zone answer';
+    if (chosen.length === tokens.length) answerZone.classList.add(current.correct ? 'correct' : 'wrong');
+    if (ctx.onChange) ctx.onChange();
+  }
+  function drawChosen(){
+    answerZone.replaceChildren();
+    chosen.forEach(function(token){
+      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lp-wo-token'; btn.textContent = token.text;
+      btn.onclick = function(){
+        chosen = chosen.filter(function(item){ return item.index !== token.index; });
+        bankButtons.forEach(function(bankBtn){ if (bankBtn._tokenIndex === token.index) bankBtn.disabled = false; });
+        drawChosen(); sync();
+      };
+      answerZone.appendChild(btn);
+    });
+  }
+  shuffled.forEach(function(token){
+    var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lp-wo-token'; btn.textContent = token.text; btn._tokenIndex = token.index;
+    btn.onclick = function(){ btn.disabled = true; chosen.push(token); drawChosen(); sync(); };
+    bankButtons.push(btn); bank.appendChild(btn);
+  });
+  wrap.appendChild(answerZone); wrap.appendChild(bank);
+  return {
+    el: wrap,
+    score: function(){ return { correct: current.correct ? 1 : 0, total: 1 }; },
+    detail: function(){ return [{ qid: b.id, part: Number(b.part) || 0, key: b.id, questionText: b.answer || '', answer: current.answer, isCorrect: current.correct }]; }
+  };
+}
+function _lpCorrectionQuestion(b, ctx){
+  _lpPracticeExtraStyles();
+  var wrap = document.createElement('div');
+  var prompt = document.createElement('div'); prompt.className = 'lp-correct-prompt'; prompt.textContent = b.text || '';
+  var row = document.createElement('div'); row.className = 'lp-correct-row';
+  var label = document.createElement('span'); label.className = 'lp-correct-label'; label.textContent = 'Corrección:';
+  var input = document.createElement('input'); input.className = 'lp-correct-input'; input.autocomplete = 'off'; input.spellcheck = false;
+  var current = { answer: '', correct: false };
+  input.addEventListener('input', function(){
+    current.answer = input.value.trim();
+    current.correct = !!current.answer && _lpPracticeNorm(current.answer) === _lpPracticeNorm(b.answer);
+    input.className = 'lp-correct-input';
+    if (current.answer) input.classList.add(current.correct ? 'correct' : 'wrong');
+    if (ctx.onChange) ctx.onChange();
+  });
+  row.appendChild(label); row.appendChild(input); wrap.appendChild(prompt); wrap.appendChild(row);
+  return {
+    el: wrap,
+    score: function(){ return { correct: current.correct ? 1 : 0, total: 1 }; },
+    detail: function(){ return [{ qid: b.id, part: Number(b.part) || 0, key: b.id, questionText: b.text || '', answer: current.answer, isCorrect: current.correct }]; }
+  };
+}
+
 var LegoQ = {};
 LegoQ.mc = function(b, ctx){
   var mini = { questions: [b] };
@@ -2717,6 +2814,21 @@ LegoQ.fillblank = function(b, ctx){
   var st = _lpSubState(ctx);
   var el = _lpStrip(_lpStrip(_lpFillBlank(mini, isDropdown, st, ctx.onChange), '.lp-instr'), '.lp-legend');
   return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
+};
+LegoQ.dragdrop = function(b, ctx){
+  var content = { sentences: [b.sentence], distractors: b.distractors || [] };
+  if (ctx.mode === 'review') return { el: _lpStrip(_lpReviewDragDrop(content, ctx.saved || []), '.lp-score'), score: _lpZero, detail: _lpNone };
+  var st = _lpSubState(ctx);
+  var el = _lpDragDrop(content, st, ctx.onChange);
+  return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
+};
+LegoQ.wordorder = function(b, ctx){
+  if (ctx.mode !== 'play') return { el: LegoEmpty({ text: 'Orden de palabras.' }), score: _lpZero, detail: _lpNone };
+  return _lpWordOrderQuestion(b, ctx);
+};
+LegoQ.correction = function(b, ctx){
+  if (ctx.mode !== 'play') return { el: LegoEmpty({ text: 'Corrección rápida.' }), score: _lpZero, detail: _lpNone };
+  return _lpCorrectionQuestion(b, ctx);
 };
 LegoQ.order = function(b, ctx){
   var mini = { events: b.events || [] };

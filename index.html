@@ -134,6 +134,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .results-actions .btn{flex:1;justify-content:center}
 @keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
 
+/* PRACTICA DESDE UNA GUIA (barra bajo la card de biblioteca) */
+.lib-practice-wrap{display:flex;flex-direction:column;margin-bottom:8px}
+.lib-practice-wrap .lego-card{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
+.lib-practice{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:8px 14px;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);background:var(--sand)}
+.lib-practice-main,.lib-practice-counts{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lib-practice-counts{padding-left:92px}
+.lib-practice-counts .btn-orange{width:auto;padding:6px 12px}
+.lib-practice-pill{border:1px solid var(--border);border-radius:999px;background:var(--white);color:var(--ink-soft);font:600 12px var(--sans);padding:6px 11px;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.lib-practice-pill:hover{border-color:var(--orange);color:var(--ink)}
+.lib-practice-pill.selected{border-color:var(--orange);background:var(--orange);color:white}
+@media(max-width:520px){.lib-practice-counts{padding-left:0}}
+
 /* ACTIVITY PLAYER (mount unico — LegoPlayer rinde adentro) */
 .player-overlay{display:none;position:fixed;inset:0;background:rgba(28,26,23,.6);z-index:200;align-items:center;justify-content:center;padding:16px}
 .player-overlay.open{display:flex}
@@ -353,8 +365,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 
 <div class="toast" id="toast"></div>
 
-<script src="components.js?v=20260730-1"></script>
-<script src="legodata.js?v=20260730-2"></script>
+<script src="components.js?v=20260731-18"></script>
+<script src="legodata.js?v=20260731-18"></script>
 <script>
 // ============================================================
 // Portal de estudiantes — motor construido al docs/contrato-datos.md
@@ -1121,20 +1133,45 @@ function renderLibrary(items){
     return;
   }
 
+  // Los alcances del banco llegan aparte: si aun no estan, se pinta la lista
+  // sin botones y se repinta sola cuando lleguen.
+  if (practiceScopes === null) {
+    ensurePracticeScopes().then(function(){ renderLibrary(items); });
+  }
+
   const frag = document.createDocumentFragment();
   items.forEach(function(item) {
     const card = LegoLibraryMaterial(item, {
       onRead: function(material) { openLibraryViewer(material); }
     });
-    frag.appendChild(card);
+    const scope = practiceScopeOf(item);
+    if (!scope) { frag.appendChild(card); return; }
+    const wrap = document.createElement('div');
+    wrap.className = 'lib-practice-wrap';
+    wrap.replaceChildren(card, practiceBar(item, scope));
+    frag.appendChild(wrap);
   });
 
   mount.replaceChildren(frag);
 }
 
+// Rastreador de Biblioteca: deja constancia de que material abrio el estudiante.
+// No bloquea la lectura ni la retrasa; si falla, solo avisa por consola.
+function recordLibraryOpen(item){
+  if (!currentUser || !item || !item.id) return;
+  LegoData.insertLibraryOpenEvent({
+    student_id: currentStudentId(),
+    library_id: item.id,
+    material_title: item.title || ''
+  }).catch(function(e){
+    console.warn('No se pudo registrar la apertura del material:', e.message || e);
+  });
+}
+
 // La fila de la lista viene sin content: se pide al abrir.
 async function openLibraryViewer(item){
   if (!item) return;
+  recordLibraryOpen(item);
   if (item.content) { LegoLibraryViewer(item); return; }
   try {
     LegoLibraryViewer(await LegoData.libraryItem(item.id));
@@ -1142,6 +1179,257 @@ async function openLibraryViewer(item){
     console.error('openLibraryViewer', e);
     showToast('No se pudo abrir el material.');
   }
+}
+
+// ── practica desde una guia ──
+// El banco decide si una guia se puede practicar: se piden una sola vez las
+// cuentas por alcance (numeros, nunca oraciones) y el boton sale solo donde
+// hay material. La partida se arma en memoria y no guarda nada: ni asignacion,
+// ni respuestas, ni puntos.
+let practiceScopes = null;
+const PRACTICE_MIN = 4;
+
+async function ensurePracticeScopes(){
+  if (practiceScopes) return practiceScopes;
+  try {
+    practiceScopes = await LegoData.practiceBankScopes();
+  } catch(e) {
+    console.warn('No se pudieron leer los alcances del banco:', e.message || e);
+    practiceScopes = [];
+  }
+  return practiceScopes;
+}
+
+// El alcance de una guia es su nivel y su foco; el subfoco afina si la guia lo
+// declara. Sin oraciones suficientes no hay boton.
+function practiceScopeOf(item){
+  if (!item || !practiceScopes || !practiceScopes.length) return null;
+  const level = item.level || '';
+  const categoryId = item.grammar_category_id ? String(item.grammar_category_id) : '';
+  const subfocoId = item.practice_subfoco_id ? String(item.practice_subfoco_id) : '';
+  if (!categoryId) return null;
+  const total = practiceScopes.filter(function(s){
+    if (level && s.level && s.level !== level) return false;
+    if (s.categoryId !== categoryId) return false;
+    if (subfocoId && s.subfocoId !== subfocoId) return false;
+    return true;
+  }).reduce(function(acc, s){ return acc + s.total; }, 0);
+  if (total < PRACTICE_MIN) return null;
+  return { level: level, categoryId: categoryId, subfocoId: subfocoId, total: total };
+}
+
+function practiceBar(item, scope){
+  const bar = document.createElement('div');
+  bar.className = 'lib-practice';
+  const main = document.createElement('div');
+  main.className = 'lib-practice-main';
+  const counts = document.createElement('div');
+  counts.className = 'lib-practice-counts';
+  const state = { game: '', count: 0, open: false };
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-sm';
+  btn.textContent = 'Practicar';
+  const btnStart = document.createElement('button');
+  btnStart.type = 'button';
+  btnStart.className = 'btn btn-sm btn-orange';
+  btnStart.textContent = 'Empezar';
+  btnStart.disabled = true;
+  btnStart.onclick = function(){ startPractice(item, scope, state); };
+
+  function pill(label, onClick){
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'lib-practice-pill';
+    el.textContent = label;
+    el.onclick = function(){ onClick(el); };
+    return el;
+  }
+
+  const gamePills = LegoData.PRACTICE_GAMES.map(function(game){
+    return pill(game.label, function(selected){
+      state.game = game.id;
+      gamePills.forEach(function(el){ el.classList.toggle('selected', el === selected); });
+      drawCounts();
+    });
+  });
+
+  function drawCounts(){
+    state.count = 0;
+    btnStart.disabled = true;
+    let choices = [5, 10, 15].filter(function(n){ return n <= scope.total; });
+    if (!choices.length) choices = [scope.total];
+    const countPills = choices.map(function(n){
+      return pill(String(n), function(selected){
+        state.count = n;
+        countPills.forEach(function(el){ el.classList.toggle('selected', el === selected); });
+        btnStart.disabled = false;
+      });
+    });
+    counts.replaceChildren.apply(counts, countPills.concat(btnStart));
+    if (!counts.parentNode) bar.appendChild(counts);
+  }
+
+  btn.onclick = function(){
+    state.open = !state.open;
+    state.game = '';
+    state.count = 0;
+    gamePills.forEach(function(el){ el.classList.remove('selected'); });
+    counts.replaceChildren();
+    if (counts.parentNode) counts.remove();
+    main.replaceChildren.apply(main, state.open ? [btn].concat(gamePills) : [btn]);
+  };
+
+  main.appendChild(btn);
+  bar.appendChild(main);
+  return bar;
+}
+
+async function startPractice(item, scope, state){
+  $('player-title').textContent = 'Práctica · ' + (item.title || '');
+  $('player-level').textContent = scope.level || '';
+  $('player-mount').replaceChildren(LegoEmpty({ text: 'Preparando la práctica…' }));
+  $('player-overlay').classList.add('open');
+
+  let rows = [];
+  try {
+    rows = await LegoData.practiceBankDraw({
+      categoryId: scope.categoryId,
+      subfocoId: scope.subfocoId,
+      level: scope.level,
+      count: state.count
+    });
+  } catch(e) {
+    console.error('startPractice', e);
+    $('player-mount').replaceChildren(LegoEmpty({ text: 'No se pudo preparar la práctica.' }));
+    return;
+  }
+  if (!rows.length) {
+    $('player-mount').replaceChildren(LegoEmpty({ text: 'Todavía no hay oraciones para este tema.' }));
+    return;
+  }
+
+  const activity = LegoData.practiceActivity(rows, {
+    game: state.game,
+    title: item.title || 'Práctica',
+    level: scope.level,
+    instructions: ({
+      escribir: 'Completa las oraciones. Puedes repetir cuantas veces quieras.',
+      elegir: 'Elige la respuesta correcta en cada oración.',
+      arrastrar: 'Arrastra cada palabra al espacio correcto.',
+      ordenar: 'Ordena las palabras para reconstruir cada oración.',
+      corregir: 'Encuentra la forma incorrecta y escribe la corrección.',
+      mixta: 'Resuelve cada oración con el formato que aparece.'
+    })[state.game] || 'Completa la práctica.'
+  });
+
+  let node;
+  try {
+    node = LegoPlayer(activity, {
+      mode: 'play',
+      feedback: false,
+      onResult: function(res){ return finishPractice(item, scope, state, rows, res); }
+    });
+  } catch(e) {
+    console.error('LegoPlayer practica:', e);
+    node = LegoEmpty({ text: 'Error al abrir la práctica: ' + (e && e.message ? e.message : e) });
+  }
+  $('player-mount').replaceChildren(node);
+}
+
+async function finishPractice(item, scope, state, rows, res, opts){
+  opts = opts || {};
+  const score = (res && res.score) || 0;
+  const total = (res && res.total) || 0;
+  const errors = (res && Array.isArray(res.answers) ? res.answers : []).filter(function(answer){
+    return answer && answer.isCorrect === false;
+  }).map(function(answer){
+    const taskKey = String(answer.key || '').match(/^(\d+)-(\d+)$/);
+    const questionId = String(answer.qid || '').match(/^q(\d+)$/);
+    const rowIndex = questionId ? Number(questionId[1]) - 1 : (taskKey ? Number(taskKey[1]) : -1);
+    const blankIndex = questionId ? (Number(answer.part) || 0) : (taskKey ? Number(taskKey[2]) : 0);
+    const source = rowIndex >= 0 ? rows[rowIndex] : null;
+    if (!source || !source.id) throw new Error('No se pudo relacionar un error con su oración del Banco.');
+    return {
+      bankId: source.id,
+      blankIndex: blankIndex,
+      answer: String(answer.answer || '')
+    };
+  });
+
+  if (!opts.skipTracking) {
+    await LegoData.recordLibraryPracticeRound({
+      libraryId: item.id,
+      game: state.game,
+      questionCount: total,
+      errors: errors
+    });
+  }
+
+  const failedIds = {};
+  errors.forEach(function(error){ failedIds[String(error.bankId)] = true; });
+  const failedRows = rows.filter(function(row){ return row && failedIds[String(row.id)]; });
+
+  const box = document.createElement('div');
+  box.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px 12px;text-align:center';
+  const big = document.createElement('div');
+  big.style.cssText = 'font-family:var(--serif);font-size:34px;font-weight:700;color:var(--ink)';
+  big.textContent = score + ' de ' + total;
+  const msg = document.createElement('div');
+  msg.style.cssText = 'font-size:14px;color:var(--ink-soft);max-width:340px;line-height:1.6';
+  msg.textContent = total && score === total
+    ? 'Todas correctas. Puedes pedir otra ronda con oraciones distintas.'
+    : 'Repite cuando quieras: cada ronda saca oraciones distintas del banco.';
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center';
+  const actionButtons = [];
+  if (failedRows.length) {
+    const correct = document.createElement('button');
+    correct.className = 'btn btn-orange';
+    correct.textContent = 'Corregir mis ' + errors.length + ' error' + (errors.length === 1 ? '' : 'es');
+    correct.onclick = function(){ startPracticeCorrection(item, scope, state, failedRows); };
+    actionButtons.push(correct);
+  }
+  const again = document.createElement('button');
+  again.className = failedRows.length ? 'btn btn-outline' : 'btn btn-orange';
+  again.textContent = 'Otra ronda';
+  again.onclick = function(){ startPractice(item, scope, state.originalState || state); };
+  const close = document.createElement('button');
+  close.className = 'btn btn-outline';
+  close.textContent = 'Cerrar';
+  close.onclick = function(){ closePlayer(); };
+  actionButtons.push(again, close);
+  actions.replaceChildren.apply(actions, actionButtons);
+  box.replaceChildren(big, msg, actions);
+  $('player-mount').replaceChildren(box);
+}
+
+function startPracticeCorrection(item, scope, previousState, rows){
+  $('player-title').textContent = 'Corregir errores · ' + (item.title || '');
+  $('player-level').textContent = scope.level || '';
+  const retryState = {
+    game: 'corregir',
+    count: rows.length,
+    originalState: previousState.originalState || previousState
+  };
+  const activity = LegoData.practiceActivity(rows, {
+    game: 'escribir',
+    title: item.title || 'Corrección',
+    level: scope.level,
+    instructions: 'Escribe la respuesta correcta en las oraciones que fallaste.'
+  });
+  let node;
+  try {
+    node = LegoPlayer(activity, {
+      mode: 'play',
+      feedback: true,
+      onResult: function(res){ return finishPractice(item, scope, retryState, rows, res, { skipTracking: true }); }
+    });
+  } catch(e) {
+    console.error('LegoPlayer corrección:', e);
+    node = LegoEmpty({ text: 'Error al abrir la corrección: ' + (e && e.message ? e.message : e) });
+  }
+  $('player-mount').replaceChildren(node);
 }
 
 // ── vocabulario ──
