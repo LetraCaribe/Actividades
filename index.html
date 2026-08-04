@@ -141,6 +141,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 .lib-practice-main,.lib-practice-counts{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .lib-practice-counts{padding-left:92px}
 .lib-practice-counts .btn-orange{width:auto;padding:6px 12px}
+.lib-practice-trigger{border:1px solid var(--border);background:var(--white);color:var(--ink-soft);transition:border-color .15s,background .15s,color .15s}
+.lib-practice-trigger.emphasis{border-color:var(--orange);background:var(--orange);color:white}
+.lib-practice-trigger.emphasis:hover{border-color:var(--orange-dk);background:var(--orange-dk);color:white}
 .lib-practice-pill{border:1px solid var(--border);border-radius:999px;background:var(--white);color:var(--ink-soft);font:600 12px var(--sans);padding:6px 11px;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
 .lib-practice-pill:hover{border-color:var(--orange);color:var(--ink)}
 .lib-practice-pill.selected{border-color:var(--orange);background:var(--orange);color:white}
@@ -365,8 +368,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 
 <div class="toast" id="toast"></div>
 
-<script src="components.js?v=20260731-18"></script>
-<script src="legodata.js?v=20260731-18"></script>
+<script src="components.js?v=20260802-7"></script>
+<script src="legodata.js?v=20260802-7"></script>
 <script>
 // ============================================================
 // Portal de estudiantes — motor construido al docs/contrato-datos.md
@@ -1113,10 +1116,7 @@ function loadLibrary(){
   const fb = $('library-filters');
   if (!fb) return;
   libraryMounted = true;
-  libraryBrowser = LegoLibraryBrowser({
-    counts: function(){ return LegoData.libraryLevelCounts(); },
-    byLevel: function(level){ return LegoData.libraryByLevel(level); },
-    search: function(q){ return LegoData.librarySearch(q); },
+  libraryBrowser = LegoLibraryDataBrowser(LegoData, {
     onCountsError: function(){ libraryMounted = false; },
     onList: renderLibrary
   });
@@ -1139,20 +1139,20 @@ function renderLibrary(items){
     ensurePracticeScopes().then(function(){ renderLibrary(items); });
   }
 
-  const frag = document.createDocumentFragment();
+  const cards = [];
   items.forEach(function(item) {
     const card = LegoLibraryMaterial(item, {
       onRead: function(material) { openLibraryViewer(material); }
     });
     const scope = practiceScopeOf(item);
-    if (!scope) { frag.appendChild(card); return; }
+    if (!scope) { cards.push(card); return; }
     const wrap = document.createElement('div');
     wrap.className = 'lib-practice-wrap';
     wrap.replaceChildren(card, practiceBar(item, scope));
-    frag.appendChild(wrap);
+    cards.push(wrap);
   });
 
-  mount.replaceChildren(frag);
+  mount.replaceChildren(LegoLibraryGrid(cards));
 }
 
 // Rastreador de Biblioteca: deja constancia de que material abrio el estudiante.
@@ -1228,8 +1228,9 @@ function practiceBar(item, scope){
   const state = { game: '', count: 0, open: false };
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'btn btn-sm';
+  btn.className = 'btn btn-sm lib-practice-trigger emphasis';
   btn.textContent = 'Practicar';
+  btn.setAttribute('aria-expanded', 'false');
   const btnStart = document.createElement('button');
   btnStart.type = 'button';
   btnStart.className = 'btn btn-sm btn-orange';
@@ -1250,12 +1251,15 @@ function practiceBar(item, scope){
     return pill(game.label, function(selected){
       state.game = game.id;
       gamePills.forEach(function(el){ el.classList.toggle('selected', el === selected); });
+      btn.classList.remove('emphasis');
       drawCounts();
     });
   });
 
   function drawCounts(){
     state.count = 0;
+    btn.setAttribute('aria-expanded', state.open ? 'true' : 'false');
+    btn.classList.add('emphasis');
     btnStart.disabled = true;
     let choices = [5, 10, 15].filter(function(n){ return n <= scope.total; });
     if (!choices.length) choices = [scope.total];
@@ -1471,48 +1475,18 @@ function vocabularyEntrySenses(entry){
   return [];
 }
 async function saveVocabularyEntry(existing, value, form){
-  const term = String(value && value.term || '').trim();
-  const entryType = value && value.entry_type || 'word';
-  const senses = (value && value.senses || []).map(function(s){
-    const meaning = String(s.meaning || '').trim();
-    const seen = {};
-    const accepted = (s.accepted_answers || []).map(function(a){ return String(a || '').trim(); }).filter(function(a){
-      const key = vocabKey(a);
-      if (!key || key === vocabKey(meaning) || seen[key]) return false;
-      seen[key] = true;
-      return true;
-    });
-    return {
-      meaning: meaning,
-      meaning_key: vocabKey(meaning),
-      context: String(s.context || '').trim(),
-      example: String(s.example || '').trim(),
-      accepted_answers: accepted
-    };
-  });
-  const termKey = vocabKey(term);
   function fail(message){ if (form && form.setError) form.setError(message); showToast(message); }
-  if (!term || !termKey) { fail('La palabra necesita letras o números.'); return; }
-  if (!senses.length || senses.some(function(s){ return !s.meaning_key; })) { fail('Añade al menos un significado válido.'); return; }
-  const localKeys = {};
-  if (senses.some(function(s){ if (localKeys[s.meaning_key]) return true; localKeys[s.meaning_key] = true; return false; })) {
-    fail('La misma traducción aparece más de una vez.'); return;
+  const prepared = LegoData.prepareStudentVocabularyEntry(value, allVocabulary, existing && existing.id);
+  if (prepared.error) {
+    fail(prepared.error);
+    if (prepared.duplicate) openVocabularyModal(prepared.duplicate);
+    return;
   }
-  const duplicate = allVocabulary.find(function(v){
-    if (String(v.id) === String(existing && existing.id)) return false;
-    const savedTerm = String(v.term_key || vocabKey(v.term));
-    return savedTerm === termKey;
-  });
-  if (duplicate) { fail('Esta palabra en español ya existe.'); openVocabularyModal(duplicate); return; }
   try {
-    await LegoData.saveStudentVocabularyWithSenses({
+    await LegoData.saveStudentVocabularyWithSenses(Object.assign({}, prepared.value, {
       student_id: currentStudentId(),
-      entry_id: existing && existing.id || null,
-      term: term,
-      term_key: termKey,
-      entry_type: entryType,
-      senses: senses
-    });
+      entry_id: existing && existing.id || null
+    }));
     showToast(existing ? 'Vocabulario actualizado.' : 'Entrada añadida.');
     if (window.LegoModal && LegoModal.close) LegoModal.close();
     await loadVocabulary();

@@ -589,19 +589,46 @@ function LegoLibraryMaterial(item, opts) {
     btn.className = 'btn btn-sm';
     btn.textContent = label;
     if (danger) btn.style.color = 'var(--red)';
-    btn.onclick = function() { fn(item); };
+    btn.onclick = function(event) { event.stopPropagation(); fn(item); };
     return btn;
   }
 
-  return LegoCard({
+  var card = LegoCard({
     L2: item.title || 'Material sin titulo',
     L3: item.description || '',
     L4: LegoChip(item.level || 'A1', 'level'),
     L5: grammarName ? LegoChip(grammarName, 'cat') : '',
-    L8: action('Leer', opts.onRead, false),
-    L9: action('Editar', opts.onEdit, false),
-    L10: action('Eliminar', opts.onDelete, true)
+    L6: opts.badge || '',
+    L8: action('Editar', opts.onEdit, false),
+    L9: action('Eliminar', opts.onDelete, true),
+    onclick: typeof opts.onRead === 'function' ? function(){ opts.onRead(item); } : null
   });
+  if (typeof opts.onRead === 'function') {
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', 'Abrir ' + (item.title || 'material'));
+    card.addEventListener('keydown', function(event){
+      if (event.target !== card || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      opts.onRead(item);
+    });
+  }
+  return card;
+}
+
+// Parrilla unica para cards de Biblioteca. Los consumidores entregan las mismas
+// cards originales; esta pieza solo organiza dos columnas y colapsa a una en movil.
+function LegoLibraryGrid(nodes) {
+  if (!document.getElementById('lego-library-grid-styles')) {
+    var st = document.createElement('style');
+    st.id = 'lego-library-grid-styles';
+    st.textContent = '.lego-library-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}.lego-library-grid>.lego-card,.lego-library-grid>.lib-practice-wrap{margin-bottom:0}@media(max-width:720px){.lego-library-grid{grid-template-columns:minmax(0,1fr)}}';
+    document.head.appendChild(st);
+  }
+  var grid = document.createElement('div');
+  grid.className = 'lego-library-grid';
+  (nodes || []).forEach(function(node){ if (node) grid.appendChild(node); });
+  return grid;
 }
 
 
@@ -754,8 +781,9 @@ function _llpMark(el, value) {
   return el;
 }
 
-function LegoLibraryViewer(item) {
+function LegoLibraryViewer(item, opts) {
   item = item || {};
+  opts = opts || {};
   var content = item.content || {};
   var sections = (content && content.sections) || [];
   var hasPdfDrive = sections.some(function(section) { return section && section.type === 'pdf-drive'; });
@@ -1052,62 +1080,35 @@ function LegoLibraryViewer(item) {
   cerrar.textContent = 'Cerrar';
   cerrar.onclick = function() { if (window.LegoModal && LegoModal.close) LegoModal.close(); };
 
-  var overlay = LegoModal({ M6: xBtn, M3: page, M5: btnPrint, M7: cerrar });
+  var rightActions = document.createElement('div');
+  rightActions.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap';
+  rightActions.appendChild(cerrar);
+  if (typeof opts.onAction === 'function') {
+    var action = document.createElement('button');
+    action.className = 'btn btn-coral';
+    action.textContent = opts.actionDone ? (opts.actionDoneLabel || 'Listo') : (opts.actionLabel || 'Usar');
+    action.disabled = !!opts.actionDone;
+    action.onclick = async function(){
+      if (action.disabled) return;
+      action.disabled = true;
+      try {
+        var done = await opts.onAction(item);
+        if (done === false) { action.disabled = false; return; }
+        action.textContent = opts.actionDoneLabel || 'Listo';
+      } catch(e) {
+        action.disabled = false;
+        console.error('LegoLibraryViewer action', e);
+      }
+    };
+    rightActions.appendChild(action);
+  }
+
+  var overlay = LegoModal({ M6: xBtn, M3: page, M5: btnPrint, M7: rightActions });
   var m3 = overlay.querySelector('.lego-modal-m3');
   if (m3) m3.style.padding = '0';
   var m = overlay.querySelector('.lego-modal');
   if (m) m.style.maxWidth = '760px';
   return overlay;
-}
-
-// -- LegoLibraryFilters -------------------------------------
-// Barra de filtros para biblioteca: busqueda + nivel + categoria. Compartida admin/index.
-//   LegoLibraryFilters({ items, catName, onFilter })  catName(item)->string ; onFilter(filtered)
-function LegoLibraryFilters(opts) {
-  opts = opts || {};
-  var items = opts.items || [];
-  var catName = opts.catName || function(it){ return (it.grammar_categories && it.grammar_categories.name) || ''; };
-  var onFilter = opts.onFilter || function(){};
-
-  var ctrlCss = 'padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--white);color:var(--ink)';
-
-  var bar = document.createElement('div');
-  bar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px';
-
-  var search = document.createElement('input');
-  search.type = 'text';
-  search.placeholder = 'Buscar material...';
-  search.style.cssText = 'flex:1;min-width:160px;' + ctrlCss;
-
-  var levelOpts = [{ value:'', label:'Todos los niveles' }].concat(['A1','A2','B1','B2','C1'].map(function(l){ return { value:l, label:l }; }));
-  var levelSel = LegoSelect({ options: levelOpts });
-  levelSel.style.cssText = ctrlCss + ';min-width:130px';
-
-  var cats = [];
-  items.forEach(function(it){ var n = catName(it); if (n && cats.indexOf(n) === -1) cats.push(n); });
-  cats.sort();
-  var catOpts = [{ value:'', label:'Todas las categorias' }].concat(cats.map(function(c){ return { value:c, label:c }; }));
-  var catSel = LegoSelect({ options: catOpts });
-  catSel.style.cssText = ctrlCss + ';min-width:150px';
-
-  function apply() {
-    var q = (search.value || '').toLowerCase();
-    var lvl = levelSel.value;
-    var cat = catSel.value;
-    var filtered = items.filter(function(it){
-      var mQ = !q || ((it.title || '').toLowerCase().indexOf(q) !== -1) || ((it.description || '').toLowerCase().indexOf(q) !== -1);
-      var mL = !lvl || it.level === lvl;
-      var mC = !cat || catName(it) === cat;
-      return mQ && mL && mC;
-    });
-    onFilter(filtered);
-  }
-  search.addEventListener('input', apply);
-  levelSel.addEventListener('change', apply);
-  catSel.addEventListener('change', apply);
-
-  bar.appendChild(search); bar.appendChild(levelSel); bar.appendChild(catSel);
-  return bar;
 }
 
 // -- LegoLibraryBrowser -------------------------------------
@@ -1387,6 +1388,21 @@ function LegoLibraryBrowser(opts) {
   return wrap;
 }
 
+// Adaptador compartido para cualquier pantalla que usa LegoData. Conserva en
+// un solo lugar las tres consultas por intencion del navegador de Biblioteca.
+function LegoLibraryDataBrowser(data, opts) {
+  opts = opts || {};
+  return LegoLibraryBrowser({
+    counts: function(){ return data.libraryLevelCounts(); },
+    byLevel: function(level){ return data.libraryByLevel(level); },
+    search: function(q){ return data.librarySearch(q); },
+    onCountsError: opts.onCountsError,
+    catName: opts.catName,
+    onList: opts.onList,
+    levels: opts.levels
+  });
+}
+
 
 // -- LegoActionGrid -----------------------------------------
 // Agrupa botones de accion en una grilla compacta. No crea botones: ordena nodos existentes.
@@ -1576,6 +1592,79 @@ function LegoBanner(opts) {
 }
 
 
+// -- LegoAnswer --------------------------------------------
+// Contrato compartido de respuestas calificables. Los juegos no reinterpretan
+// por su cuenta mayusculas, espacios, tildes, variantes o distractores.
+var LegoAnswer = window.LegoAnswer || {};
+LegoAnswer.normalize = function(value, opts) {
+  opts = opts || {};
+  var out = String(value == null ? '' : value).toLowerCase().replace(/\s+/g, ' ').trim();
+  if (opts.accents === false && out.normalize) out = out.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return out;
+};
+LegoAnswer.values = function(spec) {
+  spec = spec || {};
+  var raw = [spec.answer].concat(Array.isArray(spec.accepted) ? spec.accepted : []);
+  var seen = {}, out = [];
+  raw.forEach(function(value){
+    var text = String(value == null ? '' : value).trim();
+    var key = LegoAnswer.normalize(text);
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    out.push(text);
+  });
+  return out;
+};
+LegoAnswer.evaluate = function(value, spec) {
+  var typed = String(value == null ? '' : value).trim();
+  if (!typed) return { status: 'unanswered', correct: false };
+  var exact = LegoAnswer.normalize(typed);
+  var loose = LegoAnswer.normalize(typed, { accents: false });
+  var values = LegoAnswer.values(spec);
+  for (var i = 0; i < values.length; i++) {
+    if (exact === LegoAnswer.normalize(values[i])) return { status: 'correct', correct: true, expected: values[i] };
+  }
+  for (var j = 0; j < values.length; j++) {
+    if (loose === LegoAnswer.normalize(values[j], { accents: false })) return { status: 'accent', correct: false, expected: values[j] };
+  }
+  return { status: 'incorrect', correct: false, expected: values[0] || '' };
+};
+LegoAnswer.cleanDistractors = function(spec) {
+  spec = spec || {};
+  var blocked = {};
+  LegoAnswer.values(spec).forEach(function(value){ blocked[LegoAnswer.normalize(value, { accents: false })] = true; });
+  var seen = {}, out = [];
+  (Array.isArray(spec.distractors) ? spec.distractors : []).forEach(function(value){
+    var text = String(value == null ? '' : value).trim();
+    var key = LegoAnswer.normalize(text, { accents: false });
+    if (!key || blocked[key] || seen[key]) return;
+    seen[key] = true;
+    out.push(text);
+  });
+  return out;
+};
+LegoAnswer.result = function(row) {
+  row = row || {};
+  var answer = String(row.answer == null ? '' : row.answer);
+  var status = row.status;
+  if (!status) {
+    if (row.isCorrect === null) status = 'ungraded';
+    else if (!answer.trim()) status = 'unanswered';
+    else status = row.isCorrect ? 'correct' : 'incorrect';
+  }
+  return {
+    qid: row.qid || '',
+    part: Number(row.part) || 0,
+    key: row.key || row.qid || '',
+    questionText: String(row.questionText || ''),
+    answer: answer,
+    expected: String(row.expected == null ? '' : row.expected),
+    isCorrect: row.isCorrect === null ? null : !!row.isCorrect,
+    status: status
+  };
+};
+window.LegoAnswer = LegoAnswer;
+
 // -- LegoPlayer --------------------------------------------
 // Reproductor sellado de actividades. Puro: rinde + juega + califica, reporta via onResult. NO toca DB.
 //   LegoPlayer(activity, { mode:'play'|'review', onResult: fn })  -> nodo DOM
@@ -1591,6 +1680,11 @@ function LegoPlayer(activity, opts) {
     st.id = 'lego-player-styles';
     st.textContent = '.lego-player{font-size:15px;height:100%;display:flex;flex-direction:column;min-height:0}.lp-instr{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}.lp-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;font-weight:500}.lp-sentence{font-family:var(--serif,serif);font-size:15px;line-height:2.2;color:var(--ink);margin-bottom:10px}.lp-input{border:none;border-bottom:2px solid var(--border);background:transparent;font-family:inherit;font-size:15px;text-align:center;min-width:70px;outline:none;padding:2px 4px}.lp-input.correct{border-color:var(--green);color:var(--green)}.lp-input.tilde{border-color:#DAA520;color:#DAA520}.lp-input.wrong{border-color:var(--red);color:var(--red)}.lp-fb{font-size:11px;margin-top:2px;min-height:13px}.lp-score{font-weight:700;margin-bottom:12px;color:var(--ink-soft);flex-shrink:0}.lp-text{font-family:var(--serif,serif);font-size:15px;line-height:1.8;color:var(--ink);margin-bottom:14px}.lp-mc-block{margin-bottom:16px}.lp-mc-q{display:flex;gap:8px;font-weight:600;margin-bottom:8px;align-items:flex-start}.lp-mc-num{background:var(--coral);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}.lp-mc-opts{display:flex;flex-direction:column;gap:6px}.lp-mc-opt{text-align:left;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);cursor:pointer;font:inherit;font-size:14px}.lp-mc-opt:disabled{cursor:default}.lp-mc-opt.correct{background:var(--green-lt);border-color:var(--green);color:var(--green)}.lp-mc-opt.wrong{background:var(--red-lt);border-color:var(--red);color:var(--red)}.lp-mc-fb{font-size:12px;margin-top:6px;min-height:14px}.lp-open{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:14px}.lp-body{flex:1 1 auto;min-height:0;overflow:auto}.lp-submit-msg{font-size:12px;font-weight:700;color:var(--red);margin-top:8px;min-height:16px;flex-shrink:0}.lp-nofeedback .lp-input.correct,.lp-nofeedback .lp-input.wrong,.lp-nofeedback .lp-input.tilde{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-mc-opt.correct,.lp-nofeedback .lp-mc-opt.wrong{background:var(--white,#fff)!important;border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-dnd-blank.filled-correct,.lp-nofeedback .lp-dnd-blank.filled-wrong{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-wo-zone.correct,.lp-nofeedback .lp-wo-zone.wrong{border-color:var(--border)!important;background:var(--white,#fff)!important}.lp-nofeedback .lp-correct-input.correct,.lp-nofeedback .lp-correct-input.wrong{border-color:var(--border)!important;color:var(--ink)!important}.lp-nofeedback .lp-fb,.lp-nofeedback .lp-mc-fb,.lp-nofeedback .lp-legend{display:none!important}.lp-mc-opt.lp-picked{background:var(--sand);border-color:var(--coral);color:var(--ink)}.lp-input.lp-picked{border-color:var(--coral)}';
     document.head.appendChild(st);
+    var compact = document.createElement('style');
+    compact.id = 'lego-player-answer-tokens';
+    compact.textContent = '.lego-player{--lp-answer-height:34px;--lp-answer-pad-x:9px;--lp-answer-pad-y:6px;--lp-answer-radius:8px;--lp-answer-font:14px;--lp-answer-gap:6px}.lp-input{box-sizing:border-box;height:var(--lp-answer-height);width:12ch;max-width:100%;font-size:var(--lp-answer-font);padding:var(--lp-answer-pad-y) var(--lp-answer-pad-x)}.lp-mc-opts{align-items:flex-start;gap:var(--lp-answer-gap)}.lp-mc-opt{box-sizing:border-box;min-height:var(--lp-answer-height);width:fit-content;max-width:100%;padding:var(--lp-answer-pad-y) var(--lp-answer-pad-x);font-size:var(--lp-answer-font);border-radius:var(--lp-answer-radius)}';
+    compact.textContent += '.lp-dnd-word,.lp-wo-token{box-sizing:border-box;min-height:var(--lp-answer-height)!important;padding:var(--lp-answer-pad-y) var(--lp-answer-pad-x)!important;font-size:var(--lp-answer-font)!important;border-radius:var(--lp-answer-radius)!important}.lp-dnd-blank{box-sizing:border-box;min-height:var(--lp-answer-height)!important;padding:var(--lp-answer-pad-y) var(--lp-answer-pad-x)!important}.lp-correct-input{box-sizing:border-box;height:var(--lp-answer-height)!important;flex:0 1 220px!important;padding:var(--lp-answer-pad-y) var(--lp-answer-pad-x)!important;font-size:var(--lp-answer-font)!important;border-radius:var(--lp-answer-radius)!important}';
+    document.head.appendChild(compact);
   }
   var content = {};
   try { content = typeof activity.content === 'string' ? JSON.parse(activity.content) : (activity.content || {}); } catch(e) { console.error('contenido de actividad inválido', activity.slug || activity.id || '', e); }
@@ -1632,10 +1726,11 @@ function _lpFillBlank(content, isDropdown, state, refreshScore) {
           var pho = document.createElement('option'); pho.value = ''; pho.textContent = 'elige'; sel.appendChild(pho);
           (blank.options||[]).forEach(function(o){ var op = document.createElement('option'); op.value = o; op.textContent = o; sel.appendChild(op); });
           sel.addEventListener('change', function(){
-            var val = sel.value, ans = (blank.answer||'').trim();
+            var val = sel.value;
             if (!val) { sel.className = 'lp-input'; delete answers[key]; refreshScore(); return; }
-            if (val.toLowerCase() === ans.toLowerCase()) { sel.className = 'lp-input correct'; if (state.feedback) sel.disabled = true; answers[key] = { correct:true, answer:val }; }
-            else { sel.className = 'lp-input wrong'; answers[key] = { correct:false, answer:val }; }
+            var result = LegoAnswer.evaluate(val, blank);
+            if (result.correct) { sel.className = 'lp-input correct'; if (state.feedback) sel.disabled = true; answers[key] = { correct:true, status:result.status, answer:val }; }
+            else { sel.className = 'lp-input wrong'; answers[key] = { correct:false, status:result.status, answer:val }; }
             refreshScore();
           });
           line.appendChild(sel);
@@ -1645,15 +1740,17 @@ function _lpFillBlank(content, isDropdown, state, refreshScore) {
           var input = document.createElement('input');
           input.className = 'lp-input';
           input.placeholder = blank.hint || '___';
+          var widthText = String(blank.hint || blank.answer || '___');
+          input.style.width = Math.max(8, Math.min(16, widthText.length + 3)) + 'ch';
           input.setAttribute('autocomplete','off'); input.setAttribute('autocorrect','off'); input.spellcheck = false;
           var fb = document.createElement('span');
           fb.className = 'lp-fb';
           input.addEventListener('input', function(){
-            var val = input.value.trim(), ans = (blank.answer||'').trim();
+            var val = input.value.trim(), result = LegoAnswer.evaluate(val, blank);
             if (!val) { input.className = 'lp-input'; fb.textContent = ''; delete answers[key]; refreshScore(); return; }
-            if (val.toLowerCase() === ans.toLowerCase()) { input.className = 'lp-input correct'; fb.style.color = 'var(--green)'; fb.textContent = 'ok'; answers[key] = { correct:true, tilde:false, answer:val }; }
-            else if (norm(val) === norm(ans)) { input.className = 'lp-input tilde'; fb.style.color = '#DAA520'; fb.textContent = 'tilde: ' + ans; answers[key] = { correct:false, tilde:true, answer:val }; }
-            else if (val.length >= ans.length || val.length >= 3) { input.className = 'lp-input wrong'; fb.style.color = 'var(--red)'; fb.textContent = 'x'; answers[key] = { correct:false, tilde:false, answer:val }; }
+            if (result.status === 'correct') { input.className = 'lp-input correct'; fb.style.color = 'var(--green)'; fb.textContent = 'ok'; answers[key] = { correct:true, status:result.status, tilde:false, answer:val }; }
+            else if (result.status === 'accent') { input.className = 'lp-input tilde'; fb.style.color = '#DAA520'; fb.textContent = 'tilde: ' + result.expected; answers[key] = { correct:false, status:result.status, tilde:true, answer:val }; }
+            else if (val.length >= String(blank.answer || '').length || val.length >= 3) { input.className = 'lp-input wrong'; fb.style.color = 'var(--red)'; fb.textContent = 'x'; answers[key] = { correct:false, status:result.status, tilde:false, answer:val }; }
             else { input.className = 'lp-input'; fb.textContent = ''; delete answers[key]; }
             refreshScore();
           });
@@ -1678,7 +1775,7 @@ function _lpFillBlank(content, isDropdown, state, refreshScore) {
       if (!s.hasBlank || !s.blanks) return;
       s.blanks.forEach(function(b, bi){
         var a = answers[si+'-'+bi] || {};
-        d.push({ key: si+'-'+bi, questionText: (s.parts||[]).join(' ___ '), answer: a.answer || '', isCorrect: !!a.correct });
+        d.push({ key: si+'-'+bi, questionText: (s.parts||[]).join(' ___ '), answer: a.answer || '', expected: b.answer || '', isCorrect: !!a.correct, status: a.status || (a.answer ? 'incorrect' : 'unanswered') });
       });
     });
     return d;
@@ -2678,7 +2775,7 @@ function _lpTagQid(rows, qid){
   var out = [];
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    out.push({ qid: qid, part: i, key: rows.length > 1 ? qid + '-' + i : qid, questionText: r.questionText, answer: r.answer, isCorrect: r.isCorrect });
+    out.push(LegoAnswer.result({ qid: qid, part: i, key: rows.length > 1 ? qid + '-' + i : qid, questionText: r.questionText, answer: r.answer, expected: r.expected, isCorrect: r.isCorrect, status: r.status }));
   }
   return out;
 }
@@ -2705,7 +2802,7 @@ function _lpPracticeExtraStyles(){
   document.head.appendChild(st);
 }
 function _lpPracticeNorm(value){
-  return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return LegoAnswer.normalize(value);
 }
 function _lpWordOrderQuestion(b, ctx){
   _lpPracticeExtraStyles();
@@ -2749,11 +2846,29 @@ function _lpWordOrderQuestion(b, ctx){
     btn.onclick = function(){ btn.disabled = true; chosen.push(token); drawChosen(); sync(); };
     bankButtons.push(btn); bank.appendChild(btn);
   });
+  wrap._lpApplyAnswer = function(value){
+    var words = String(value || '').split(/\s+/).filter(Boolean);
+    var used = {};
+    chosen = [];
+    bankButtons.forEach(function(btn){ btn.disabled = false; });
+    words.forEach(function(word){
+      for (var ti = 0; ti < tokens.length; ti++) {
+        var token = tokens[ti];
+        if (used[token.index] || _lpPracticeNorm(token.text) !== _lpPracticeNorm(word)) continue;
+        used[token.index] = true;
+        chosen.push(token);
+        bankButtons.forEach(function(btn){ if (btn._tokenIndex === token.index) btn.disabled = true; });
+        break;
+      }
+    });
+    drawChosen();
+    sync();
+  };
   wrap.appendChild(answerZone); wrap.appendChild(bank);
   return {
     el: wrap,
     score: function(){ return { correct: current.correct ? 1 : 0, total: 1 }; },
-    detail: function(){ return [{ qid: b.id, part: Number(b.part) || 0, key: b.id, questionText: b.answer || '', answer: current.answer, isCorrect: current.correct }]; }
+    detail: function(){ return [{ qid: b.id, part: Number(b.part) || 0, key: b.id, questionText: b.answer || '', answer: current.answer, expected: b.answer || '', isCorrect: current.correct, status: current.answer ? (current.correct ? 'correct' : 'incorrect') : 'unanswered' }]; }
   };
 }
 function _lpCorrectionQuestion(b, ctx){
@@ -2766,7 +2881,9 @@ function _lpCorrectionQuestion(b, ctx){
   var current = { answer: '', correct: false };
   input.addEventListener('input', function(){
     current.answer = input.value.trim();
-    current.correct = !!current.answer && _lpPracticeNorm(current.answer) === _lpPracticeNorm(b.answer);
+    var result = LegoAnswer.evaluate(current.answer, b);
+    current.correct = result.correct;
+    current.status = result.status;
     input.className = 'lp-correct-input';
     if (current.answer) input.classList.add(current.correct ? 'correct' : 'wrong');
     if (ctx.onChange) ctx.onChange();
@@ -2775,8 +2892,33 @@ function _lpCorrectionQuestion(b, ctx){
   return {
     el: wrap,
     score: function(){ return { correct: current.correct ? 1 : 0, total: 1 }; },
-    detail: function(){ return [{ qid: b.id, part: Number(b.part) || 0, key: b.id, questionText: b.text || '', answer: current.answer, isCorrect: current.correct }]; }
+    detail: function(){ return [{ qid: b.id, part: Number(b.part) || 0, key: b.id, questionText: b.text || '', answer: current.answer, expected: b.answer || '', isCorrect: current.correct, status: current.status || 'unanswered' }]; }
   };
+}
+
+function _lpReviewPracticeQuestion(b, saved, label) {
+  _lpPracticeExtraStyles();
+  var value = (saved && saved[0]) || {};
+  var ok = value.isCorrect === true;
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:7px;margin-bottom:18px;padding:11px 13px;border:1px solid var(--border);border-radius:var(--lp-answer-radius,8px);background:var(--white,#fff)';
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:12px;font-weight:700;color:var(--ink-soft)';
+  title.textContent = label;
+  var prompt = document.createElement('div');
+  prompt.style.cssText = 'font-family:var(--serif,serif);font-size:15px;color:var(--ink)';
+  prompt.textContent = b.text || b.answer || '';
+  var response = document.createElement('div');
+  response.style.cssText = 'font-size:14px;color:' + (ok ? 'var(--green)' : 'var(--red)');
+  response.textContent = 'Tu respuesta: ' + (value.answer || '(sin responder)');
+  wrap.appendChild(title); wrap.appendChild(prompt); wrap.appendChild(response);
+  if (!ok && b.answer) {
+    var expected = document.createElement('div');
+    expected.style.cssText = 'font-size:13px;font-weight:700;color:var(--green)';
+    expected.textContent = 'Respuesta correcta: ' + b.answer;
+    wrap.appendChild(expected);
+  }
+  return wrap;
 }
 
 var LegoQ = {};
@@ -2823,11 +2965,13 @@ LegoQ.dragdrop = function(b, ctx){
   return { el: el, score: function(){ return st.score(); }, detail: function(){ return _lpTagQid(st.detail(), b.id); } };
 };
 LegoQ.wordorder = function(b, ctx){
-  if (ctx.mode !== 'play') return { el: LegoEmpty({ text: 'Orden de palabras.' }), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'review') return { el: _lpReviewPracticeQuestion(b, ctx.saved || [], 'Ordenar palabras'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode !== 'play') return { el: LegoEmpty({ text: 'Orden de palabras generado desde el banco.' }), score: _lpZero, detail: _lpNone };
   return _lpWordOrderQuestion(b, ctx);
 };
 LegoQ.correction = function(b, ctx){
-  if (ctx.mode !== 'play') return { el: LegoEmpty({ text: 'Corrección rápida.' }), score: _lpZero, detail: _lpNone };
+  if (ctx.mode === 'review') return { el: _lpReviewPracticeQuestion(b, ctx.saved || [], 'Corrección rápida'), score: _lpZero, detail: _lpNone };
+  if (ctx.mode !== 'play') return { el: LegoEmpty({ text: 'Corrección generada desde el banco.' }), score: _lpZero, detail: _lpNone };
   return _lpCorrectionQuestion(b, ctx);
 };
 LegoQ.order = function(b, ctx){
@@ -3002,7 +3146,7 @@ function _lpCompose(activity, content, opts){
   root.appendChild(lpBody);
   refreshScore();
 
-  root.getProgress = function(){ var all = []; pieces.forEach(function(p){ (p.detail() || []).forEach(function(r){ all.push(r); }); }); return all; };
+  root.getProgress = function(){ var all = []; pieces.forEach(function(p){ (p.detail() || []).forEach(function(r){ all.push(LegoAnswer.result(r)); }); }); return all; };
   if (rawMode === 'play') {
     var submitMsg = document.createElement('div');
     submitMsg.className = 'lp-submit-msg';
@@ -3017,7 +3161,7 @@ function _lpCompose(activity, content, opts){
       pieces.forEach(function(p){
         var s = p.score();
         c += s.correct; t += s.total;
-        p.detail().forEach(function(r){ all.push(r); });
+        p.detail().forEach(function(r){ all.push(LegoAnswer.result(r)); });
       });
       var missing = _lpMissingAnswers(all);
       if (missing.length) {
@@ -3112,6 +3256,18 @@ function _lpRestorePiece(el, saved, type){
         inp.value = row.answer || '';
         _lpFire(inp, inp.tagName === 'SELECT' ? 'change' : 'input');
       });
+      return;
+    }
+    if (type === 'wordorder') {
+      if (el._lpApplyAnswer) el._lpApplyAnswer(saved[0].answer || '');
+      return;
+    }
+    if (type === 'correction') {
+      var correctionInput = el.querySelector('.lp-correct-input');
+      if (correctionInput) {
+        correctionInput.value = saved[0].answer || '';
+        _lpFire(correctionInput, 'input');
+      }
       return;
     }
     if (type === 'order') {
@@ -3983,7 +4139,7 @@ function LegoBoard(opts){
   if (!document.getElementById('lego-board-styles')) {
     var st = document.createElement('style');
     st.id = 'lego-board-styles';
-    st.textContent = '.lego-board{border:1px solid var(--border);border-radius:var(--r);background:var(--white);overflow:hidden;display:flex;flex-direction:column;min-height:0}.lego-board__tools{padding:8px 10px;border-bottom:1px solid var(--border);background:var(--sand);display:flex;align-items:center;gap:6px;flex-wrap:wrap}.lego-board__tool{width:30px;height:30px;border:1px solid var(--border);background:var(--white);border-radius:7px;padding:0;font:inherit;color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.lego-board__tool.active{background:var(--coral);border-color:var(--coral);color:#fff}.lego-board__submenu{display:none;align-items:center;gap:4px;border:1px solid var(--border);border-radius:8px;background:var(--white);padding:3px}.lego-board__submenu.open{display:flex}.lego-board__subtool{width:28px;height:28px;border:none;background:transparent;border-radius:6px;padding:0;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.lego-board__subtool.active{background:var(--sand);color:var(--coral)}.lego-board__swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--white);outline:1px solid var(--border);cursor:pointer}.lego-board__stage{position:relative;flex:1;min-height:0;background:#fffdf8}.lego-board__canvas{width:100%;height:100%;display:block;background:#fffdf8;touch-action:none}.lego-board__text-editor{position:absolute;z-index:2;min-width:120px;max-width:320px;min-height:34px;border:1px solid var(--coral);border-radius:7px;background:#fff;padding:6px 8px;box-shadow:0 6px 18px rgba(28,26,23,.12);font:700 22px Arial,sans-serif;color:#2D2A24;outline:none;resize:both}.lego-board--readonly .lego-board__canvas{cursor:default}.lego-board:not(.lego-board--readonly) .lego-board__canvas{cursor:crosshair}';
+    st.textContent = '.lego-board{border:1px solid var(--border);border-radius:var(--r);background:var(--white);overflow:hidden;display:flex;flex-direction:column;min-height:0}.lego-board__tools{padding:8px 10px;border-bottom:1px solid var(--border);background:var(--sand);display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap}.lego-board__tool{width:30px;height:30px;border:1px solid var(--border);background:var(--white);border-radius:7px;padding:0;font:inherit;color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.lego-board__tool.active{background:var(--coral);border-color:var(--coral);color:#fff}.lego-board__tool-separator{width:1px;height:24px;background:var(--border);margin:3px 2px}.lego-board__submenu{display:none;align-items:center;gap:4px;border:1px solid var(--border);border-radius:8px;background:var(--white);padding:3px}.lego-board__submenu.open{display:flex}.lego-board__subtool{width:28px;height:28px;border:none;background:transparent;border-radius:6px;padding:0;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.lego-board__subtool.active{background:var(--sand);color:var(--coral)}.lego-board__swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--white);outline:1px solid var(--border);cursor:pointer;margin-top:4px}.lego-board__stage{position:relative;flex:1;min-height:0;background:#fffdf8}.lego-board__canvas{width:100%;height:100%;display:block;background:#fffdf8;touch-action:none}.lego-board__toolbar-panel{flex:1 1 300px;min-width:min(260px,100%);max-width:620px;padding-left:2px}.lego-board__toolbar-panel>*{width:100%;box-sizing:border-box}.lego-board__text-editor{position:absolute;z-index:2;min-width:120px;max-width:320px;min-height:34px;border:1px solid var(--coral);border-radius:7px;background:#fff;padding:6px 8px;box-shadow:0 6px 18px rgba(28,26,23,.12);font:700 22px Arial,sans-serif;color:#2D2A24;outline:none;resize:both}.lego-board--readonly .lego-board__canvas{cursor:default}.lego-board:not(.lego-board--readonly) .lego-board__canvas{cursor:crosshair}';
     document.head.appendChild(st);
   }
 
@@ -4038,6 +4194,28 @@ function LegoBoard(opts){
   }
   function boardCopy(){
     return normalizeBoard(board);
+  }
+  function boardJson(value){
+    return JSON.stringify(normalizeBoard(value));
+  }
+  function recordHistory(before){
+    if (!before || boardJson(before) === boardJson(board)) return;
+    undoStack.push(normalizeBoard(before));
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack = [];
+    updateHistoryActions();
+  }
+  function restoreHistory(next){
+    board = normalizeBoard(next);
+    selectedItem = null;
+    previewShape = null;
+    draw();
+    emit();
+    updateHistoryActions();
+  }
+  function updateHistoryActions(){
+    if (undoButton) undoButton.disabled = !undoStack.length;
+    if (redoButton) redoButton.disabled = !redoStack.length;
   }
   function emit(){
     if (typeof opts.onChange === 'function') opts.onChange(boardCopy());
@@ -4209,6 +4387,7 @@ function LegoBoard(opts){
   function openTextEditor(point, existing){
     if (readonly) return;
     if (textEditor && textEditor.parentNode) textEditor.blur();
+    var beforeEdit = boardCopy();
     var rect = canvas.getBoundingClientRect();
     textEditor = document.createElement('textarea');
     textEditor.className = 'lego-board__text-editor';
@@ -4236,6 +4415,7 @@ function LegoBoard(opts){
       }
       if (textEditor && textEditor.parentNode) textEditor.parentNode.removeChild(textEditor);
       textEditor = null;
+      recordHistory(beforeEdit);
       draw();
       emit();
     }
@@ -4347,9 +4527,11 @@ function LegoBoard(opts){
     btn.className = 'lego-board__tool';
     btn.title = label;
     btn.setAttribute('aria-label', label);
-    btn.appendChild(LegoIcon(label === 'Deshacer' ? 'ti-arrow-back-up' : 'ti-trash', { size: 16 }));
+    var icon = label === 'Deshacer' ? 'ti-arrow-back-up' : (label === 'Rehacer' ? 'ti-arrow-forward-up' : 'ti-trash');
+    btn.appendChild(LegoIcon(icon, { size: 16 }));
     btn.onclick = fn;
     tools.appendChild(btn);
+    return btn;
   }
   function addShapeTool(label, value, iconName){
     var btn = document.createElement('button');
@@ -4365,7 +4547,7 @@ function LegoBoard(opts){
 
   var readonly = !!opts.readonly;
   var board = normalizeBoard(opts.data);
-  var tool = 'pen';
+  var tool = 'text';
   var color = '#2D2A24';
   var drawing = false;
   var currentStroke = null;
@@ -4379,6 +4561,14 @@ function LegoBoard(opts){
   var shapeButtons = [];
   var penMenu = null;
   var penMenuOpen = false;
+  var undoStack = [];
+  var redoStack = [];
+  var undoButton = null;
+  var redoButton = null;
+  var pendingBefore = null;
+  var toolbarActionButtons = [];
+  var toolbarPanel = null;
+  var activeToolbarAction = '';
 
   var root = document.createElement('div');
   root.className = 'lego-board' + (readonly ? ' lego-board--readonly' : '');
@@ -4388,8 +4578,11 @@ function LegoBoard(opts){
     board = normalizeBoard(next);
     selectedItem = null;
     previewShape = null;
+    undoStack = [];
+    redoStack = [];
     draw();
     emit();
+    updateHistoryActions();
   };
   root._redraw = draw;
 
@@ -4428,22 +4621,58 @@ function LegoBoard(opts){
       sw.onclick = function(){ color = c; };
       tools.appendChild(sw);
     });
-    addAction('Deshacer', function(){
-      if (board.strokes.length) board.strokes.pop();
-      else if (board.texts.length) board.texts.pop();
-      else if (board.shapes.length) board.shapes.pop();
-      draw();
-      emit();
+    undoButton = addAction('Deshacer', function(){
+      if (!undoStack.length) return;
+      redoStack.push(boardCopy());
+      restoreHistory(undoStack.pop());
+    });
+    redoButton = addAction('Rehacer', function(){
+      if (!redoStack.length) return;
+      undoStack.push(boardCopy());
+      restoreHistory(redoStack.pop());
     });
     addAction('Limpiar', function(){
       if (!confirm('¿Limpiar la pizarra actual?')) return;
+      var beforeClear = boardCopy();
       board = emptyBoard();
       previewShape = null;
       selectedItem = null;
+      recordHistory(beforeClear);
       draw();
       emit();
     });
-    setTool('pen');
+    if (Array.isArray(opts.toolbarActions) && opts.toolbarActions.length) {
+      var separator = document.createElement('span');
+      separator.className = 'lego-board__tool-separator';
+      tools.appendChild(separator);
+      opts.toolbarActions.forEach(function(action){
+        if (!action || !action.id) return;
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'lego-board__tool';
+        button.title = action.title || action.label || action.id;
+        button.setAttribute('aria-label', button.title);
+        button.textContent = action.label || String(action.id).charAt(0).toUpperCase();
+        button.onclick = function(){
+          var closing = activeToolbarAction === String(action.id);
+          activeToolbarAction = closing ? '' : String(action.id);
+          if (toolbarPanel && toolbarPanel.parentNode) toolbarPanel.parentNode.removeChild(toolbarPanel);
+          toolbarPanel = null;
+          toolbarActionButtons.forEach(function(item){ item.button.classList.toggle('active', item.id === activeToolbarAction); });
+          if (closing || typeof action.panel !== 'function') return;
+          var content = action.panel();
+          if (!(content instanceof HTMLElement)) return;
+          toolbarPanel = document.createElement('div');
+          toolbarPanel.className = 'lego-board__toolbar-panel';
+          toolbarPanel.appendChild(content);
+          tools.appendChild(toolbarPanel);
+        };
+        toolbarActionButtons.push({ id: String(action.id), button: button });
+        tools.appendChild(button);
+      });
+    }
+    setTool('text');
+    updateHistoryActions();
     root.appendChild(tools);
   }
 
@@ -4463,6 +4692,7 @@ function LegoBoard(opts){
           return;
         }
         selectedItem = { kind: 'text', ref: hitText };
+        pendingBefore = boardCopy();
         drawing = true;
         movingItem = true;
         lastMovePoint = p;
@@ -4473,13 +4703,16 @@ function LegoBoard(opts){
       var hitItem = boardItemAtPoint(p);
       if (hitItem) {
         if (tool === 'eraser') {
+          var beforeDelete = boardCopy();
           deleteBoardItem(hitItem);
           selectedItem = null;
+          recordHistory(beforeDelete);
           draw();
           emit();
           return;
         }
         selectedItem = hitItem;
+        pendingBefore = boardCopy();
         drawing = true;
         movingItem = true;
         lastMovePoint = p;
@@ -4489,6 +4722,7 @@ function LegoBoard(opts){
       }
       selectedItem = null;
       if (tool === 'line' || tool === 'arrow' || tool === 'rect' || tool === 'circle') {
+        pendingBefore = boardCopy();
         drawing = true;
         shapeStart = p;
         previewShape = makeShape(tool, shapeStart, p);
@@ -4497,6 +4731,7 @@ function LegoBoard(opts){
         return;
       }
       drawing = true;
+      pendingBefore = boardCopy();
       currentStroke = { tool: tool === 'eraser' ? 'eraser' : 'pen', color: color, width: tool === 'eraser' ? 20 : 3, points: [p] };
       board.strokes.push(currentStroke);
       if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
@@ -4527,6 +4762,8 @@ function LegoBoard(opts){
         movingItem = false;
         drawing = false;
         lastMovePoint = null;
+        recordHistory(pendingBefore);
+        pendingBefore = null;
         emit();
         draw();
         return;
@@ -4543,6 +4780,8 @@ function LegoBoard(opts){
       currentStroke = null;
       shapeStart = null;
       previewShape = null;
+      recordHistory(pendingBefore);
+      pendingBefore = null;
       draw();
     }
     canvas.addEventListener('dblclick', function(ev){

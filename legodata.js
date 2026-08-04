@@ -697,35 +697,22 @@ LegoData.classBoardsBySessionIds = async function(sessionIds, opts){
   if (r.error) { throw new Error('[LegoData.classBoardsBySessionIds] ' + r.error.message); }
   return r.data || [];
 };
-LegoData.previousClassBoardForStudent = async function(studentId, beforeDate, beforeTime, currentSessionId){
-  if (!studentId || !beforeDate) return null;
-  var sessions = await db.from('class_sessions')
-    .select('id,class_date,class_time')
-    .eq('student_id', studentId)
-    .lt('class_date', beforeDate)
-    .order('class_date', { ascending: false })
-    .order('class_time', { ascending: false })
-    .limit(40);
-  if (sessions.error) { throw new Error('[LegoData.previousClassBoardForStudent:sessions] ' + sessions.error.message); }
-  var ids = (sessions.data || []).filter(function(row){ return String(row.id) !== String(currentSessionId); }).map(function(row){ return row.id; });
-  if (beforeTime) {
-    var sameDay = await db.from('class_sessions')
-      .select('id,class_date,class_time')
-      .eq('student_id', studentId)
-      .eq('class_date', beforeDate)
-      .lt('class_time', beforeTime)
-      .order('class_time', { ascending: false })
-      .limit(10);
-    if (sameDay.error) { throw new Error('[LegoData.previousClassBoardForStudent:sameDay] ' + sameDay.error.message); }
-    ids = (sameDay.data || []).filter(function(row){ return String(row.id) !== String(currentSessionId); }).map(function(row){ return row.id; }).concat(ids);
-  }
-  var rows = await LegoData.classBoardsBySessionIds(ids);
-  var bySession = {};
-  (rows || []).forEach(function(row){ bySession[String(row.session_id)] = row; });
-  for (var i = 0; i < ids.length; i++) {
-    if (bySession[String(ids[i])]) return bySession[String(ids[i])];
-  }
-  return null;
+LegoData.classBoardHistoryByStudent = async function(studentId, opts){
+  opts = opts || {};
+  if (!studentId) { throw new Error('[LegoData.classBoardHistoryByStudent] Falta studentId'); }
+  var limit = Math.max(1, Math.min(Number(opts.limit) || 30, 100));
+  var r = await db.from('class_session_boards')
+    .select('*, class_sessions!inner(id,student_id,class_date,class_time,class_end_time,cancelled)')
+    .eq('class_sessions.student_id', studentId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+  if (r.error) { throw new Error('[LegoData.classBoardHistoryByStudent] ' + r.error.message); }
+  return (r.data || []).map(function(board){
+    var session = board.class_sessions || null;
+    var clean = Object.assign({}, board);
+    delete clean.class_sessions;
+    return { session: session, board: clean };
+  }).filter(function(item){ return !!item.session; });
 };
 
 LegoData.saveClassBoard = async function(sessionId, boardData, visibleToStudent){
@@ -1390,6 +1377,34 @@ LegoData.insertStudentVocabulary = async function(rowOrRows){
   if (r.error) { throw new Error('[LegoData.insertStudentVocabulary] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.prepareStudentVocabularyEntry = function(value, rows, existingId){
+  value = value || {};
+  rows = Array.isArray(rows) ? rows : [];
+  var term = String(value.term || '').trim();
+  var termKey = LegoData.vocabularyKey(term);
+  if (!term || !termKey) return { error: 'La palabra necesita letras o números.' };
+  var senses = (value.senses || []).map(function(s){
+    var meaning = String(s && s.meaning || '').trim();
+    var meaningKey = LegoData.vocabularyKey(meaning);
+    var acceptedSeen = {};
+    var accepted = (s && s.accepted_answers || []).map(function(answer){ return String(answer || '').trim(); }).filter(function(answer){
+      var key = LegoData.vocabularyKey(answer);
+      if (!key || key === meaningKey || acceptedSeen[key]) return false;
+      acceptedSeen[key] = true;
+      return true;
+    });
+    return { meaning: meaning, meaning_key: meaningKey, context: String(s && s.context || '').trim(), example: String(s && s.example || '').trim(), accepted_answers: accepted };
+  });
+  if (!senses.length || senses.some(function(s){ return !s.meaning_key; })) return { error: 'Añade al menos un significado válido.' };
+  var senseKeys = {};
+  if (senses.some(function(s){ if (senseKeys[s.meaning_key]) return true; senseKeys[s.meaning_key] = true; return false; })) return { error: 'La misma traducción aparece más de una vez.' };
+  var duplicate = rows.find(function(entry){
+    if (String(entry && entry.id) === String(existingId || '')) return false;
+    return String(entry && entry.term_key || LegoData.vocabularyKey(entry && entry.term)) === termKey;
+  }) || null;
+  if (duplicate) return { error: 'Esta palabra en español ya existe.', duplicate: duplicate };
+  return { value: { term: term, term_key: termKey, entry_type: value.entry_type || 'word', senses: senses } };
+};
 // Guardado atomico de una palabra personal y todos sus sentidos. El RPC valida
 // ownership y unicidad, marca automaticamente el origen de profesor/estudiante
 // y reemplaza los sentidos en una sola transaccion. Los paneles nunca escriben
@@ -1772,6 +1787,16 @@ LegoData.libraryByLevel = async function(level){
   if (r.error) { throw new Error('[LegoData.libraryByLevel] ' + r.error.message); }
   return r.data || [];
 };
+LegoData.libraryByIds = async function(ids){
+  var clean = Array.from(new Set((ids || []).filter(Boolean).map(String)));
+  if (!clean.length) return [];
+  var r = await db.from('library').select(LIBRARY_LIST_COLS).in('id', clean);
+  if (r.error) { throw new Error('[LegoData.libraryByIds] ' + r.error.message); }
+  var rows = r.data || [];
+  var order = {};
+  clean.forEach(function(id, index){ order[id] = index; });
+  return rows.sort(function(a, b){ return order[String(a.id)] - order[String(b.id)]; });
+};
 LegoData.libraryItem = async function(id){
   if (!id) { throw new Error('[LegoData.libraryItem] Falta id'); }
   var r = await db.from('library').select('*, grammar_categories!grammar_category_id(name)').eq('id', id).maybeSingle();
@@ -1794,6 +1819,31 @@ LegoData.librarySearch = async function(q){
 LegoData.insertLibraryItem = async function(row){
   var r = await db.from('library').insert(Array.isArray(row) ? row : [row]).select();
   if (r.error) { throw new Error('[LegoData.insertLibraryItem] ' + r.error.message); }
+  return r.data || [];
+};
+// Guardar desde el editor equivale a revisar. Insert/update genericos no ponen
+// esta marca: importaciones, SQL y otros procesos dejan la guia pendiente.
+LegoData.saveLibraryItemReviewed = async function(id, row){
+  var payload = Object.assign({}, row, { reviewed_at: new Date().toISOString() });
+  if (!id) {
+    var created = await db.from('library').insert([payload]).select();
+    if (created.error) { throw new Error('[LegoData.saveLibraryItemReviewed] ' + created.error.message); }
+    if (!created.data || !created.data.length) { throw new Error('[LegoData.saveLibraryItemReviewed] No se creo el material'); }
+    return created.data[0];
+  }
+  var updated = await db.from('library').update(payload).eq('id', id).select();
+  if (updated.error) { throw new Error('[LegoData.saveLibraryItemReviewed] ' + updated.error.message); }
+  if (!updated.data || !updated.data.length) { throw new Error('[LegoData.saveLibraryItemReviewed] RLS bloqueo el update (0 filas) en item ' + id); }
+  return updated.data[0];
+};
+// Excepcion editorial cargada por intencion en el admin. Nunca trae content y
+// desaparece de la UI cuando el resultado queda vacio.
+LegoData.libraryPendingReview = async function(){
+  var r = await db.from('library').select(LIBRARY_LIST_COLS + ',reviewed_at')
+    .is('reviewed_at', null)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (r.error) { throw new Error('[LegoData.libraryPendingReview] ' + r.error.message); }
   return r.data || [];
 };
 LegoData.updateLibraryItem = async function(id, patch){
@@ -1864,6 +1914,27 @@ LegoData.libraryOpenMaterialDetail = async function(libraryId, opts){
     days: Number(data.days) || days,
     visits: Number(data.visits) || 0,
     students: Number(data.students) || 0,
+    rows: Array.isArray(data.rows) ? data.rows : []
+  };
+};
+LegoData.libraryOpenStudentDetail = async function(studentId, opts){
+  if (!studentId) { throw new Error('[LegoData.libraryOpenStudentDetail] Falta studentId'); }
+  opts = opts || {};
+  var days = Math.min(Math.max(Number(opts.days) || 90, 1), 365);
+  var limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 200);
+  var r = await db.rpc('library_open_student_detail', {
+    p_student_id: String(studentId),
+    p_days: days,
+    p_row_limit: limit
+  });
+  if (r.error) { throw new Error('[LegoData.libraryOpenStudentDetail] ' + r.error.message); }
+  var data = r.data || {};
+  return {
+    studentId: data.studentId || '',
+    studentName: data.studentName || '',
+    days: Number(data.days) || days,
+    visits: Number(data.visits) || 0,
+    materials: Number(data.materials) || 0,
     rows: Array.isArray(data.rows) ? data.rows : []
   };
 };
@@ -2079,8 +2150,9 @@ function _pbFillQuestion(row, index, game){
     blanks: blanks.map(function(b){
       var answer = String(b && b.answer || '');
       var out = { answer: answer };
+      out.accepted = Array.isArray(b && b.accepted) ? b.accepted.slice() : [];
       if (b && b.hint) out.hint = b.hint;
-      if (game === 'elegir') out.options = _pbShuffle([answer].concat(Array.isArray(b && b.distractors) ? b.distractors : []));
+      if (game === 'elegir') out.options = _pbShuffle([answer].concat(window.LegoAnswer ? LegoAnswer.cleanDistractors(b) : (Array.isArray(b && b.distractors) ? b.distractors : [])));
       return out;
     })
   };
@@ -2132,6 +2204,7 @@ function _pbCorrectionQuestion(row, index, fallbackWords){
     type: 'correction',
     text: sentence.replace(/\s+/g, ' ').trim(),
     answer: answer,
+    accepted: Array.isArray(target.accepted) ? target.accepted.slice() : [],
     part: targetIndex
   };
 }
@@ -2183,10 +2256,11 @@ LegoData.practiceActivity = function(rows, opts){
       blanks: blanks.map(function(b){
         var answer = String(b && b.answer || '');
         var distractors = Array.isArray(b && b.distractors) ? b.distractors : [];
-        var blank = { answer: answer };
+        var blank = { answer: answer, accepted: Array.isArray(b && b.accepted) ? b.accepted.slice() : [] };
         if (b && b.hint) blank.hint = b.hint;
-        if (spec.id === 'elegir') blank.options = _pbShuffle([answer].concat(distractors));
-        if (spec.id === 'arrastrar') distractors.forEach(function(d){ extraWords.push(d); });
+        var cleanDistractors = window.LegoAnswer ? LegoAnswer.cleanDistractors(b) : distractors;
+        if (spec.id === 'elegir') blank.options = _pbShuffle([answer].concat(cleanDistractors));
+        if (spec.id === 'arrastrar') cleanDistractors.forEach(function(d){ extraWords.push(d); });
         return blank;
       })
     };
